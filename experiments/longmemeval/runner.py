@@ -34,7 +34,12 @@ from typing import Any
 import vstash
 
 from engram import AlwaysWrite, HeuristicWriteDecider, Memory
-from experiments.longmemeval.dataset import Conversation, Turn, load_fixture
+from experiments.longmemeval.dataset import (
+    Conversation,
+    Turn,
+    load_fixture,
+    load_longmemeval,
+)
 
 # Title format used to tag every ingested turn so we can attribute recall
 # hits back to a session. Pinned here so the eval and the ingest agree.
@@ -275,11 +280,26 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         choices=sorted(_ADAPTERS),
         help="Baseline to evaluate. Repeat to run multiple. Default: all three.",
     )
-    p.add_argument(
+    src = p.add_mutually_exclusive_group()
+    src.add_argument(
         "--fixture",
         type=Path,
-        default=Path(__file__).parent / "fixtures" / "tiny.json",
-        help="Path to a LongMemEval-shaped JSON file. Defaults to the tiny fixture.",
+        default=None,
+        help="Path to a LongMemEval-shaped JSON file. Defaults to the tiny "
+        "synthetic fixture (sanity, not signal).",
+    )
+    src.add_argument(
+        "--subset",
+        choices=["longmemeval_oracle", "longmemeval_s", "longmemeval_m"],
+        default=None,
+        help="Real LongMemEval subset to download from HuggingFace and run "
+        "against. Mutually exclusive with --fixture.",
+    )
+    p.add_argument(
+        "--seed",
+        type=int,
+        default=0,
+        help="RNG seed for question sampling when --questions caps the run.",
     )
     p.add_argument(
         "--questions",
@@ -303,9 +323,22 @@ def main(argv: list[str] | None = None) -> int:
     args = _parse_args(argv)
     baselines = args.baseline or sorted(_ADAPTERS)
 
-    conversations = load_fixture(args.fixture)
-    if args.questions is not None:
-        conversations = conversations[: args.questions]
+    if args.subset is not None:
+        conversations = load_longmemeval(args.subset)
+        source = f"subset={args.subset}"
+    else:
+        fixture_path = args.fixture or (
+            Path(__file__).parent / "fixtures" / "tiny.json"
+        )
+        conversations = load_fixture(fixture_path)
+        source = f"fixture={fixture_path}"
+
+    if args.questions is not None and args.questions < len(conversations):
+        # Deterministic sample so reruns at the same seed give the same
+        # subset — important for honest comparisons across baselines and
+        # commits.
+        rng = random.Random(args.seed)
+        conversations = rng.sample(conversations, args.questions)
 
     if not conversations:
         print("no conversations to evaluate", file=sys.stderr)
@@ -313,7 +346,7 @@ def main(argv: list[str] | None = None) -> int:
 
     print(
         f"# LongMemEval — {len(conversations)} questions, top_k={args.top_k}, "
-        f"fixture={args.fixture}"
+        f"{source}, seed={args.seed}"
     )
 
     with tempfile.TemporaryDirectory(prefix="engram_lme_") as td:

@@ -107,21 +107,75 @@ def load_fixture(path: str | Path) -> list[Conversation]:
     return [_parse_record(rec) for rec in data]
 
 
+# --------------------------------------------------------------- HF download
+
+# We deliberately use the *cleaned* dataset (xiaowu0162/longmemeval-cleaned).
+# The original xiaowu0162/longmemeval is marked deprecated by its author —
+# noisy haystack sessions interfered with answer correctness. The cleaned
+# version is the one mempalace's 96.6% claim is benchmarked against.
+_HF_BASE = "https://huggingface.co/datasets/xiaowu0162/longmemeval-cleaned/resolve/main"
+
+# Subset → (filename, approx size in MB) for README/error messages.
+_SUBSETS: dict[str, tuple[str, int]] = {
+    "longmemeval_oracle": ("longmemeval_oracle.json", 15),
+    "longmemeval_s": ("longmemeval_s_cleaned.json", 277),
+    "longmemeval_m": ("longmemeval_m_cleaned.json", 2737),
+}
+
+DEFAULT_CACHE_DIR = Path(__file__).parent / ".cache"
+
+
+def _download_to(url: str, dest: Path) -> None:
+    """Stream a URL to a file. No extra deps — stdlib only."""
+    import urllib.request
+
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    tmp = dest.with_suffix(dest.suffix + ".partial")
+    with urllib.request.urlopen(url, timeout=120) as resp, tmp.open("wb") as f:
+        while True:
+            chunk = resp.read(1024 * 256)
+            if not chunk:
+                break
+            f.write(chunk)
+    tmp.replace(dest)
+
+
 def load_longmemeval(
-    cache_dir: str | Path | None = None,  # noqa: ARG001
-    subset: str = "longmemeval_s",  # noqa: ARG001
+    subset: str = "longmemeval_s",
+    *,
+    cache_dir: str | Path | None = None,
+    download: bool = True,
 ) -> list[Conversation]:
-    """Download and parse the real LongMemEval dataset.
+    """Load (and optionally download) a LongMemEval split.
 
-    **Stub.** Real implementation lands in a follow-up once the runner is
-    validated against the fixture path. To run a real benchmark today,
-    download the JSON manually and use ``load_fixture(path)``.
-
-    See: https://huggingface.co/datasets/xiaowu0162/longmemeval
+    Parameters
+    ----------
+    subset:
+        One of ``longmemeval_oracle`` (15 MB, 500 questions, oracle context
+        only — useful for parser sanity, not for retrieval evaluation),
+        ``longmemeval_s`` (~277 MB, 500 questions with full distractor
+        haystacks — the real R@k benchmark), or ``longmemeval_m`` (~2.7 GB,
+        much larger haystacks).
+    cache_dir:
+        Where to cache downloaded files. Defaults to
+        ``experiments/longmemeval/.cache/`` (gitignored).
+    download:
+        If False and the file is missing, raises ``FileNotFoundError``
+        instead of fetching. Useful in tests.
     """
-    raise NotImplementedError(
-        "load_longmemeval is not implemented yet. Download the dataset "
-        "manually from https://huggingface.co/datasets/xiaowu0162/longmemeval "
-        "and use load_fixture(path) instead. Tracking in experiments/"
-        "longmemeval/README.md."
-    )
+    if subset not in _SUBSETS:
+        raise ValueError(f"unknown subset {subset!r}; choose from {sorted(_SUBSETS)}")
+
+    filename, _ = _SUBSETS[subset]
+    cache = Path(cache_dir) if cache_dir is not None else DEFAULT_CACHE_DIR
+    path = cache / filename
+
+    if not path.exists():
+        if not download:
+            raise FileNotFoundError(
+                f"{path} not found and download=False; fetch it manually "
+                f"from {_HF_BASE}/{filename}"
+            )
+        _download_to(f"{_HF_BASE}/{filename}", path)
+
+    return load_fixture(path)
