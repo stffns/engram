@@ -1,0 +1,65 @@
+[
+  {
+    "question_id": "q1",
+    "question_type": "single-session-user",
+    "question": "Which database did the team choose for the analytics project and why?",
+    "answer": "PostgreSQL, because of concurrent writes and dataset size.",
+    "answer_session_ids": ["s1_db"],
+    "haystack_sessions": {
+      "s1_lunch": [
+        {"role": "user", "content": "What is for lunch today in the office?"},
+        {"role": "assistant", "content": "There is pizza and salad in the break room until 2pm."}
+      ],
+      "s1_db": [
+        {"role": "user", "content": "We need to pick a database for the analytics project. SQLite or PostgreSQL?"},
+        {"role": "assistant", "content": "Given the concurrent write requirements and the projected dataset size of 50GB, PostgreSQL is the right choice over SQLite. SQLite would bottleneck on writes once you exceed a handful of concurrent producers."}
+      ],
+      "s1_react": [
+        {"role": "user", "content": "Can you help me with this React component? It is not re-rendering when the prop changes."},
+        {"role": "assistant", "content": "Check whether you are mutating the prop in place. React only re-renders on reference changes; mutating an object will not trigger a re-render."}
+      ]
+    }
+  },
+  {
+    "question_id": "q2",
+    "question_type": "single-session-user",
+    "question": "What did the doctor recommend for the patient with chronic back pain?",
+    "answer": "Physical therapy twice a week and an ergonomic chair.",
+    "answer_session_ids": ["s2_med"],
+    "haystack_sessions": {
+      "s2_holiday": [
+        {"role": "user", "content": "When does the office close for the winter holidays?"},
+        {"role": "assistant", "content": "The office is closed from December 23 through January 2."}
+      ],
+      "s2_med": [
+        {"role": "user", "content": "I have been having chronic back pain for two months. What did the doctor say?"},
+        {"role": "assistant", "content": "The doctor recommended physical therapy twice a week for six weeks, plus an ergonomic chair for your home office. She also said to avoid heavy lifting until the next follow-up appointment."}
+      ],
+      "s2_movies": [
+        {"role": "user", "content": "Any good movies on streaming this weekend?"},
+        {"role": "assistant", "content": "Dune Part Three just landed on the major platforms and is getting strong reviews."}
+      ]
+    }
+  },
+  {
+    "question_id": "q3",
+    "question_type": "single-session-user",
+    "question": "What is the launch date for the new mobile app?",
+    "answer": "March 15, 2026.",
+    "answer_session_ids": ["s3_launch"],
+    "haystack_sessions": {
+      "s3_coffee": [
+        {"role": "user", "content": "Where can I get good coffee near the office?"},
+        {"role": "assistant", "content": "There is a small roaster on the corner of 5th and Main that opens at 7am."}
+      ],
+      "s3_launch": [
+        {"role": "user", "content": "Did marketing finalize the launch date for the new mobile app?"},
+        {"role": "assistant", "content": "Yes — the launch date for the new mobile app is locked in for March 15, 2026. Press embargo lifts the same morning at 9am Pacific."}
+      ],
+      "s3_pets": [
+        {"role": "user", "content": "Any tips for adopting a rescue dog?"},
+        {"role": "assistant", "content": "Give them a quiet space for the first week and let them set the pace for socialization."}
+      ]
+    }
+  }
+]

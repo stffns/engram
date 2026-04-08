@@ -34,3 +34,6 @@ htmlcov/
 *.db-wal
 *.db-shm
 .engram/
+
+# Benchmark dataset cache
+experiments/**/.cache/
