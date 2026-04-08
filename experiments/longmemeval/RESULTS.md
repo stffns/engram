@@ -23,6 +23,8 @@ Every row records:
 | 2026-04-08 | `2bcf502` | `engram-always` | `longmemeval_s` | 3 | 1.000 [1.000, 1.000] | 0 | First real-data run. **Sanity only — n=3 produces a degenerate CI.** Not comparable to mempalace's 96.6% on n=500. |
 | 2026-04-08 | `2bcf502` | `engram-heuristic` | `longmemeval_s` | 3 | 1.000 [1.000, 1.000] | 0 | Same caveat. With no exact duplicates in the haystack, behaves identically to `engram-always`. |
 | 2026-04-08 | `2bcf502` | `vstash` | `longmemeval_s` | 3 | 1.000 [1.000, 1.000] | 0 | Substrate-only baseline. Same caveat. |
+| 2026-04-08 | `e18d7d4` | `engram-heuristic` | `longmemeval_s` | 10 | **0.900** [0.700, 1.000] | 0 | First non-degenerate CI. 9/10 hits. CI is wide but covers mempalace's 96.6%. seed=42. |
+| 2026-04-08 | `e18d7d4` | `vstash` | `longmemeval_s` | 10 | **0.900** [0.700, 1.000] | 0 | Identical hit set to engram-heuristic — confirms the heuristic decider is a no-op on this dataset. seed=42. |
 
 ### Wall-clock cost (informational, not part of the metric)
 
@@ -31,6 +33,14 @@ Every row records:
 | `engram-always` | 3 | 92.0 s | ~30.7 s |
 | `engram-heuristic` | 3 | 170.2 s | ~56.7 s |
 | `vstash` | 3 | 129.2 s | ~43.1 s |
+| `engram-heuristic` | 10 | 405.5 s | ~40.6 s |
+| `vstash` | 10 | 355.8 s | ~35.6 s |
+
+The 10-question pair stabilizes the wall-clock picture: engram costs
+~14% more than raw vstash (40.6 vs 35.6 s/question). That overhead is
+the audit log — every decision triggers an extra `vstash.remember`
+into the `engram_audit` collection. Worth measuring whether batching
+audit writes recovers most of it before §9 amends its targets.
 
 Run on a single Mac (CPU only — vstash uses local sentence-transformers).
 ~490 turns ingested per question median. Cost is dominated by the embedder
@@ -44,7 +54,25 @@ embedder profile in vstash, (b) accept that LongMemEval needs an
 overnight run and adjust §9's target language. Tracked in the engram
 chat history; not yet in an issue.
 
-## Findings from the first real-data run
+## What the n=10 run actually says
+
+- **engram-heuristic and vstash are tied at 9/10 (R@5 = 0.900).** The CI
+  is [0.700, 1.000] — informative but wide. We cannot distinguish engram
+  from mempalace's 96.6% raw-mode claim, *and we cannot distinguish it
+  from "noticeably worse than mempalace" either*. Both are inside the
+  CI. The honest framing: engram is in the same ballpark, no claim
+  beyond that until n grows.
+- **Heuristic exact-dedup contributes zero on this dataset.** Same hit
+  set as raw vstash. The decider is not adding signal here. It is also
+  not subtracting — but on a benchmark that cannot validate the rule's
+  intended use case (re-ingestion in a live loop), it's not earning its
+  keep either. See finding #2 below.
+- **The 1-in-10 miss is interesting but not yet investigated.** The
+  per-question results aren't dumped by the CLI — adding a `--dump
+  json` flag is a small Phase 2 follow-up so we can look at *which*
+  question we miss and *why*.
+
+## Findings from the first real-data runs
 
 1. **The pipeline works.** End-to-end ingest → recall → session-attribution
    → R@k → bootstrap CI matches the design. No schema surprises against
