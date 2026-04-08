@@ -60,33 +60,49 @@ def test_heuristic_writes_novel_when_no_hits() -> None:
     assert decision.reason == "novel"
 
 
-def test_heuristic_detects_exact_dup_via_recall() -> None:
+def test_heuristic_detects_exact_dup_in_process() -> None:
     text = "The user prefers the color teal in dashboards."
 
-    class FakeHit:
-        def __init__(self, t: str) -> None:
-            self.text = t
-
     decider = HeuristicWriteDecider()
-    decision = decider.decide(
-        Event(text=text),
-        _ctx_with_recall([FakeHit(text)]),
-    )
-    assert not decision.write
-    assert decision.reason == "dup_exact"
+    first = decider.decide(Event(text=text), _ctx_with_recall([]))
+    second = decider.decide(Event(text=text), _ctx_with_recall([]))
+
+    assert first.write
+    assert first.reason == "novel"
+    assert not second.write
+    assert second.reason == "dup_exact"
 
 
 def test_heuristic_normalizes_whitespace_for_dedup() -> None:
-    class FakeHit:
-        text = "the user prefers teal"
-
     decider = HeuristicWriteDecider()
-    decision = decider.decide(
-        Event(text="the   user\nprefers\tteal"),
-        _ctx_with_recall([FakeHit()]),
+    first = decider.decide(
+        Event(text="the user prefers teal"),
+        _ctx_with_recall([]),
     )
-    assert not decision.write
-    assert decision.reason == "dup_exact"
+    second = decider.decide(
+        Event(text="the   user\nprefers\tteal"),
+        _ctx_with_recall([]),
+    )
+
+    assert first.write
+    assert not second.write
+    assert second.reason == "dup_exact"
+
+
+def test_heuristic_state_is_per_instance() -> None:
+    """A fresh decider does not see another decider's history."""
+    text = "A novel sentence about quartz formation."
+
+    decider_a = HeuristicWriteDecider()
+    decider_b = HeuristicWriteDecider()
+
+    a1 = decider_a.decide(Event(text=text), _ctx_with_recall([]))
+    a2 = decider_a.decide(Event(text=text), _ctx_with_recall([]))
+    b1 = decider_b.decide(Event(text=text), _ctx_with_recall([]))
+
+    assert a1.write
+    assert not a2.write  # decider_a remembers
+    assert b1.write  # decider_b is fresh
 
 
 def test_always_write_baseline() -> None:

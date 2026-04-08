@@ -51,13 +51,25 @@ class HeuristicWriteDecider:
     3. Length above ``max_chars`` → skip (``too_long:>N``). Not a hard
        failure; the user can override the decider if they want truly large
        writes.
-    4. Exact-text duplicate already in the same layer → skip
-       (``dup_exact``). Comparison is whitespace-normalized.
-    5. Otherwise → write (``novel``).
+    4. Exact-text duplicate already seen by this decider instance → skip
+       (``dup_exact``). Comparison is whitespace-normalized and uses an
+       in-process set, NOT a recall against vstash. Recall-based dedup
+       was the original design but a real-data run on LongMemEval showed
+       it dominates ingest cost (each write triggered a 700ms+ hybrid
+       search against an expanding index — O(N²) per haystack). Exact
+       dedup is what this rule actually wants, and a hash lookup is the
+       right tool. The ``ctx.recall`` callable stays in the WriteContext
+       for *future* similarity-based deciders that genuinely need it.
+    5. Otherwise → write (``novel``) and remember the normalized text.
 
     No LLM, no embedding-similarity threshold. Embedding-based novelty
-    detection is intentionally deferred until a benchmark says it earns its
-    cost.
+    detection is intentionally deferred until a benchmark says it earns
+    its cost.
+
+    Per-instance state: ``HeuristicWriteDecider`` is **stateful**. The
+    ``seen`` set lives for the life of the decider, which mirrors the life
+    of the engram ``Memory`` it's attached to. A fresh ``Memory`` gets a
+    fresh decider with an empty set — no cross-conversation contamination.
     """
 
     name = "HeuristicWriteDecider"
@@ -67,13 +79,12 @@ class HeuristicWriteDecider:
         *,
         min_chars: int = 8,
         max_chars: int = 100_000,
-        dedup_top_k: int = 3,
     ) -> None:
         self.min_chars = min_chars
         self.max_chars = max_chars
-        self.dedup_top_k = dedup_top_k
+        self._seen: set[str] = set()
 
-    def decide(self, event: Event, ctx: WriteContext) -> Decision:
+    def decide(self, event: Event, ctx: WriteContext) -> Decision:  # noqa: ARG002
         text = event.text.strip()
 
         if not text:
@@ -86,17 +97,8 @@ class HeuristicWriteDecider:
             return Decision(False, f"too_long:>{self.max_chars}", 1.0, self.name)
 
         norm = _normalize(text)
-        try:
-            hits = ctx.recall(text, self.dedup_top_k, event.layer)
-        except Exception:
-            # Recall failures must never block writes. The audit log will
-            # show ``novel`` with no dedup check, which is the correct
-            # signal that something is wrong upstream.
-            hits = []
+        if norm in self._seen:
+            return Decision(False, "dup_exact", 1.0, self.name)
 
-        for hit in hits:
-            hit_text = getattr(hit, "text", "") or ""
-            if _normalize(hit_text) == norm:
-                return Decision(False, "dup_exact", 1.0, self.name)
-
+        self._seen.add(norm)
         return Decision(True, "novel", 0.8, self.name)
