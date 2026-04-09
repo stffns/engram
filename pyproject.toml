@@ -24,6 +24,7 @@ classifiers = [
 dependencies = [
     "vstash>=0.25.0",
     "pydantic>=2",
+    "mcp>=1.0",
 ]
 
 [project.optional-dependencies]
@@ -39,6 +40,7 @@ Issues = "https://github.com/stffns/engram/issues"
 
 [project.scripts]
 engram = "engram.cli:main"
+engram-mcp = "engram.mcp_server:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["engram"]
