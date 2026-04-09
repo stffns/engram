@@ -192,28 +192,48 @@ class Memory:
         plan = self._recall_decider.decide(query, ctx)
         self._write_recall_audit(query, plan)
 
-        seen_paths: set[str] = set()
-        hits: list[SearchResult] = []
+        # Fetch from every layer first, then interleave round-robin.
+        # The earlier implementation drained each layer sequentially,
+        # which meant that when the first layer returned ``top_k``
+        # hits, later layers were never consulted. On a smoke test
+        # against real vstash content (2026-04-09), that made the
+        # "episodic fallback" a fallback only in name: a Kafka
+        # meeting note (singleton in episodic) never surfaced for
+        # the "Kafka merchant pipeline" query because four semantic
+        # facts filled the top_k=3 budget first.
+        #
+        # Round-robin interleave guarantees every requested layer
+        # gets at least one slot in the final list (until the
+        # user's top_k is reached), which is what "layered recall"
+        # was supposed to mean all along.
+        per_layer_hits: list[list[SearchResult]] = []
         for req in plan.layers:
-            if len(hits) >= top_k:
-                break
             layer_hits = self._vstash.search(
                 query,
                 top_k=req.top_k,
                 collection=self.collection,
                 layer=req.layer,
             )
-            for h in layer_hits:
+            per_layer_hits.append(list(layer_hits))
+
+        seen_paths: set[str] = set()
+        merged: list[SearchResult] = []
+        max_len = max((len(hs) for hs in per_layer_hits), default=0)
+        for i in range(max_len):
+            for layer_hits in per_layer_hits:
+                if i >= len(layer_hits):
+                    continue
+                h = layer_hits[i]
                 path = getattr(h, "path", None)
                 if path is not None and path in seen_paths:
                     continue
                 if path is not None:
                     seen_paths.add(path)
-                hits.append(h)
-                if len(hits) >= top_k:
-                    break
+                merged.append(h)
+                if len(merged) >= top_k:
+                    return merged
 
-        return hits[:top_k]
+        return merged[:top_k]
 
     # ----------------------------------------------------------- consolidate
 

@@ -30,6 +30,71 @@ positioning" disclaimer to hide behind.
 | 2026-04-09 | `HEAD` | `session_2026_04_09` | `embedding_v1` | 0.65 | complete | 12 | 4 | **100.00%** (4/4) | 75.00% | 50.00% | **`should_recall` enabled.** Same consolidation as row 2 (purity/coverage unchanged). The lift to 100% comes from `LayeredRecaller` falling back to the episodic layer when semantic doesn't have a topic-pure fact. `dedup_fix` and `longmemeval` queries now match their raw episodic events directly instead of failing for lack of a pure fact. The loop is now robust to imperfect consolidation — an impure cluster no longer takes down the query. |
 | 2026-04-09 | `HEAD` | `analytics_project` | `embedding_v1` | 0.65 | complete | 12 | 6 | **100.00%** (4/4) | 100.00% | 100.00% | `should_recall` enabled. No regression: the scenario that was already at 100% stays at 100%. This is the "did we break anything" check; it passed. |
 
+## Real-content smoke (2026-04-09, post should_recall)
+
+After the scenario runner hit 100% on both curated fixtures, we ran
+a **qualitative** smoke test against the user's real vstash — 20
+recent docs that neither I nor the user curated for engram. Output
+in `experiments/loop_quality/smoke_real_vstash.py`; this is not a
+scenario runner because we have no ground-truth topic labels for
+organic content.
+
+**Consolidation on real content was actually good.** 20 events
+produced 4 coherent clusters plus 2 honest singletons:
+
+```
+Fact 1 (n=4):  MedLocal clinical demos (Meningococcemia, Neonato,
+               Motrin, Organofosforados) — pure cluster
+Fact 2 (n=7):  MedLocal architecture/strategy (CHT, Loop, Competitive,
+               Decision Tables, Retrieval Engineering, Pipeline,
+               Estado EOD) — pure cluster
+Fact 3 (n=3):  Daily Reviews (Teams×2 + Mail) — pure cluster
+Fact 4 (n=4):  vstash meta notes (Non-Obvious, Upstream, Debug,
+               agent-memory use cases) — mostly pure, agent-memory
+               is arguable
+Singletons:    engram v0.1 decisions, Kafka Merchant Pipeline meeting
+               — both honestly unique in this slice
+```
+
+**Recall surfaced a real bug in Memory.recall, caught the fix, and
+now shows both strengths and limits:**
+
+- BEFORE the fix, the query "what happened in the Kafka merchant
+  pipeline meeting?" never returned the Kafka singleton. Memory.recall
+  drained layers sequentially: semantic returned 4 facts, filled the
+  top_k=3 budget, and episodic was never visited. The "fallback"
+  was a fallback only in name.
+- AFTER the fix (round-robin interleave), the Kafka note surfaces
+  at rank 2, and the MedLocal benchmark query surfaces the "98/99"
+  EOD number at rank 2 — real episodic evidence that was previously
+  invisible.
+- BUT broad thematic queries ("what vstash bugs were found?", "what
+  are the engram architecture decisions?") still rank a big
+  MedLocal cluster at the top because the fact's anchor text
+  contains vstash vocabulary and everything in the MedLocal cluster
+  mentions vstash or engram in passing. The semantic layer is
+  dense enough that broad queries flood toward large clusters
+  regardless of topic specificity.
+
+**What the smoke says about engram as of this commit:**
+
+- Consolidation works on real content. No fixture-lying by
+  construction.
+- Layered recall + interleave works for specific queries
+  (singletons, entity names, specific numbers).
+- Layered recall fails the discrimination test for broad thematic
+  queries on dense content. `bge-small-en-v1.5` at 384 dimensions
+  cannot separate "vstash bug" from "MedLocal case that mentions
+  vstash" when both appear in clusters with high cosine density.
+- The honest next improvement is **query-type awareness in
+  `should_recall`** — route entity/specific queries episodic-first
+  and theme queries semantic-first. Not a new decider primitive,
+  just a smarter default.
+
+The smoke script is idempotent and safe: it opens the user's vstash
+read-only and writes to a throwaway tempdir. Re-run any time with
+`python -m experiments.loop_quality.smoke_real_vstash --n-docs 20`.
+
 ## What the `should_recall` rows say
 
 `session_2026_04_09` went from 50% → 100% **without any change to
