@@ -167,24 +167,52 @@ def test_fact_path_to_topic_skips_mixed_clusters() -> None:
 # ------------------------------------------------------------- end-to-end smoke
 
 
-def test_runner_completes_on_real_scenario(tmp_path: Path) -> None:
-    """Ensures the runner finishes, produces a non-empty result, and
-    the metric bounds make sense. The exact numbers live in RESULTS.md."""
-    scenario = load_scenario(FIXTURE_DIR / "session_2026_04_09.json")
-    result = run_scenario(scenario, db=tmp_path / "lq.db")
+def _discover_scenarios() -> list[Path]:
+    """Auto-discover every *.json scenario in the fixtures dir.
 
-    assert result.scenario == "session_2026_04_09"
-    assert result.n_events == 12
-    assert 0 <= result.facts_written <= 12
+    New scenarios (including the real-vstash snapshots) get picked
+    up by the parametrized smoke test automatically. No scenario
+    lives outside CI just because someone forgot to add a test.
+    """
+    return sorted(FIXTURE_DIR.glob("*.json"))
+
+
+import pytest  # noqa: E402
+
+
+@pytest.mark.parametrize(
+    "scenario_path",
+    _discover_scenarios(),
+    ids=lambda p: p.stem,
+)
+def test_runner_completes_on_every_scenario(
+    scenario_path: Path,
+    tmp_path: Path,
+) -> None:
+    """Auto-discovered smoke test. Every scenario in fixtures/ runs
+    through the full runner and must produce sensible metric bounds.
+    Exact numbers for each scenario live in RESULTS.md.
+
+    This is the test that catches "smoke lives outside CI" (Silt,
+    2026-04-09). Adding a new scenario JSON is enough to get it
+    into the safety net — no pytest edit required.
+    """
+    scenario = load_scenario(scenario_path)
+    result = run_scenario(scenario, db=tmp_path / f"{scenario.name}.db")
+
+    assert result.scenario == scenario.name
+    assert result.n_events == len(scenario.events)
+    assert 0 <= result.facts_written <= result.n_events
     assert 0.0 <= result.query_pass_rate <= 1.0
     assert 0.0 <= result.cluster_purity <= 1.0
     assert 0.0 <= result.topic_coverage <= 1.0
-    assert result.queries_total == 4
-    assert len(result.query_outcomes) == 4
-    # At least one query must pass on the current engram state — if
-    # this ever breaks, the runner caught a real regression.
+    assert result.queries_total == len(scenario.queries)
+    assert len(result.query_outcomes) == len(scenario.queries)
+    # At least one query must pass — if the loop can't answer *any*
+    # question on a scenario, that's a regression worth alarming on.
     assert result.queries_passing >= 1, (
-        f"no queries passed — engram regressed? outcomes: {result.query_outcomes}"
+        f"no queries passed on {scenario.name} — engram regressed? "
+        f"outcomes: {result.query_outcomes}"
     )
 
 
