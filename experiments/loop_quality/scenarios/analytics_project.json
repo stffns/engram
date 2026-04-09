@@ -1,0 +1,88 @@
+{
+  "name": "analytics_project",
+  "description": "Control scenario: twelve events from a realistic analytics-project agent stream, six topics that are LEXICALLY DISTINCT (auth, database, deploy, frontend, monitoring, billing). Measured pairwise cosines on bge-small-en-v1.5: same-topic pairs span [0.778, 0.937] median 0.915; cross-topic pairs span [0.320, 0.617] median 0.465. Clean gap of 0.162 — any threshold in (0.617, 0.778) gives 100%. This scenario exists to confirm that engram's consolidation loop works when the embedder is on its side, and to function as a regression guard: any change to consolidation must not drop this scenario below 100%.",
+  "events": [
+    {
+      "id": "auth_a",
+      "text": "The team enabled OAuth 2.0 with PKCE for the mobile clients and turned off password-based login in the admin panel last sprint.",
+      "topic": "auth"
+    },
+    {
+      "id": "auth_b",
+      "text": "OAuth 2.0 with PKCE is now the only supported authentication flow on mobile; passwords are deprecated in the admin UI.",
+      "topic": "auth"
+    },
+    {
+      "id": "database_a",
+      "text": "PostgreSQL 16 was chosen over SQLite for the analytics warehouse because the expected write concurrency exceeds two hundred connections per second.",
+      "topic": "database"
+    },
+    {
+      "id": "database_b",
+      "text": "The analytics warehouse runs on PostgreSQL 16; the SQLite option was ruled out because of write concurrency above two hundred connections per second.",
+      "topic": "database"
+    },
+    {
+      "id": "deploy_a",
+      "text": "Blue-green deployments on Kubernetes via ArgoCD replaced the previous Jenkins pipeline after three production incidents in January.",
+      "topic": "deploy"
+    },
+    {
+      "id": "deploy_b",
+      "text": "The team switched from Jenkins to ArgoCD for blue-green Kubernetes deploys after January's three incidents.",
+      "topic": "deploy"
+    },
+    {
+      "id": "frontend_a",
+      "text": "The React Native app is migrating from Redux to Zustand for state management because the boilerplate was slowing feature delivery.",
+      "topic": "frontend"
+    },
+    {
+      "id": "frontend_b",
+      "text": "Zustand replaced Redux in the React Native app — the Redux boilerplate was the main bottleneck for feature delivery.",
+      "topic": "frontend"
+    },
+    {
+      "id": "monitoring_a",
+      "text": "Grafana dashboards now show p99 latency per endpoint, backed by Prometheus scraping every fifteen seconds.",
+      "topic": "monitoring"
+    },
+    {
+      "id": "monitoring_b",
+      "text": "We added p99 latency per endpoint to Grafana; Prometheus scrapes the metrics every fifteen seconds.",
+      "topic": "monitoring"
+    },
+    {
+      "id": "billing_a",
+      "text": "Stripe replaced the in-house billing service because refund handling and subscription proration were taking three engineers per quarter to maintain.",
+      "topic": "billing"
+    },
+    {
+      "id": "billing_b",
+      "text": "The in-house billing service was retired in favor of Stripe; refund and proration logic was costing three engineer-quarters per year.",
+      "topic": "billing"
+    }
+  ],
+  "queries": [
+    {
+      "question": "why did the team switch away from Jenkins for deployments?",
+      "expect_topic": "deploy",
+      "expect_contains": ["ArgoCD"]
+    },
+    {
+      "question": "which database did we pick for the analytics warehouse and why?",
+      "expect_topic": "database",
+      "expect_contains": ["PostgreSQL"]
+    },
+    {
+      "question": "how did we reduce React Native state management boilerplate?",
+      "expect_topic": "frontend",
+      "expect_contains": ["Zustand"]
+    },
+    {
+      "question": "what happened to the in-house billing code?",
+      "expect_topic": "billing",
+      "expect_contains": ["Stripe"]
+    }
+  ]
+}

@@ -25,7 +25,45 @@ positioning" disclaimer to hide behind.
 | Date | Commit | Scenario | Method | Threshold | Linkage | n_events | facts | pass_rate | purity | coverage | Notes |
 |------|--------|----------|--------|-----------|---------|----------|-------|-----------|--------|----------|-------|
 | 2026-04-09 | `4e6c7e0` | `session_2026_04_09` | `embedding_v1` | 0.65 | single | 12 | 3 | **25.00%** (1/4) | 66.67% | 33.33% | First honest run. Single-link transitive cascade via two cross-topic edges (longmemeval_a~dedup_fix_a=0.663, vstash_bug_a~dedup_fix_a=0.652) contaminates a 4-event impure cluster. Three same-topic pairs sit just below 0.65 (longmemeval=0.649, dedup_fix=0.575, loop_philosophy=0.558). |
-| 2026-04-09 | `HEAD` | `session_2026_04_09` | `embedding_v1` | 0.65 | **complete** | 12 | 4 | **50.00%** (2/4) | 75.00% | 50.00% | Complete-link refuses to merge `{vstash_bug_a,b}` with `{longmemeval_a, dedup_fix_a}` because the weakest cross-pair (`vstash_bug_a~longmemeval_a=0.616`) is below 0.65. Three pure clusters emerge (mempalace, vstash_bug, consolidation_design) plus one impure mini-cluster (longmemeval_a+dedup_fix_a, the one edge that did cross). pass_rate doubles without changing the threshold. |
+| 2026-04-09 | `f83115e` | `session_2026_04_09` | `embedding_v1` | 0.65 | complete | 12 | 4 | **50.00%** (2/4) | 75.00% | 50.00% | Complete-link refuses to merge `{vstash_bug_a,b}` with `{longmemeval_a, dedup_fix_a}` because the weakest cross-pair (`vstash_bug_a~longmemeval_a=0.616`) is below 0.65. Three pure clusters emerge (mempalace, vstash_bug, consolidation_design) plus one impure mini-cluster (longmemeval_a+dedup_fix_a, the one edge that did cross). pass_rate doubles without changing the threshold. |
+| 2026-04-09 | `HEAD` | `analytics_project` | `embedding_v1` | 0.65 | complete | 12 | 6 | **100.00%** (4/4) | 100.00% | 100.00% | **Control scenario.** Six lexically distinct topics (auth/database/deploy/frontend/monitoring/billing). Pre-measured pairwise cosines: same-topic pairs [0.778, 0.937] median 0.915; cross-topic pairs [0.320, 0.617] median 0.465. Clean 0.162 gap — any threshold in (0.617, 0.778) gives 100%. This is the "loop works when the embedder cooperates" reference point. Future consolidator changes must not drop this below 100% without naming the trade-off. |
+
+## The two-scenario picture
+
+As of row 3 the repo has two scenarios and they say very different things:
+
+|                    | session_2026_04_09 | analytics_project |
+|---|---|---|
+| Content            | meta-discussion about engram itself | realistic agent stream, six distinct topics |
+| Same-topic cosine (median) | 0.649                | 0.915                |
+| Cross-topic cosine (max)   | 0.663                | 0.617                |
+| Gap                | **-0.014** (overlap) | **+0.162** (clean)   |
+| pass_rate          | 50%                  | 100%                 |
+
+**What this rules in:**
+
+- The engram consolidation pipeline is *not* broken. On content where
+  the embedder can separate topics, it hits 100% on every metric.
+- Complete-link clustering is the right default. It does not cost the
+  control scenario anything (still 100%) and it fixes the session
+  scenario cascade.
+
+**What this rules out:**
+
+- The 50% on `session_2026_04_09` is not an indictment of engram. It
+  is a statement about `bge-small-en-v1.5` on meta-discussion
+  content. Any change to the consolidator that "fixes" the 50%
+  without also holding `analytics_project` at 100% is tuning to
+  the failing test, not improving the loop.
+
+**What this sets up:**
+
+- Every future decider change gets measured against *both*
+  scenarios. A change that moves session up and analytics down is a
+  trade-off that must be named, not declared an improvement.
+- When we decide whether to add an LLM consolidator or a
+  cross-encoder reranker, the bar is clear: **move session up
+  without moving analytics down**. Anything else is a sideways step.
 
 ## Delta log
 
