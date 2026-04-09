@@ -26,7 +26,53 @@ positioning" disclaimer to hide behind.
 |------|--------|----------|--------|-----------|---------|----------|-------|-----------|--------|----------|-------|
 | 2026-04-09 | `4e6c7e0` | `session_2026_04_09` | `embedding_v1` | 0.65 | single | 12 | 3 | **25.00%** (1/4) | 66.67% | 33.33% | First honest run. Single-link transitive cascade via two cross-topic edges (longmemeval_a~dedup_fix_a=0.663, vstash_bug_a~dedup_fix_a=0.652) contaminates a 4-event impure cluster. Three same-topic pairs sit just below 0.65 (longmemeval=0.649, dedup_fix=0.575, loop_philosophy=0.558). |
 | 2026-04-09 | `f83115e` | `session_2026_04_09` | `embedding_v1` | 0.65 | complete | 12 | 4 | **50.00%** (2/4) | 75.00% | 50.00% | Complete-link refuses to merge `{vstash_bug_a,b}` with `{longmemeval_a, dedup_fix_a}` because the weakest cross-pair (`vstash_bug_a~longmemeval_a=0.616`) is below 0.65. Three pure clusters emerge (mempalace, vstash_bug, consolidation_design) plus one impure mini-cluster (longmemeval_a+dedup_fix_a, the one edge that did cross). pass_rate doubles without changing the threshold. |
-| 2026-04-09 | `HEAD` | `analytics_project` | `embedding_v1` | 0.65 | complete | 12 | 6 | **100.00%** (4/4) | 100.00% | 100.00% | **Control scenario.** Six lexically distinct topics (auth/database/deploy/frontend/monitoring/billing). Pre-measured pairwise cosines: same-topic pairs [0.778, 0.937] median 0.915; cross-topic pairs [0.320, 0.617] median 0.465. Clean 0.162 gap — any threshold in (0.617, 0.778) gives 100%. This is the "loop works when the embedder cooperates" reference point. Future consolidator changes must not drop this below 100% without naming the trade-off. |
+| 2026-04-09 | `8ff6953` | `analytics_project` | `embedding_v1` | 0.65 | complete | 12 | 6 | **100.00%** (4/4) | 100.00% | 100.00% | **Control scenario.** Six lexically distinct topics (auth/database/deploy/frontend/monitoring/billing). Pre-measured pairwise cosines: same-topic pairs [0.778, 0.937] median 0.915; cross-topic pairs [0.320, 0.617] median 0.465. Clean 0.162 gap — any threshold in (0.617, 0.778) gives 100%. This is the "loop works when the embedder cooperates" reference point. Future consolidator changes must not drop this below 100% without naming the trade-off. Recall path: explicit `layer="semantic"`. |
+| 2026-04-09 | `HEAD` | `session_2026_04_09` | `embedding_v1` | 0.65 | complete | 12 | 4 | **100.00%** (4/4) | 75.00% | 50.00% | **`should_recall` enabled.** Same consolidation as row 2 (purity/coverage unchanged). The lift to 100% comes from `LayeredRecaller` falling back to the episodic layer when semantic doesn't have a topic-pure fact. `dedup_fix` and `longmemeval` queries now match their raw episodic events directly instead of failing for lack of a pure fact. The loop is now robust to imperfect consolidation — an impure cluster no longer takes down the query. |
+| 2026-04-09 | `HEAD` | `analytics_project` | `embedding_v1` | 0.65 | complete | 12 | 6 | **100.00%** (4/4) | 100.00% | 100.00% | `should_recall` enabled. No regression: the scenario that was already at 100% stays at 100%. This is the "did we break anything" check; it passed. |
+
+## What the `should_recall` rows say
+
+`session_2026_04_09` went from 50% → 100% **without any change to
+consolidation**. The trick was not fixing the clusters — it was
+accepting that consolidation is imperfect and routing around the
+imperfection.
+
+`LayeredRecaller` (semantic first, episodic fallback):
+
+```
+Query: "why was the dedup rule rewritten to use an in-process set?"
+  → semantic search: top hit is the impure 2-event cluster
+    {longmemeval_a, dedup_fix_a} (wrong topic label)
+  → fallback: episodic search returns dedup_fix_a and dedup_fix_b
+    directly — raw events with the correct topic tag
+  → runner's unified lookup accepts the episodic match
+  → pass ✓
+```
+
+The consolidation metrics on the session scenario are unchanged:
+
+- `cluster_purity: 75%` (one of four facts still mixes topics)
+- `topic_coverage: 50%` (only 3 of 6 eligible topics produced a
+  topic-pure multi-event fact)
+
+These are real failures of the v1 consolidator, and they stay
+visible in the results table. But `query_pass_rate` — the metric
+that matches what a user actually experiences — is now 100%
+because the loop can use the raw stream as evidence when the
+distilled layer is broken.
+
+**Important framing:** this is not "we fixed the 50% ceiling." The
+50% consolidation ceiling is still real; it just stopped being a
+user-facing problem because the loop has a second path to the
+answer. An LLM-based consolidator would lift cluster_purity and
+topic_coverage, and that has its own value (cheaper recall,
+higher-quality facts, compression of episodic over time). But for
+query routing on this scenario, the fallback is enough.
+
+The next change that touches the consolidator needs to justify its
+cost against what the current loop already does: 100% pass rate on
+both scenarios via fallback. Not just against the 50% purity
+number in isolation.
 
 ## The two-scenario picture
 

@@ -151,24 +151,34 @@ def _compute_topic_coverage(
 def _evaluate_query(
     mem: Memory,
     query: ScenarioQuery,
-    fact_path_to_topic: dict[str, str],
+    path_to_topic: dict[str, str],
     *,
     top_k: int,
 ) -> QueryOutcome:
-    hits = mem.recall(query.question, top_k=top_k, layer="semantic")
+    """Evaluate one query through the full engram recall path.
+
+    ``path_to_topic`` is a *unified* lookup that includes both
+    ingested episodic events and materialized semantic facts: a hit
+    passes if its path maps to the expected topic via either route.
+    This change (2026-04-09) lets ``should_recall``'s episodic
+    fallback contribute to the pass rate when consolidation missed a
+    cluster but the original events are still findable.
+    """
+    # No explicit layer → routes via should_recall decider
+    hits = mem.recall(query.question, top_k=top_k)
     if not hits:
         return QueryOutcome(
             question=query.question,
             expect_topic=query.expect_topic,
             passed=False,
-            reason="no_semantic_hits",
+            reason="no_hits",
         )
 
     for hit in hits:
         hit_path = getattr(hit, "path", None)
         if hit_path is None:
             continue
-        topic = fact_path_to_topic.get(hit_path)
+        topic = path_to_topic.get(hit_path)
         if topic != query.expect_topic:
             continue
 
@@ -181,7 +191,7 @@ def _evaluate_query(
             question=query.question,
             expect_topic=query.expect_topic,
             passed=True,
-            reason=f"matched_fact:{hit_path}",
+            reason=f"matched:{hit_path}",
         )
 
     return QueryOutcome(
@@ -216,8 +226,13 @@ def run_scenario(
 
         fact_topics = _fact_path_to_topic(consolidation.facts, path_to_topic)
 
+        # Unified lookup: a hit's path may be an episodic event path
+        # (from the ingest phase) or a semantic fact path (derived
+        # here from the consolidation). Either can satisfy a query.
+        unified_topic: dict[str, str] = {**path_to_topic, **fact_topics}
+
         outcomes = [
-            _evaluate_query(mem, q, fact_topics, top_k=top_k)
+            _evaluate_query(mem, q, unified_topic, top_k=top_k)
             for q in scenario.queries
         ]
 

@@ -27,6 +27,7 @@ from engram.audit import (
     AUDIT_LAYER,
     format_audit_row,
     format_consolidate_audit_row,
+    format_recall_audit_row,
 )
 from engram.consolidation import (
     ConsolidationResult,
@@ -41,6 +42,12 @@ from engram.policies.should_consolidate import (
     ConsolidateDecider,
     ConsolidationDecision,
     PeriodicConsolidator,
+)
+from engram.policies.should_recall import (
+    LayeredRecaller,
+    RecallContext,
+    RecallDecider,
+    RecallPlan,
 )
 from engram.policies.should_remember import HeuristicWriteDecider
 from engram.policies.types import Decision, Event, WriteContext, WriteDecider
@@ -99,6 +106,7 @@ class Memory:
         collection: str = DEFAULT_COLLECTION,
         write_decider: WriteDecider | None = None,
         consolidate_decider: ConsolidateDecider | None = None,
+        recall_decider: RecallDecider | None = None,
     ) -> None:
         self.project = project
         self.collection = collection
@@ -112,6 +120,7 @@ class Memory:
         self._consolidate_decider: ConsolidateDecider = (
             consolidate_decider or PeriodicConsolidator()
         )
+        self._recall_decider: RecallDecider = recall_decider or LayeredRecaller()
 
     # ------------------------------------------------------------------ write
 
@@ -155,19 +164,56 @@ class Memory:
         top_k: int = 5,
         layer: str | None = None,
     ) -> list[SearchResult]:
-        """Read from memory via vstash hybrid search.
+        """Read from memory.
 
-        Audit rows live in their own collection and are never returned here
-        — only the ``audit`` method exposes them. We pass ``collection``
-        explicitly because ``vstash.Memory.search`` does not auto-scope to
-        the instance's collection when the argument is omitted.
+        When ``layer`` is not specified, routes through the configured
+        ``should_recall`` policy: the decider returns a ``RecallPlan``
+        with a priority-ordered list of per-layer requests, we query
+        each in turn, dedupe by vstash path, and truncate to the
+        caller's ``top_k``.
+
+        When ``layer`` IS specified, the decider is bypassed and the
+        call is a pass-through to ``vstash.Memory.search`` with that
+        layer. This is the escape hatch for benchmarks and for callers
+        that already know exactly which layer they want.
+
+        Either way, recall is scoped to the engram collection and
+        never returns rows from the ``engram_audit`` collection.
         """
-        return self._vstash.search(
-            query,
-            top_k=top_k,
-            collection=self.collection,
-            layer=layer,
-        )
+        if layer is not None:
+            return self._vstash.search(
+                query,
+                top_k=top_k,
+                collection=self.collection,
+                layer=layer,
+            )
+
+        ctx = RecallContext(project=self.project, top_k=top_k)
+        plan = self._recall_decider.decide(query, ctx)
+        self._write_recall_audit(query, plan)
+
+        seen_paths: set[str] = set()
+        hits: list[SearchResult] = []
+        for req in plan.layers:
+            if len(hits) >= top_k:
+                break
+            layer_hits = self._vstash.search(
+                query,
+                top_k=req.top_k,
+                collection=self.collection,
+                layer=req.layer,
+            )
+            for h in layer_hits:
+                path = getattr(h, "path", None)
+                if path is not None and path in seen_paths:
+                    continue
+                if path is not None:
+                    seen_paths.add(path)
+                hits.append(h)
+                if len(hits) >= top_k:
+                    break
+
+        return hits[:top_k]
 
     # ----------------------------------------------------------- consolidate
 
@@ -393,6 +439,19 @@ class Memory:
     ) -> None:
         """Audit one ``should_consolidate`` decision. Same fail-open policy."""
         title, body = format_consolidate_audit_row(decision, n_events)
+        try:
+            self._vstash.remember(
+                body,
+                title=title,
+                collection=AUDIT_COLLECTION,
+                layer=AUDIT_LAYER,
+            )
+        except Exception:
+            pass
+
+    def _write_recall_audit(self, query: str, plan: RecallPlan) -> None:
+        """Audit one ``should_recall`` decision. Fail-open."""
+        title, body = format_recall_audit_row(query, plan)
         try:
             self._vstash.remember(
                 body,
