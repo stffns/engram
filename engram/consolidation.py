@@ -221,53 +221,71 @@ def cluster_by_embedding(
     *,
     embed_fn: EmbedFn,
     threshold: float = 0.65,
+    linkage: str = "complete",
 ) -> list[list[tuple[str, str]]]:
     """Cluster ``(id, text)`` items by raw embedding cosine similarity.
 
-    This is the v2 consolidation primitive and the engram default.
-    Unlike ``cluster_by_recall``, which depends on vstash's RRF
-    rankings (meaningful only on large corpora), this function asks
-    the embedder for raw vectors and computes pairwise cosine
-    similarity directly. Two items are linked iff their cosine
-    exceeds ``threshold``; connected components are clusters.
+    The v2 consolidation primitive. Computes pairwise cosine from
+    raw embedder vectors and groups items whose similarity exceeds
+    ``threshold``.
 
-    **Threshold calibration on the engram session corpus
-    (2026-04-09):**
+    Parameters
+    ----------
+    items:
+        The ``(path, text)`` pairs to cluster.
+    embed_fn:
+        Injection point for the embedder. Tests can pass fake
+        vectors; in production, ``vstash.embed.embed_texts``.
+    threshold:
+        Cosine cutoff. ``0.65`` was calibrated on engram's own
+        session content (see
+        ``experiments/loop_quality/RESULTS.md``).
+    linkage:
+        Agglomerative linkage strategy.
 
-    - ``0.90+`` — near-paraphrase (same sentence, different wording).
-    - ``0.65 – 0.90`` — same topic, different framing. Default here.
-    - ``0.50 – 0.65`` — loosely related; inviting false positives.
-    - ``< 0.50`` — unrelated.
+        - ``"complete"`` (default) — two clusters merge only when
+          **every** cross-cluster pair exceeds ``threshold``. Stricter;
+          prevents a single weak-but-above-threshold edge from
+          cascading contamination through a transitive cluster.
+          O(N³) worst case; fine for consolidation batch sizes.
+        - ``"single"`` — two clusters merge if **any** cross-cluster
+          pair exceeds ``threshold``. Cheaper (union-find, O(N²)) but
+          vulnerable to cascade: one false positive edge can merge
+          two otherwise unrelated clusters. Retained for the case
+          where the caller has strong confidence in the threshold
+          and wants transitive behavior.
 
-    ``0.65`` is chosen as the v1 default because it clusters obvious
-    paraphrases of real session content while rejecting unrelated
-    topics. It is a configuration knob, not a constant — tune on the
-    ``experiments/loop_quality/`` scenario that's most representative
-    of the caller's stream.
+    **Why complete is the default (2026-04-09):** on the
+    ``session_2026_04_09`` loop_quality scenario, single-link
+    cascaded two genuine-but-cross-topic edges
+    (``longmemeval_a ~ dedup_fix_a = 0.663`` and
+    ``vstash_bug_a ~ dedup_fix_a = 0.652``) into a single impure
+    4-event cluster. Complete-link refuses the second merge because
+    the weakest pair (``vstash_bug_a ~ longmemeval_a = 0.616``) is
+    below threshold. The outcome on that scenario doubles the
+    query pass rate without changing the threshold. See
+    ``experiments/loop_quality/RESULTS.md``.
 
-    Cost model: one ``embed_fn`` call on all texts (batched), then
-    O(N²) pairwise cosine. Dominated by the embedder. For N in the
-    low thousands this is fine; beyond that an ANN index would help
-    but consolidation is a batch operation that runs occasionally, so
-    the quadratic is defensible for now.
+    **Ceiling we know about:** neither linkage fixes the fundamental
+    overlap of same-topic and cross-topic edges around the threshold
+    on meta-discussion content. Above ~50% pass rate on that
+    scenario requires either a richer signal (LLM-based
+    consolidation) or a different embedder.
 
-    The embedder is an injection point: tests can pass fake vectors
-    to exercise the clustering logic without loading a real model.
+    The embedder callable is called exactly once on all input texts.
+    Embedding failure → each item becomes its own cluster (graceful
+    degradation; the caller will see ``facts_written == 0``).
     """
     if not items:
         return []
 
     paths = [path for path, _ in items]
     texts = [text for _, text in items]
-    path_idx = {path: i for i, path in enumerate(paths)}
     items_by_path = dict(items)
 
     try:
         vectors = embed_fn(texts)
     except Exception:
-        # Embedding failure → every item is its own cluster. The
-        # caller can catch the ``facts_written == 0`` signal from the
-        # audit log and escalate.
         return [[(p, t)] for p, t in items]
 
     if len(vectors) != len(items):
@@ -275,7 +293,38 @@ def cluster_by_embedding(
             f"embed_fn returned {len(vectors)} vectors for {len(items)} items"
         )
 
-    parent = list(range(len(paths)))
+    n = len(items)
+
+    # Precompute the pairwise cosine matrix once. O(N² × dim).
+    sim = [[0.0] * n for _ in range(n)]
+    for i in range(n):
+        sim[i][i] = 1.0
+        for j in range(i + 1, n):
+            c = _cosine(vectors[i], vectors[j])
+            sim[i][j] = sim[j][i] = c
+
+    if linkage == "single":
+        groups = _single_link(n, sim, threshold)
+    elif linkage == "complete":
+        groups = _complete_link(n, sim, threshold)
+    else:
+        raise ValueError(
+            f"unknown linkage {linkage!r}; expected 'single' or 'complete'"
+        )
+
+    return [
+        [(paths[i], items_by_path[paths[i]]) for i in sorted(group)]
+        for group in groups
+    ]
+
+
+def _single_link(
+    n: int,
+    sim: list[list[float]],
+    threshold: float,
+) -> list[set[int]]:
+    """Union-find single-link: any above-threshold edge joins clusters."""
+    parent = list(range(n))
 
     def find(x: int) -> int:
         while parent[x] != x:
@@ -288,17 +337,54 @@ def cluster_by_embedding(
         if ra != rb:
             parent[ra] = rb
 
-    for i in range(len(items)):
-        for j in range(i + 1, len(items)):
-            if _cosine(vectors[i], vectors[j]) >= threshold:
+    for i in range(n):
+        for j in range(i + 1, n):
+            if sim[i][j] >= threshold:
                 union(i, j)
 
-    groups: dict[int, list[tuple[str, str]]] = {}
-    for i, path in enumerate(paths):
+    groups: dict[int, set[int]] = {}
+    for i in range(n):
         root = find(i)
-        groups.setdefault(root, []).append((path, items_by_path[path]))
-
+        groups.setdefault(root, set()).add(i)
     return list(groups.values())
+
+
+def _complete_link(
+    n: int,
+    sim: list[list[float]],
+    threshold: float,
+) -> list[set[int]]:
+    """Agglomerative complete-link: merge only when every cross pair passes.
+
+    Iteratively finds the cluster pair whose *weakest* cross-edge is
+    the highest. If that weakest edge is above ``threshold``, the
+    two clusters merge. Otherwise no more merges are possible and
+    we stop. The weakest-edge criterion is equivalent to maximum
+    distance in distance-space (the textbook "complete linkage").
+    """
+    clusters: list[set[int]] = [{i} for i in range(n)]
+
+    while len(clusters) > 1:
+        best_pair: tuple[int, int] | None = None
+        best_min_sim = -1.0
+        for i in range(len(clusters)):
+            for j in range(i + 1, len(clusters)):
+                # Complete-link distance = min similarity across all pairs.
+                min_sim = min(
+                    sim[a][b] for a in clusters[i] for b in clusters[j]
+                )
+                if min_sim > best_min_sim:
+                    best_min_sim = min_sim
+                    best_pair = (i, j)
+
+        if best_pair is None or best_min_sim < threshold:
+            break
+
+        i, j = best_pair
+        clusters[i] = clusters[i] | clusters[j]
+        clusters.pop(j)
+
+    return clusters
 
 
 # ----------------------------------------------------------------- fact build

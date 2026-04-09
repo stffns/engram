@@ -197,20 +197,79 @@ def test_cluster_by_embedding_respects_threshold() -> None:
     assert len(loose) == 1  # together
 
 
-def test_cluster_by_embedding_transitive() -> None:
-    """A→B and B→C means all three cluster (single-link via union-find)."""
+def test_cluster_by_embedding_single_link_cascades() -> None:
+    """single-link: A~B and B~C above threshold groups all three via cascade,
+    even when A~C itself is below threshold."""
     items = [("p1", "a"), ("p2", "b"), ("p3", "c")]
-    # a~b and b~c both above threshold, but a~c below
+    # a~b ≈ 0.7, b~c ≈ 0.5, a~c = 0
     vectors = {
         "a": [1.0, 0.0, 0.0],
-        "b": [0.7, 0.7, 0.0],  # cos(a,b) ≈ 0.7
-        "c": [0.0, 0.7, 0.7],  # cos(b,c) ≈ 0.5, cos(a,c) = 0
+        "b": [0.7, 0.7, 0.0],
+        "c": [0.0, 0.7, 0.7],
     }
     clusters = cluster_by_embedding(
-        items, embed_fn=lambda ts: [vectors[t] for t in ts], threshold=0.4
+        items,
+        embed_fn=lambda ts: [vectors[t] for t in ts],
+        threshold=0.4,
+        linkage="single",
     )
     assert len(clusters) == 1
     assert len(clusters[0]) == 3
+
+
+def test_cluster_by_embedding_complete_link_avoids_cascade() -> None:
+    """complete-link: A~B and B~C above threshold do NOT group all three,
+    because complete-link requires every cross-pair to be above threshold
+    and A~C is below."""
+    items = [("p1", "a"), ("p2", "b"), ("p3", "c")]
+    vectors = {
+        "a": [1.0, 0.0, 0.0],
+        "b": [0.7, 0.7, 0.0],  # cos(a,b) ≈ 0.7 ✓
+        "c": [0.0, 0.7, 0.7],  # cos(b,c) ≈ 0.5, cos(a,c) = 0
+    }
+    # threshold=0.45: single would cascade; complete should not because
+    # a~c is 0 and b~c is only ~0.5 — once {a,b} merges, merging with
+    # {c} would require min(cos(a,c), cos(b,c)) >= 0.45, which fails
+    # (cos(a,c)=0).
+    clusters = cluster_by_embedding(
+        items,
+        embed_fn=lambda ts: [vectors[t] for t in ts],
+        threshold=0.45,
+        linkage="complete",
+    )
+    sizes = sorted(len(c) for c in clusters)
+    # {a,b} merges, {c} alone
+    assert sizes == [1, 2]
+
+
+def test_cluster_by_embedding_complete_link_full_merge_when_cohesive() -> None:
+    """complete-link merges all three when every pair is above threshold."""
+    items = [("p1", "a"), ("p2", "b"), ("p3", "c")]
+    # All three mutually similar
+    vectors = {
+        "a": [1.0, 0.1, 0.1],
+        "b": [0.9, 0.2, 0.1],
+        "c": [0.95, 0.15, 0.05],
+    }
+    clusters = cluster_by_embedding(
+        items,
+        embed_fn=lambda ts: [vectors[t] for t in ts],
+        threshold=0.9,
+        linkage="complete",
+    )
+    assert len(clusters) == 1
+    assert len(clusters[0]) == 3
+
+
+def test_cluster_by_embedding_rejects_unknown_linkage() -> None:
+    import pytest
+
+    with pytest.raises(ValueError, match="unknown linkage"):
+        cluster_by_embedding(
+            [("p1", "a"), ("p2", "b")],
+            embed_fn=lambda ts: [[1.0, 0.0], [0.9, 0.1]],
+            linkage="bogus",
+        )
 
 
 def test_cluster_by_embedding_handles_embedder_failure() -> None:

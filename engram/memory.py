@@ -177,6 +177,7 @@ class Memory:
         method: str = "embedding_v1",
         min_cluster: int = 2,
         embedding_threshold: float = 0.65,
+        embedding_linkage: str = "complete",
         recall_top_k: int = 5,
         jaccard_threshold: float = 0.5,
         force: bool = False,
@@ -213,6 +214,13 @@ class Memory:
             ``0.65`` was chosen on engram's own session content —
             catches paraphrases of the same topic, rejects cross-topic
             pairs. Tune per scenario.
+        embedding_linkage:
+            ``"complete"`` (default) or ``"single"``. Complete-link
+            merges only when every cross-cluster pair is above
+            ``embedding_threshold``; single-link merges on any one
+            above-threshold edge. Complete avoids the cascade where
+            one weak-but-genuine edge contaminates a transitive
+            cluster. See ``cluster_by_embedding`` for the trade-off.
         recall_top_k:
             Neighbors per event when ``method="recall_v1"``.
         jaccard_threshold:
@@ -263,9 +271,11 @@ class Memory:
                 events,
                 embed_fn=_embed,
                 threshold=embedding_threshold,
+                linkage=embedding_linkage,
             )
             reason = (
                 f"clustered_embedding>={embedding_threshold}"
+                f"_linkage={embedding_linkage}"
                 f"_mincluster={min_cluster}"
             )
         elif method == "jaccard_v1":

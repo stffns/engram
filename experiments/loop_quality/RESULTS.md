@@ -22,11 +22,67 @@ positioning" disclaimer to hide behind.
 
 ## Results
 
-| Date | Commit | Scenario | Method | Threshold | n_events | facts | pass_rate | purity | coverage | Notes |
-|------|--------|----------|--------|-----------|----------|-------|-----------|--------|----------|-------|
-| 2026-04-09 | `be33c51` | `session_2026_04_09` | `embedding_v1` | 0.65 | 12 | 3 | **25.00%** (1/4) | 66.67% | 33.33% | First honest run. Single-link transitive cascade via two cross-topic edges (longmemeval_a~dedup_fix_a=0.663, vstash_bug_a~dedup_fix_a=0.652) contaminates a 4-event impure cluster. Three same-topic pairs sit just below 0.65 and don't cluster (longmemeval=0.649, dedup_fix=0.575, loop_philosophy=0.558). |
+| Date | Commit | Scenario | Method | Threshold | Linkage | n_events | facts | pass_rate | purity | coverage | Notes |
+|------|--------|----------|--------|-----------|---------|----------|-------|-----------|--------|----------|-------|
+| 2026-04-09 | `4e6c7e0` | `session_2026_04_09` | `embedding_v1` | 0.65 | single | 12 | 3 | **25.00%** (1/4) | 66.67% | 33.33% | First honest run. Single-link transitive cascade via two cross-topic edges (longmemeval_a~dedup_fix_a=0.663, vstash_bug_a~dedup_fix_a=0.652) contaminates a 4-event impure cluster. Three same-topic pairs sit just below 0.65 (longmemeval=0.649, dedup_fix=0.575, loop_philosophy=0.558). |
+| 2026-04-09 | `HEAD` | `session_2026_04_09` | `embedding_v1` | 0.65 | **complete** | 12 | 4 | **50.00%** (2/4) | 75.00% | 50.00% | Complete-link refuses to merge `{vstash_bug_a,b}` with `{longmemeval_a, dedup_fix_a}` because the weakest cross-pair (`vstash_bug_a~longmemeval_a=0.616`) is below 0.65. Three pure clusters emerge (mempalace, vstash_bug, consolidation_design) plus one impure mini-cluster (longmemeval_a+dedup_fix_a, the one edge that did cross). pass_rate doubles without changing the threshold. |
 
-## What the first row says
+## Delta log
+
+**Row 2 (complete-link, 2026-04-09):** `pass_rate 25% → 50%`,
+`purity 67% → 75%`, `coverage 33% → 50%`. Same embedder, same
+threshold, only the linkage strategy changed. Complete-link turned
+out to be one line of logic (require min-cross-pair ≥ threshold
+instead of any-cross-pair) but it fixed the specific cascade this
+scenario exposed.
+
+The ceiling that row 2 reveals is more important than the
+improvement: **no threshold-based approach on this embedder can
+push pass rate above ~50% on this scenario**. The reason is
+visible in the pairwise cosine distribution around 0.65:
+
+```
+0.778  vstash_bug (same-topic)      ← above, clusters
+0.717  mempalace  (same-topic)      ← above, clusters
+0.663  longmemeval_a ~ dedup_fix_a  (CROSS-TOPIC)  ← above, false positive
+0.661  consolidation_design (same)  ← above, clusters
+0.652  vstash_bug_a ~ dedup_fix_a   (CROSS-TOPIC)  ← above, false positive
+0.649  longmemeval (same-topic)     ← BELOW by 0.001, missed
+0.616  longmemeval_a ~ vstash_bug_a (cross)        ← below
+...
+0.575  dedup_fix  (same-topic)      ← below, missed
+0.558  loop_philosophy (same-topic) ← below, missed
+```
+
+Same-topic and cross-topic edges are interleaved through the band
+`0.55 – 0.70`. `bge-small-en-v1.5` at 384 dimensions cannot
+distinguish "engram internals about dedup" from "engram internals
+about longmemeval benchmark" by cosine alone, because both land in
+roughly the same region of the vector space.
+
+**Implication for the next commits:**
+
+- Lowering the threshold to 0.60 would catch longmemeval (0.649)
+  and bring dedup_fix/loop_philosophy closer, but it also drags in
+  more cross-topic false positives. Coverage up, purity down.
+  Trade-off has to be measured, not argued.
+- Raising the threshold to 0.70 kills the consolidation_design pair
+  (0.661) and the false positives. Purity up, coverage down.
+- A stricter linkage (e.g. k-medoids, or requiring min cluster
+  density) can squeeze a few more points but cannot cross the
+  signal/noise boundary that this embedder imposes.
+- **The only path above ~50% on this scenario is an LLM-based
+  consolidator that reads the text and distinguishes topics
+  semantically, not by vector geometry.** Every non-LLM alternative
+  is rearranging deck chairs in the 25–50% range.
+
+That last bullet is the finding we commit to memory. The next
+scenario to add to `loop_quality/scenarios/` should be content
+where the embedder *does* cleanly separate topics — so we have a
+control for "the loop is broken" vs "this scenario is beyond the
+embedder."
+
+## What the first row said (pre-complete-link)
 
 **The engram loop at commit `be33c51` is not good enough yet.** On a
 12-event scenario derived from engram's own design session, only
