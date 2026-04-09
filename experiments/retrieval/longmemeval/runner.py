@@ -9,8 +9,8 @@ Three baselines are wired in:
 - ``vstash`` — bypass engram entirely; ingest straight into
   ``vstash.Memory``. Tells us how much engram's loop costs vs the bare
   substrate.
-- ``engram-always`` — engram with ``AlwaysWrite``. Mempalace's
-  "store-everything" baseline, expressed in engram's API.
+- ``engram-always`` — engram with ``AlwaysWrite``. The "store-everything"
+  control: every event lands, no filtering.
 - ``engram-heuristic`` — engram with the default ``HeuristicWriteDecider``
   (Phase 1). The thing we actually ship.
 
@@ -34,7 +34,7 @@ from typing import Any
 import vstash
 
 from engram import AlwaysWrite, HeuristicWriteDecider, Memory
-from experiments.longmemeval.dataset import (
+from experiments.retrieval.longmemeval.dataset import (
     Conversation,
     Turn,
     load_fixture,
@@ -271,7 +271,7 @@ def format_result(result: BaselineResult) -> str:
 
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p = argparse.ArgumentParser(
-        prog="experiments.longmemeval.runner",
+        prog="experiments.retrieval.longmemeval.runner",
         description="LongMemEval R@k runner for engram baselines.",
     )
     p.add_argument(

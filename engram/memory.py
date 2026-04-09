@@ -22,7 +22,26 @@ from typing import TYPE_CHECKING, Any
 
 import vstash
 
-from engram.audit import AUDIT_COLLECTION, AUDIT_LAYER, format_audit_row
+from engram.audit import (
+    AUDIT_COLLECTION,
+    AUDIT_LAYER,
+    format_audit_row,
+    format_consolidate_audit_row,
+)
+from engram.consolidation import (
+    ConsolidationResult,
+    cluster_by_embedding,
+    cluster_by_jaccard,
+    cluster_by_recall,
+    fact_fingerprint,
+    materialize_fact,
+)
+from engram.policies.should_consolidate import (
+    ConsolidateContext,
+    ConsolidateDecider,
+    ConsolidationDecision,
+    PeriodicConsolidator,
+)
 from engram.policies.should_remember import HeuristicWriteDecider
 from engram.policies.types import Decision, Event, WriteContext, WriteDecider
 
@@ -31,6 +50,10 @@ if TYPE_CHECKING:
 
 DEFAULT_LAYER = "episodic"
 DEFAULT_COLLECTION = "default"
+# Default embedding model for consolidation. Matches vstash's own
+# default (``BAAI/bge-small-en-v1.5``) so consolidation sees the same
+# vector space as the episodic index that produced the events.
+DEFAULT_EMBED_MODEL = "BAAI/bge-small-en-v1.5"
 
 
 @dataclass(frozen=True)
@@ -75,6 +98,7 @@ class Memory:
         config: str | Path | None = None,
         collection: str = DEFAULT_COLLECTION,
         write_decider: WriteDecider | None = None,
+        consolidate_decider: ConsolidateDecider | None = None,
     ) -> None:
         self.project = project
         self.collection = collection
@@ -85,6 +109,9 @@ class Memory:
             collection=collection,
         )
         self._write_decider: WriteDecider = write_decider or HeuristicWriteDecider()
+        self._consolidate_decider: ConsolidateDecider = (
+            consolidate_decider or PeriodicConsolidator()
+        )
 
     # ------------------------------------------------------------------ write
 
@@ -142,6 +169,155 @@ class Memory:
             layer=layer,
         )
 
+    # ----------------------------------------------------------- consolidate
+
+    def consolidate(
+        self,
+        *,
+        method: str = "embedding_v1",
+        min_cluster: int = 2,
+        embedding_threshold: float = 0.65,
+        recall_top_k: int = 5,
+        jaccard_threshold: float = 0.5,
+        force: bool = False,
+    ) -> ConsolidationResult:
+        """Cluster episodic events into semantic facts. Phase 2, no LLM.
+
+        Pulls every ``layer="episodic"`` document in this engram
+        collection, reassembles the text from its chunks, clusters
+        them, and writes one ``layer="semantic"`` fact per cluster of
+        size ≥ ``min_cluster``. Singletons are skipped (they're
+        already findable as episodic).
+
+        Every run, write or skip, logs a ``should_consolidate`` audit
+        row. Fact titles are a stable hash of ``derived_from`` so
+        re-running is idempotent — no duplicate semantic rows.
+
+        Parameters
+        ----------
+        method:
+            Clustering strategy. ``"embedding_v1"`` (default) embeds
+            each event via the vstash embedder and clusters by raw
+            cosine similarity above ``embedding_threshold``. This is
+            the only method that reliably handles paraphrased natural
+            language. ``"recall_v1"`` delegates to vstash's hybrid
+            search but is brittle on small corpora — see
+            ``cluster_by_recall`` for the limitation. ``"jaccard_v1"``
+            is near-duplicate only; see ``cluster_by_jaccard``.
+        min_cluster:
+            Minimum cluster size for a fact to be written. ``2`` means
+            "require corroboration across at least two episodic
+            events." Singletons always stay in the episodic layer.
+        embedding_threshold:
+            Cosine similarity cutoff when ``method="embedding_v1"``.
+            ``0.65`` was chosen on engram's own session content —
+            catches paraphrases of the same topic, rejects cross-topic
+            pairs. Tune per scenario.
+        recall_top_k:
+            Neighbors per event when ``method="recall_v1"``.
+        jaccard_threshold:
+            Token-set Jaccard similarity when ``method="jaccard_v1"``.
+        force:
+            Bypass the ``should_consolidate`` decider and always run.
+            Useful in tests and when the caller has already decided.
+        """
+        docs = self._vstash.list(
+            collection=self.collection,
+            layer="episodic",
+        )
+
+        events: list[tuple[str, str]] = []
+        for doc in docs:
+            chunks = self._vstash.get_document_chunks(
+                doc.path,
+                collection=self.collection,
+            )
+            full_text = " ".join(chunks).strip()
+            if full_text:
+                events.append((doc.path, full_text))
+
+        ctx = ConsolidateContext(project=self.project)
+        decision = self._consolidate_decider.decide(len(events), ctx)
+        self._write_consolidate_audit(decision, len(events))
+
+        if not decision.proceed and not force:
+            return ConsolidationResult(
+                events_examined=len(events),
+                facts_written=0,
+                facts=[],
+                skipped=True,
+                reason=decision.reason,
+                decider=decision.policy,
+                method=method,
+            )
+
+        if method == "embedding_v1":
+            def _embed(texts: list[str]) -> list[Any]:
+                from vstash.embed import embed_texts
+                return embed_texts(
+                    texts,
+                    model_name=DEFAULT_EMBED_MODEL,
+                    backend="auto",
+                )
+            clusters = cluster_by_embedding(
+                events,
+                embed_fn=_embed,
+                threshold=embedding_threshold,
+            )
+            reason = (
+                f"clustered_embedding>={embedding_threshold}"
+                f"_mincluster={min_cluster}"
+            )
+        elif method == "jaccard_v1":
+            clusters = cluster_by_jaccard(events, threshold=jaccard_threshold)
+            reason = f"clustered_jaccard>={jaccard_threshold}_mincluster={min_cluster}"
+        elif method == "recall_v1":
+            def _cluster_recall(query: str, top_k: int) -> list[Any]:
+                return self._vstash.search(
+                    query,
+                    top_k=top_k,
+                    collection=self.collection,
+                    layer="episodic",
+                )
+            clusters = cluster_by_recall(
+                events,
+                recall_fn=_cluster_recall,
+                top_k=recall_top_k,
+            )
+            reason = f"clustered_recall_topk={recall_top_k}_mincluster={min_cluster}"
+        else:
+            raise ValueError(
+                f"unknown consolidation method {method!r}; "
+                f"expected 'embedding_v1', 'recall_v1', or 'jaccard_v1'"
+            )
+
+        facts_written = []
+        for cluster in clusters:
+            if len(cluster) < min_cluster:
+                continue
+            fact = materialize_fact(cluster)
+            fp = fact_fingerprint(fact)
+            self._vstash.remember(
+                fact.text,
+                title=f"fact_{fp}",
+                collection=self.collection,
+                layer="semantic",
+                tags=f"derived_from:{','.join(fact.derived_from)}",
+            )
+            facts_written.append(fact)
+
+        return ConsolidationResult(
+            events_examined=len(events),
+            facts_written=len(facts_written),
+            facts=facts_written,
+            skipped=False,
+            reason=reason,
+            decider=decision.policy,
+            method=method,
+        )
+
+    # --------------------------------------------------------------- audit
+
     def audit(
         self,
         query: str = "should_remember",
@@ -190,6 +366,23 @@ class Memory:
         be revisited if it ever bites in practice.
         """
         title, body = format_audit_row(event, decision)
+        try:
+            self._vstash.remember(
+                body,
+                title=title,
+                collection=AUDIT_COLLECTION,
+                layer=AUDIT_LAYER,
+            )
+        except Exception:
+            pass
+
+    def _write_consolidate_audit(
+        self,
+        decision: ConsolidationDecision,
+        n_events: int,
+    ) -> None:
+        """Audit one ``should_consolidate`` decision. Same fail-open policy."""
+        title, body = format_consolidate_audit_row(decision, n_events)
         try:
             self._vstash.remember(
                 body,

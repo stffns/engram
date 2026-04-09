@@ -111,8 +111,7 @@ def load_fixture(path: str | Path) -> list[Conversation]:
 
 # We deliberately use the *cleaned* dataset (xiaowu0162/longmemeval-cleaned).
 # The original xiaowu0162/longmemeval is marked deprecated by its author —
-# noisy haystack sessions interfered with answer correctness. The cleaned
-# version is the one mempalace's 96.6% claim is benchmarked against.
+# noisy haystack sessions interfered with answer correctness.
 _HF_BASE = "https://huggingface.co/datasets/xiaowu0162/longmemeval-cleaned/resolve/main"
 
 # Subset → (filename, approx size in MB) for README/error messages.

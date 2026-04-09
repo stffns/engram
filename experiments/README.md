@@ -1,39 +1,62 @@
 # experiments/
 
-The empirical bar (CONSTITUTION §9). Every change to a default policy must
-cite a benchmark in this directory. "I think it's better" does not ship.
+The empirical bar (CONSTITUTION §9). Every change to a default policy
+or a default decider must cite a benchmark in this directory. "I think
+it's better" does not ship.
 
-## Layout
+## Two categories
 
 ```
 experiments/
-├── README.md                   ← you are here
-└── longmemeval/                ← LongMemEval R@5 anchor benchmark
-    ├── README.md               ← reproduction guide
-    ├── RESULTS.md              ← published numbers, with CIs and the policy
-    │                            commit they were measured against
-    └── runner.py               ← (TODO Phase 2) ingest + query loop
+├── README.md             ← you are here
+├── retrieval/            ← does the substrate find what's there?
+│   └── longmemeval/      ← public retrieval benchmark, one of several
+└── loop_quality/         ← does engram's loop add value over the substrate?
+                            (the benchmark we actually care about)
 ```
 
-## Discipline
+The split exists because they answer different questions.
 
-Same as vstash's `experiments/`:
+**`retrieval/`** asks: *given a fixed haystack and a fixed query, does
+the system surface the right chunk?* Public benchmarks like LongMemEval
+live here. The answer mostly depends on vstash's chunker, embedder, and
+hybrid weights — engram's loop barely participates.
 
-1. Real datasets, not synthetic toys (LongMemEval, LoCoMo).
-2. Reproducible on a laptop in under 5 minutes.
+**`loop_quality/`** asks: *given a stream of agent events over days,
+does engram's decision loop produce a memory that is more useful than
+raw vstash for the next thing the agent has to do?* This is the
+benchmark engram actually exists for. It is a live, scenario-driven
+test, not chat-replay.
+
+If a row in `loop_quality/` shows engram beating raw vstash on a
+scenario you'd actually live with, the loop is earning its keep. If a
+row in `loop_quality/` shows them tied, the policy that was on trial
+moves to `engram.policies.experimental` until a different scenario
+revives it.
+
+## Discipline (same as vstash's `experiments/`)
+
+1. Real datasets, not synthetic toys — except in `loop_quality/`,
+   where carefully designed synthetic scenarios are exactly the point.
+2. Reproducible. Each subdirectory has a `README.md` with the exact
+   command to reproduce its `RESULTS.md`.
 3. Numbers reported with confidence intervals, never point estimates.
-4. The mode/policy/commit that produced the number is recorded next to it.
-5. Mempalace's correction note is the playbook for honesty when something
-   we published turns out to be wrong.
+4. The mode/policy/commit that produced the number is recorded next
+   to it.
+5. **No silent edits.** If a published number turns out to be wrong,
+   the row stays with a strikethrough and a link to the correction.
+   See `notes/prior-art.md` for the cautionary tale that taught us
+   this rule.
 
-## What gets benchmarked
+## What gets benchmarked, and when
 
-- **Phase 2 (gating):** raw vstash baseline vs engram-on-vstash vs mempalace
-  on LongMemEval R@5. The result decides whether engram needs a taxonomy
-  classifier in Phase 3 or whether the thin wrapper is already enough.
-- **Phase 3:** with vs without `should_remember` + classification.
-- **Phase 5:** with vs without consolidation. Consolidation only ships if
-  it beats the Phase-3 number.
-- **Phase 6:** procedural memory (separate task suite, TBD).
+| Phase | Benchmark | Question it answers |
+|---|---|---|
+| 1 (now) | `retrieval/longmemeval` (sample) | does the runner work end-to-end on real data? |
+| 2 | `loop_quality/scenario_basic` | does `should_remember` filter useful events on a real-shaped agent stream? |
+| 3 | `loop_quality/scenario_consolidation` | does `consolidate` produce facts that are findable later? |
+| 4 | `retrieval/longmemeval` (full) | how does engram-on-vstash sit on a public bench, in absolute terms? *Optional, gated on hardware allowing it.* |
 
-The runners are stubs in Phase 0. They get filled in when we hit Phase 2.
+The `retrieval/longmemeval` full run is *optional* on purpose. If we
+publish it, we publish it honestly. If our hardware can't run it in a
+sane window, we say so and skip it rather than cherry-picking samples.
