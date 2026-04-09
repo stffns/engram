@@ -17,12 +17,33 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from engram.policies.should_consolidate import ConsolidationDecision
+from engram.policies.should_recall import RecallPlan
 from engram.policies.types import Decision, Event
 
 AUDIT_COLLECTION = "engram_audit"
 AUDIT_LAYER = "audit"
 
 _PREVIEW_CHARS = 160
+
+
+def format_recall_audit_row(
+    query: str,
+    plan: RecallPlan,
+) -> tuple[str, str]:
+    """Build a (title, body) pair for one recall audit entry."""
+    ts = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    preview = " ".join(query.split())[:_PREVIEW_CHARS]
+    layers = ",".join(f"{r.layer}:{r.top_k}" for r in plan.layers)
+    body = (
+        f"timestamp: {ts}\n"
+        f"decision: should_recall\n"
+        f"query_preview: {preview}\n"
+        f"plan_layers: {layers}\n"
+        f"reason: {plan.reason}\n"
+        f"policy: {plan.policy}\n"
+    )
+    title = f"audit:should_recall:{plan.reason}:{ts}"
+    return title, body
 
 
 def format_consolidate_audit_row(
