@@ -22,20 +22,24 @@ from engram import (
 # ----------------------------------------------------------------- pure policy
 
 
-def _ctx_with_recall(hits: list[object]) -> WriteContext:
-    return WriteContext(project="unit", recall=lambda q, k, layer: hits)
+def _ctx() -> WriteContext:
+    """Minimal WriteContext for tests. Historical name
+    ``_ctx_with_recall`` was a leftover from when WriteContext
+    exposed a recall callable — removed 2026-04-09 per the
+    extending.md review."""
+    return WriteContext(project="unit")
 
 
 def test_heuristic_skips_empty() -> None:
     decider = HeuristicWriteDecider()
-    decision = decider.decide(Event(text="   \n  "), _ctx_with_recall([]))
+    decision = decider.decide(Event(text="   \n  "), _ctx())
     assert not decision.write
     assert decision.reason == "empty"
 
 
 def test_heuristic_skips_too_short() -> None:
     decider = HeuristicWriteDecider(min_chars=10)
-    decision = decider.decide(Event(text="hi there"), _ctx_with_recall([]))
+    decision = decider.decide(Event(text="hi there"), _ctx())
     assert not decision.write
     assert decision.reason.startswith("too_short")
 
@@ -44,7 +48,7 @@ def test_heuristic_skips_too_long() -> None:
     decider = HeuristicWriteDecider(max_chars=20)
     decision = decider.decide(
         Event(text="x" * 25),
-        _ctx_with_recall([]),
+        _ctx(),
     )
     assert not decision.write
     assert decision.reason.startswith("too_long")
@@ -54,7 +58,7 @@ def test_heuristic_writes_novel_when_no_hits() -> None:
     decider = HeuristicWriteDecider()
     decision = decider.decide(
         Event(text="A substantial sentence about geological time."),
-        _ctx_with_recall([]),
+        _ctx(),
     )
     assert decision.write
     assert decision.reason == "novel"
@@ -64,8 +68,8 @@ def test_heuristic_detects_exact_dup_in_process() -> None:
     text = "The user prefers the color teal in dashboards."
 
     decider = HeuristicWriteDecider()
-    first = decider.decide(Event(text=text), _ctx_with_recall([]))
-    second = decider.decide(Event(text=text), _ctx_with_recall([]))
+    first = decider.decide(Event(text=text), _ctx())
+    second = decider.decide(Event(text=text), _ctx())
 
     assert first.write
     assert first.reason == "novel"
@@ -77,11 +81,11 @@ def test_heuristic_normalizes_whitespace_for_dedup() -> None:
     decider = HeuristicWriteDecider()
     first = decider.decide(
         Event(text="the user prefers teal"),
-        _ctx_with_recall([]),
+        _ctx(),
     )
     second = decider.decide(
         Event(text="the   user\nprefers\tteal"),
-        _ctx_with_recall([]),
+        _ctx(),
     )
 
     assert first.write
@@ -96,9 +100,9 @@ def test_heuristic_state_is_per_instance() -> None:
     decider_a = HeuristicWriteDecider()
     decider_b = HeuristicWriteDecider()
 
-    a1 = decider_a.decide(Event(text=text), _ctx_with_recall([]))
-    a2 = decider_a.decide(Event(text=text), _ctx_with_recall([]))
-    b1 = decider_b.decide(Event(text=text), _ctx_with_recall([]))
+    a1 = decider_a.decide(Event(text=text), _ctx())
+    a2 = decider_a.decide(Event(text=text), _ctx())
+    b1 = decider_b.decide(Event(text=text), _ctx())
 
     assert a1.write
     assert not a2.write  # decider_a remembers
@@ -107,7 +111,7 @@ def test_heuristic_state_is_per_instance() -> None:
 
 def test_always_write_baseline() -> None:
     decider = AlwaysWrite()
-    decision = decider.decide(Event(text=""), _ctx_with_recall([]))
+    decision = decider.decide(Event(text=""), _ctx())
     assert decision.write
     assert decision.reason == "always_write"
     assert isinstance(decision, Decision)

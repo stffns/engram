@@ -52,7 +52,8 @@ class Event:
 @dataclass
 class WriteContext:
     project: str
-    recall: Callable[[str, int, str | None], list[Any]]
+    # Intentionally small. See "State management" section below
+    # for why there is no recall callable.
 
 @dataclass(frozen=True)
 class Decision:
@@ -61,6 +62,16 @@ class Decision:
     confidence: float
     policy: str
 ```
+
+**Note:** an earlier version of `WriteContext` exposed a
+`recall: Callable` field that was backed by `vstash.Memory.search`.
+It was removed 2026-04-09 because (a) nothing used it after the
+O(N²) dedup refactor, and (b) its presence contradicted the
+"never call vstash from decide()" rule below. If a future
+similarity-based decider genuinely needs read access to vstash at
+decision time, the right move is to re-add it with an explicit
+docstring warning about cost, not to leave a vague hook around
+"for later."
 
 ### Example: content-type prior decider
 
@@ -474,31 +485,40 @@ class ForgetDecider(Protocol):
     ) -> ForgetDecision: ...
 ```
 
-### Example: age-based forgetter
+### Example: strict consolidation forget
+
+A stacked-gate decider that composes two checks, both
+implementable with what `ForgetContext` actually exposes. It
+tombstones only events that have been consolidated into at
+least `min_facts` **and** pass a minimum event-text length
+sanity check — the idea being that very short events are
+either noise or near-empty, and either way don't deserve the
+same forgetting threshold as substantive events.
 
 ```python
-from datetime import datetime, timezone
 from engram.policies.should_forget import ForgetContext, ForgetDecision
 
 
-class AgeBasedForget:
-    """Tombstone events older than max_age_days that have also
-    been consolidated into at least one fact.
+class StrictConsolidationForget:
+    """Two-gate forget: consolidated AND non-trivial.
 
-    Combines temporal decay with coverage — strictly more
-    conservative than ForgetConsolidated alone.
+    Events that are in >= min_facts semantic facts get
+    tombstoned, but only if their text is at least
+    min_text_chars long. Very short events skip the forget
+    pipeline on the theory that they're noise or placeholder,
+    and the audit row is cheap enough to preserve.
     """
 
-    name = "AgeBasedForget"
+    name = "StrictConsolidationForget"
 
     def __init__(
         self,
         *,
-        max_age_days: int = 30,
-        min_facts: int = 1,
+        min_facts: int = 2,
+        min_text_chars: int = 40,
     ):
-        self.max_age_days = max_age_days
         self.min_facts = min_facts
+        self.min_text_chars = min_text_chars
 
     def decide(
         self,
@@ -506,35 +526,111 @@ class AgeBasedForget:
         event_text: str,
         ctx: ForgetContext,
     ) -> ForgetDecision:
-        # Gate 1: must be consolidated
-        if len(ctx.derived_in_facts) < self.min_facts:
+        # Gate 1: must be consolidated with at least min_facts
+        n = len(ctx.derived_in_facts)
+        if n < self.min_facts:
             return ForgetDecision(
                 tombstone=False,
-                reason=f"not_consolidated:{len(ctx.derived_in_facts)}<{self.min_facts}",
+                reason=f"not_consolidated:{n}<{self.min_facts}",
                 confidence=1.0,
                 policy=self.name,
             )
 
-        # Gate 2: must be old enough
-        # (engram doesn't pass added_at to ForgetContext in v1,
-        #  so we'd need to extract from the path or pass it
-        #  via ctx in a future version)
-        # For now, this gate is a placeholder demonstrating the
-        # extension pattern.
+        # Gate 2: text must be substantive
+        text_len = len(event_text.strip())
+        if text_len < self.min_text_chars:
+            return ForgetDecision(
+                tombstone=False,
+                reason=f"text_too_short:{text_len}<{self.min_text_chars}",
+                confidence=1.0,
+                policy=self.name,
+            )
 
         return ForgetDecision(
             tombstone=True,
-            reason=f"old_and_consolidated:n_facts={len(ctx.derived_in_facts)}",
+            reason=f"consolidated_and_substantive:n_facts={n}_chars={text_len}",
             confidence=1.0,
             policy=self.name,
         )
 ```
 
-**Note on `ForgetContext`.** As of v1, the context only exposes
-`project` and `derived_in_facts`. If your decider needs
-additional signal like `added_at` or `access_count`, that's a
-case for extending `ForgetContext` (a contribution to engram
-itself, not just your custom decider).
+Both gates use only what `ForgetContext` and the function args
+already provide (`event_text` is passed by `Memory.forget`,
+`derived_in_facts` is in the context). No `added_at`, no
+`access_count`, no vstash lookups — the decider is pure.
+
+### What if `ForgetContext` doesn't expose what I need?
+
+This is the honest v1 limitation. `ForgetContext` currently
+only has `project` and `derived_in_facts`. If you want to
+decide based on the event's age, access count, source tags,
+or any other metadata, you have three options, each with a
+real trade-off:
+
+1. **Contribute an extension to engram core.** Add the field
+   to `ForgetContext` in a PR, with a loop-quality scenario
+   that demonstrates why it's needed. This is the clean move
+   but has a high bar (scenario + no regression + docs).
+
+2. **Open the vstash directly from your decider.** Your
+   decider can hold a reference to the `Memory` (or a
+   closure that opens its own vstash connection) and query
+   `added_at` via `vstash.Memory.list()` on each `decide()`
+   call. **This violates the "no vstash from decide()" rule
+   below** and will be O(N) per forget run. Don't do it
+   unless you've measured the cost and accepted it.
+
+3. **Pre-compute the info once before calling `forget()`.**
+   Wrap `Memory.forget()` in your own function that first
+   queries vstash for age/access metadata, builds a mapping,
+   and either (a) passes it to your decider via a class attr
+   or (b) uses it to filter which events your custom
+   `forget()` wrapper passes to the underlying Memory
+   operation.
+
+Option 3 is the cleanest workaround because it keeps the
+decider pure while still getting the extra info. Example
+sketch:
+
+```python
+class AgeAwareForgetWrapper:
+    def __init__(self, mem, max_age_days=30, min_facts=1):
+        self.mem = mem
+        self.max_age_days = max_age_days
+        self.min_facts = min_facts
+
+    def forget_old_consolidated(self):
+        from datetime import datetime, timezone
+        # Pre-query age info for every episodic doc
+        now = datetime.now(timezone.utc)
+        age_by_path = {
+            d.path: (now - datetime.fromisoformat(d.added_at)).days
+            for d in self.mem._vstash.list(
+                collection=self.mem.collection,
+                layer="episodic",
+            )
+        }
+
+        class _AgedForget:
+            name = "_AgedForget"
+            def decide(inner_self, path, text, ctx):
+                if len(ctx.derived_in_facts) < self.min_facts:
+                    return ForgetDecision(False, "not_consolidated", 1.0, inner_self.name)
+                age = age_by_path.get(path, 0)
+                if age < self.max_age_days:
+                    return ForgetDecision(False, f"too_recent:{age}d", 1.0, inner_self.name)
+                return ForgetDecision(True, f"old_and_consolidated:age={age}d", 1.0, inner_self.name)
+
+        # Swap the decider for this forget call
+        self.mem._forget_decider = _AgedForget()
+        return self.mem.forget()
+```
+
+This reaches into `Memory._forget_decider` which is private —
+a real contribution would add a `forget(decider=...)` override
+param to `Memory.forget` in engram core instead. But as a
+workaround for a specific user's decider, the pattern works
+and keeps the core `ForgetContext` model clean.
 
 ## Per-decider state management
 
@@ -613,21 +709,76 @@ The strictest bar. Run your decider against a real-content
 scenario and compare pass_rate / purity / coverage to the
 baseline (engram's default decider).
 
-```bash
-# Baseline: default decider
-python -m experiments.loop_quality.runner
+**Programmatic API** (since 2026-04-09) — `run_scenario` now
+accepts decider overrides:
 
-# With your decider: (requires modifying the runner to
-# accept --write-decider dotted.path.to.ContentTypePriorDecider,
-# which is a future addition)
+```python
+from pathlib import Path
+from engram import NeverConsolidate
+from experiments.loop_quality.runner import run_scenario
+from experiments.loop_quality.scenario import load_scenario
+from my_package import MyCustomConsolidator
+
+scenario = load_scenario(
+    Path("experiments/loop_quality/scenarios/jay_vstash_2026_04_09_snapshot.json")
+)
+
+# Baseline: engram defaults
+baseline = run_scenario(scenario, db=Path("/tmp/baseline.db"))
+
+# With your custom consolidator
+mine = run_scenario(
+    scenario,
+    db=Path("/tmp/mine.db"),
+    consolidate_decider=MyCustomConsolidator(),
+)
+
+print(f"baseline pass={baseline.query_pass_rate:.2%} purity={baseline.cluster_purity:.2%}")
+print(f"mine     pass={mine.query_pass_rate:.2%} purity={mine.cluster_purity:.2%}")
 ```
 
-For now, the runner uses the default deciders hardcoded. To
-test a custom decider at scenario level, write a small driver
-script that loads a scenario, constructs a `Memory` with your
-decider, and reports the same metrics. See
-`experiments/loop_quality/runner.py:run_scenario` for the
-reference implementation.
+**CLI** (same date) — any of the four deciders is overridable
+via a dotted import path, default-constructed:
+
+```bash
+# Baseline — default deciders, every scenario in fixtures/
+python -m experiments.loop_quality.runner
+
+# With your custom decider on all scenarios
+python -m experiments.loop_quality.runner \
+    --consolidate-decider my_package.MyCustomConsolidator
+
+# Multiple overrides
+python -m experiments.loop_quality.runner \
+    --write-decider my_package.MyWriteDecider \
+    --consolidate-decider my_package.MyConsolidator \
+    --embedding-linkage average
+
+# One scenario only
+python -m experiments.loop_quality.runner \
+    --scenario experiments/loop_quality/scenarios/jay_vstash_2026_04_09_snapshot.json \
+    --consolidate-decider my_package.MyConsolidator
+```
+
+The dotted path must resolve to a **default-constructible**
+class — no required constructor args. For parameterized
+deciders, subclass and hard-code the params:
+
+```python
+# my_package.py
+from engram import PeriodicConsolidator
+
+class AggressiveConsolidator(PeriodicConsolidator):
+    def __init__(self):
+        super().__init__(min_events=2)
+```
+
+Then `--consolidate-decider my_package.AggressiveConsolidator`.
+
+This closes the "validate before landing" loop — you can run
+your decider against every scenario in the safety net with one
+command, compare deltas against the baseline, and only open a
+PR when the data supports it.
 
 ## Design principles for custom deciders
 
@@ -640,13 +791,31 @@ side effects. If you need to update state (like
 `HeuristicWriteDecider` updating `_seen`), do it explicitly
 and document it in the docstring.
 
-### Never call vstash from decide()
+### Never call vstash from decide() in the hot path
 
-Decision primitives should not trigger vstash searches at
-decision time. If you need similarity information, pre-compute
-it (via `hydrate_fn` for writes) or accept the limitation. A
-decider that does O(1) in the hot path is almost always
-better than one that does O(log N) by consulting vstash.
+Decision primitives should not trigger vstash searches per
+`decide()` call. If you need similarity information,
+pre-compute it (via `hydrate_fn` for writes, or via a pre-pass
+that populates instance state for other primitives) or accept
+the limitation. A decider that is O(1) in the hot path is
+almost always better than one that is O(log N) by consulting
+vstash.
+
+The reason is cost-at-scale. An engram `Memory.remember` call
+runs the write decider once. A `forget` call runs the forget
+decider N times (once per episodic event). If `decide()` calls
+`vstash.search` internally, the forget run becomes O(N log N)
+or worse. On a 10k-event store that's the difference between
+milliseconds and tens of seconds per forget pass.
+
+**Historical note:** an earlier version of `WriteContext`
+exposed a `recall: Callable` field. It was removed 2026-04-09
+both because nothing used it after the dedup refactor and
+because its presence made this rule ambiguous. See the
+"Note" near the top of this doc. If a similarity-based decider
+is the right move for your use case, add the callable back to
+the relevant context with a clear docstring about cost — don't
+sneak it in behind a generic name.
 
 ### Reason strings should be grep-able
 
@@ -708,9 +877,34 @@ decisions and correlate with behavior changes.
 - It doesn't regress any existing scenario
 - The `decide()` function is pure and testable
 
+**How to check "doesn't regress any existing scenario":**
+
+```bash
+# Record the baseline (engram defaults)
+python -m experiments.loop_quality.runner > /tmp/baseline.txt
+
+# Run your decider
+python -m experiments.loop_quality.runner \
+    --consolidate-decider my_package.MyConsolidator \
+    > /tmp/mine.txt
+
+# Compare
+diff /tmp/baseline.txt /tmp/mine.txt
+```
+
+If `diff` shows that any scenario's `query_pass_rate` or
+`cluster_purity` dropped, your decider is a trade-off not a
+strict improvement. That doesn't disqualify it — some
+trade-offs are worth making — but the PR description has to
+name the trade-off, and ideally add a new scenario that
+makes the trade-off visible (the failing case on the default
+decider and the passing case on yours).
+
 The general-interest bar is high on purpose — engram aims for
-a small, stable default set of deciders, with extensions living
-in user code until empirically justified.
+a small, stable default set of deciders, with extensions
+living in user code until empirically justified. But the bar
+is now achievable with one command, not "requires modifying
+the runner" as an earlier version of this doc said.
 
 ## Further reading
 

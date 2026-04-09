@@ -7,7 +7,6 @@ case appears).
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
@@ -47,13 +46,24 @@ class Decision:
 class WriteContext:
     """Context passed to ``WriteDecider.decide``.
 
-    Kept deliberately small. The ``recall`` callable is the policy's only
-    way to peek at existing memory — it never touches the vstash instance
-    directly, which keeps the policies pure and the boundary clean.
+    Kept deliberately small. A write decider gets the project name and
+    nothing else; if it needs similarity information, it should use
+    hydration (see ``HeuristicWriteDecider.set_hydrate_fn``) to
+    pre-populate state at ``Memory`` construction time, NOT live queries
+    during ``decide()``.
+
+    **Historical note (2026-04-09, Jay's extending.md review):** an earlier
+    version exposed a ``recall`` callable here, backed by
+    ``vstash.Memory.search``. That was dead weight: the default decider
+    never used it (it had been removed during the O(N²) dedup fix), and
+    its presence contradicted the extending.md rule "never call vstash
+    from decide()". Removed entirely. If a future similarity-based
+    decider needs read access to vstash at decision time, the right move
+    is to re-add a clearly-named callable with an explicit docstring
+    warning about cost — not to leave a vague hook around "for later."
     """
 
     project: str
-    recall: Callable[[str, int, str | None], list[Any]]
 
 
 class WriteDecider(Protocol):

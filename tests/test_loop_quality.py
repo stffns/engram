@@ -224,3 +224,76 @@ def test_format_result_is_human_readable(tmp_path: Path) -> None:
     assert "query_pass_rate" in text
     assert "cluster_purity" in text
     assert "topic_coverage" in text
+
+
+def test_run_scenario_accepts_custom_consolidate_decider(tmp_path: Path) -> None:
+    """run_scenario must let callers plug in custom deciders to
+    validate them against a scenario without writing a driver
+    script. This is the mechanism behind docs/extending.md's
+    'validate before landing' workflow."""
+    from engram import NeverConsolidate
+
+    scenario = load_scenario(FIXTURE_DIR / "analytics_project.json")
+    result = run_scenario(
+        scenario,
+        db=tmp_path / "lq.db",
+        consolidate_decider=NeverConsolidate(),
+    )
+    # With NeverConsolidate and no force, facts_written == 0
+    assert result.facts_written == 0
+    # But the interleave fallback still finds episodic events:
+    assert result.queries_passing >= 1
+
+
+def test_run_scenario_custom_linkage(tmp_path: Path) -> None:
+    """``embedding_linkage`` must be overridable from run_scenario
+    so the linkage grid search is scriptable without monkey-patching."""
+    scenario = load_scenario(FIXTURE_DIR / "analytics_project.json")
+
+    # analytics_project's same-topic pairs are all > 0.78 cosine,
+    # so both linkages give 100% on every metric
+    result_complete = run_scenario(
+        scenario,
+        db=tmp_path / "c.db",
+        embedding_linkage="complete",
+    )
+    result_average = run_scenario(
+        scenario,
+        db=tmp_path / "a.db",
+        embedding_linkage="average",
+    )
+    assert result_complete.query_pass_rate == 1.0
+    assert result_average.query_pass_rate == 1.0
+    assert result_complete.cluster_purity == 1.0
+    assert result_average.cluster_purity == 1.0
+
+
+def test_import_decider_from_dotted_path() -> None:
+    """The CLI's --consolidate-decider flag resolves dotted paths
+    to default-constructed instances. Test the resolver in
+    isolation so future changes to engram's class surface don't
+    silently break the CLI."""
+    from experiments.loop_quality.runner import _import_decider
+
+    instance = _import_decider("engram.NeverConsolidate")
+    from engram import NeverConsolidate
+
+    assert isinstance(instance, NeverConsolidate)
+
+
+def test_import_decider_rejects_non_dotted_path() -> None:
+    import pytest
+
+    from experiments.loop_quality.runner import _import_decider
+
+    with pytest.raises(ValueError, match="must be dotted"):
+        _import_decider("NoModulePrefix")
+
+
+def test_import_decider_rejects_unknown_class() -> None:
+    import pytest
+
+    from experiments.loop_quality.runner import _import_decider
+
+    with pytest.raises(ValueError, match="no attribute"):
+        _import_decider("engram.NonexistentDeciderXYZ")
