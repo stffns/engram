@@ -246,7 +246,7 @@ class Memory:
         is written. Both outcomes (write and skip) produce an audit row.
         """
         event = Event(text=text, layer=layer, title=title, tags=tags)
-        ctx = WriteContext(project=self.project, recall=self._policy_recall)
+        ctx = WriteContext(project=self.project)
 
         decision = self._write_decider.decide(event, ctx)
         self._write_audit(event, decision)
@@ -665,25 +665,6 @@ class Memory:
         )
 
     # --------------------------------------------------------------- internals
-
-    def _policy_recall(
-        self,
-        query: str,
-        top_k: int,
-        layer: str | None,
-    ) -> list[Any]:
-        """Recall callable handed to write deciders.
-
-        Kept here so policies never touch the vstash instance directly.
-        Scoped to the engram collection so deduplication never sees audit
-        rows.
-        """
-        return self._vstash.search(
-            query,
-            top_k=top_k,
-            collection=self.collection,
-            layer=layer,
-        )
 
     def _write_audit(self, event: Event, decision: Decision) -> None:
         """Write one audit row, bypassing the loop.

@@ -208,20 +208,45 @@ def run_scenario(
     db: Path,
     top_k: int = 5,
     embedding_threshold: float = 0.65,
+    embedding_linkage: str = "complete",
+    write_decider: Any = None,
+    recall_decider: Any = None,
+    consolidate_decider: Any = None,
+    forget_decider: Any = None,
 ) -> ScenarioResult:
-    """Run one scenario end-to-end against a fresh ``Memory``."""
+    """Run one scenario end-to-end against a fresh ``Memory``.
+
+    The four ``*_decider`` kwargs let a caller plug in custom
+    deciders to validate them against a real scenario without
+    writing their own driver script. ``None`` means "use the
+    engram default for this primitive" (except
+    ``consolidate_decider``, which defaults to
+    ``PeriodicConsolidator(min_events=2)`` to match the
+    scenario sizes — 2 is low enough to fire on every
+    scenario's 12 or 20 events).
+
+    Added 2026-04-09 in response to the extending.md review
+    (Jay) — the runner must be runnable with custom deciders
+    for the "validate before landing" workflow to be real.
+    """
     t0 = time.perf_counter()
+
+    cons_decider = consolidate_decider or PeriodicConsolidator(min_events=2)
 
     with Memory(
         project=f"loop_quality_{scenario.name}",
         db=db,
-        consolidate_decider=PeriodicConsolidator(min_events=2),
+        write_decider=write_decider,
+        recall_decider=recall_decider,
+        consolidate_decider=cons_decider,
+        forget_decider=forget_decider,
     ) as mem:
         path_to_topic = _ingest_scenario(mem, scenario)
 
         consolidation = mem.consolidate(
             method="embedding_v1",
             embedding_threshold=embedding_threshold,
+            embedding_linkage=embedding_linkage,
         )
 
         fact_topics = _fact_path_to_topic(consolidation.facts, path_to_topic)
@@ -289,6 +314,48 @@ def _discover_scenarios() -> list[Path]:
     return sorted(_SCENARIOS_DIR.glob("*.json"))
 
 
+def _import_decider(dotted_path: str) -> Any:
+    """Import and default-construct a decider class from a dotted path.
+
+    Example: ``my_package.my_module.MyDecider``. The class must be
+    default-constructible (no required args); for parameterized
+    deciders, define a subclass that hard-codes the params::
+
+        class MyAggressiveDecider(PeriodicConsolidator):
+            def __init__(self):
+                super().__init__(min_events=2)
+
+    Added 2026-04-09 to support the "validate your custom decider
+    on a loop_quality scenario" workflow from docs/extending.md.
+    """
+    if "." not in dotted_path:
+        raise ValueError(
+            f"decider path must be dotted (e.g. my_pkg.MyDecider), got {dotted_path!r}"
+        )
+    module_path, class_name = dotted_path.rsplit(".", 1)
+    import importlib
+
+    try:
+        module = importlib.import_module(module_path)
+    except ImportError as e:
+        raise ValueError(
+            f"could not import {module_path!r} for decider {dotted_path!r}: {e}"
+        ) from e
+
+    if not hasattr(module, class_name):
+        raise ValueError(
+            f"module {module_path!r} has no attribute {class_name!r}"
+        )
+    cls = getattr(module, class_name)
+    try:
+        return cls()
+    except TypeError as e:
+        raise ValueError(
+            f"{dotted_path!r} requires constructor args; "
+            f"subclass and hard-code them. Error: {e}"
+        ) from e
+
+
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p = argparse.ArgumentParser(
         prog="experiments.loop_quality.runner",
@@ -304,6 +371,40 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     p.add_argument("--top-k", type=int, default=5)
     p.add_argument("--embedding-threshold", type=float, default=0.70)
+    p.add_argument(
+        "--embedding-linkage",
+        default="complete",
+        choices=["complete", "average", "single"],
+        help="clustering linkage (default: complete)",
+    )
+    p.add_argument(
+        "--write-decider",
+        default=None,
+        metavar="DOTTED.PATH",
+        help=(
+            "dotted import path to a WriteDecider class (e.g. "
+            "my_pkg.MyDecider). Must be default-constructible. "
+            "Falls back to engram default when omitted."
+        ),
+    )
+    p.add_argument(
+        "--recall-decider",
+        default=None,
+        metavar="DOTTED.PATH",
+        help="same format as --write-decider, for RecallDecider",
+    )
+    p.add_argument(
+        "--consolidate-decider",
+        default=None,
+        metavar="DOTTED.PATH",
+        help="same format as --write-decider, for ConsolidateDecider",
+    )
+    p.add_argument(
+        "--forget-decider",
+        default=None,
+        metavar="DOTTED.PATH",
+        help="same format as --write-decider, for ForgetDecider",
+    )
     return p.parse_args(argv)
 
 
@@ -315,6 +416,15 @@ def main(argv: list[str] | None = None) -> int:
         print("no scenarios found", file=sys.stderr)
         return 2
 
+    # Resolve decider overrides before running anything — fail fast
+    # if any dotted path is wrong.
+    write_dec = _import_decider(args.write_decider) if args.write_decider else None
+    recall_dec = _import_decider(args.recall_decider) if args.recall_decider else None
+    cons_dec = (
+        _import_decider(args.consolidate_decider) if args.consolidate_decider else None
+    )
+    forget_dec = _import_decider(args.forget_decider) if args.forget_decider else None
+
     with tempfile.TemporaryDirectory(prefix="engram_loop_quality_") as td:
         db_dir = Path(td)
         for path in scenario_paths:
@@ -325,6 +435,11 @@ def main(argv: list[str] | None = None) -> int:
                 db=db,
                 top_k=args.top_k,
                 embedding_threshold=args.embedding_threshold,
+                embedding_linkage=args.embedding_linkage,
+                write_decider=write_dec,
+                recall_decider=recall_dec,
+                consolidate_decider=cons_dec,
+                forget_decider=forget_dec,
             )
             print(format_result(result))
             print()
