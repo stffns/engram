@@ -1,0 +1,392 @@
+# engram architecture
+
+This document describes engram's memory model, the decision loop,
+and how the code is organized. It is the "mental model" doc —
+read it once before diving into
+[`primitives.md`](primitives.md), [`cli.md`](cli.md), or
+[`mcp-server.md`](mcp-server.md).
+
+## The memory model
+
+engram organizes memory into four **collections**, each with a
+specific role. All four live in the same SQLite database via
+vstash — engram does not create its own storage.
+
+```
+┌──────────────────────────────────────────────────────────┐
+│ vstash SQLite (one DB per engram project)                 │
+│                                                           │
+│  ┌──────────────┐  ┌──────────────┐  ┌────────────────┐  │
+│  │ default      │  │ engram_audit │  │ engram_        │  │
+│  │ (user data)  │  │ (decisions)  │  │  tombstones    │  │
+│  │              │  │              │  │ (forgotten)    │  │
+│  │  layer:      │  │  layer:      │  │                │  │
+│  │   episodic   │  │   audit      │  │  layer:        │  │
+│  │   semantic   │  │              │  │   tombstone    │  │
+│  └──────────────┘  └──────────────┘  └────────────────┘  │
+└──────────────────────────────────────────────────────────┘
+```
+
+### `default` collection — your data
+
+This is where actual memory lives. Events land here when
+`should_remember` says yes. Inside this collection, vstash
+`layer` tags distinguish two kinds of memory:
+
+- **`layer="episodic"`** — raw events the agent saw. One document
+  per event. High volume, low information density. Think "what
+  the user said on 2026-04-08 at 11:04".
+- **`layer="semantic"`** — consolidated facts derived from one
+  or more episodic events. Lower volume, higher density. Think
+  "the user prefers Postgres as of 2026-04-08". Every semantic
+  fact has `derived_from:<path1>,<path2>` in its vstash `tags`,
+  so provenance is queryable.
+
+engram never writes to `layer="procedural"` yet — that's the
+fourth CONSTITUTION §5 layer, not implemented in v1.
+
+### `engram_audit` collection — every decision
+
+When a decider runs (`should_remember`, `should_recall`,
+`should_consolidate`, `should_forget`), engram writes one row here
+with:
+
+- The decision (`write: True/False` for remember; similar for
+  others)
+- The reason (e.g. `novel`, `dup_exact`, `too_short:<8`,
+  `empty`, `never_auto`, `consolidated_in_2_facts`)
+- The policy that fired (e.g. `HeuristicWriteDecider`)
+- A preview of the event text (for should_remember)
+- The layers/top_k chosen (for should_recall)
+
+Layer is always `"audit"`. Collection is always
+`engram_audit`, isolated from `default` so audit rows never
+leak into normal recall.
+
+You query it via `mem.audit(query, top_k)` or `engram audit`.
+
+### `engram_tombstones` collection — what was forgotten
+
+When `should_forget` decides to tombstone an event, engram:
+
+1. Writes a row here with the **full text** of the original
+   event plus metadata (title, layer, tags, derived_in_facts,
+   reason, policy, timestamp)
+2. Then calls `vstash.remove()` on the original path in the
+   `default` collection
+
+The tombstone **is** the forgetting record. It's not a soft
+delete flag on the original row (vstash doesn't support that),
+it's a copy in a separate collection that the user can query
+and, in principle, restore from.
+
+Layer is `"tombstone"`. Collection is `engram_tombstones`.
+Query via `mem.tombstones(query)` or `engram tombstones`.
+
+## The decision loop
+
+Every `Memory` operation runs through a decision primitive that
+writes an audit row, even if the decision is "do nothing."
+
+```
+                 ┌──────────────────────────────┐
+   user ─────►   │  Memory.remember(text)       │
+                 └────────┬─────────────────────┘
+                          │
+                          ▼
+                 ┌──────────────────────────────┐
+                 │  WriteDecider.decide(event)  │ ── audit row
+                 └────────┬─────────────────────┘
+                          │
+              ┌───────────┴────────────┐
+              │                        │
+         write=False              write=True
+              │                        │
+              ▼                        ▼
+    return RememberResult      vstash.remember(text, layer, ...)
+    (written=False)                    │
+                                       ▼
+                              ┌──────────────────────────┐
+                              │  Was vstash status=ok?   │
+                              └────────┬─────────────────┘
+                                       │
+                           ┌───────────┴────────────┐
+                           │                        │
+                         no                        yes
+                           │                        │
+                           ▼                        ▼
+              override decision =        return RememberResult
+              vstash_rejected:<status>   (written=True)
+              audit row, return
+              written=False
+```
+
+Two non-obvious things in this flow:
+
+1. **vstash has its own guardrails.** Specifically, it rejects
+   text shorter than ~20 chars with `status="empty"`, no
+   exception. engram surfaces this as a second decision
+   (`vstash_rejected:empty`) and writes a corrective audit row
+   so `RememberResult.written` never lies.
+2. **The write decider hydrates lazily from vstash.** The first
+   `decide()` call after `Memory` construction pulls every
+   existing episodic doc's text into the decider's in-process
+   dedup set. This is how cross-invocation dedup works for the
+   CLI and MCP server — every time you run `engram remember`,
+   the fresh decider sees everything already in the store.
+
+Similar flow diagrams exist for `recall`, `consolidate`, and
+`forget`. All four end in an audit row.
+
+### `recall` — layered interleave
+
+```
+   ┌────────────────────────────┐
+   │  Memory.recall(query)      │
+   └──────────┬─────────────────┘
+              │
+              │ (if layer is None)
+              ▼
+   ┌────────────────────────────┐
+   │  RecallDecider.decide()    │ ── audit row
+   │  returns RecallPlan:       │
+   │    [sem:top_k=5,           │
+   │     epi:top_k=3]           │
+   └──────────┬─────────────────┘
+              │
+              ▼
+   ┌────────────────────────────┐
+   │  Fetch ALL layers first    │ ← sequential drain was a bug,
+   │  (not sequential drain)    │   see notes/silt.md
+   └──────────┬─────────────────┘
+              │
+              ▼
+   ┌────────────────────────────┐
+   │  Round-robin interleave    │
+   │  dedup by path             │
+   │  truncate to user's top_k  │
+   └──────────┬─────────────────┘
+              │
+              ▼
+          SearchResult[]
+```
+
+If the caller passes an explicit `layer=`, the decider is
+bypassed and the call is a direct `vstash.search` with that
+layer. This is the escape hatch for benchmarks and for callers
+who already know exactly which layer they want.
+
+### `consolidate` — episodic → semantic via clustering
+
+```
+   ┌────────────────────────────┐
+   │  Memory.consolidate()      │
+   └──────────┬─────────────────┘
+              │
+              ▼
+   ┌────────────────────────────┐
+   │  List episodic docs        │
+   │  Reassemble text from      │
+   │  chunks                    │
+   └──────────┬─────────────────┘
+              │
+              ▼
+   ┌────────────────────────────┐
+   │  ConsolidateDecider.decide │ ── audit row
+   │  (n_events, ctx)           │
+   └──────────┬─────────────────┘
+              │
+      ┌───────┴────────┐
+      │                │
+   proceed=False   proceed=True  (or force=True)
+      │                │
+      ▼                ▼
+   skip         cluster_by_embedding(events, embed_fn, threshold,
+                                     linkage="complete")
+                       │
+                       ▼
+              For each cluster ≥ min_cluster:
+                  materialize_fact(cluster)
+                  fact_path = f"text://fact_{fact_fingerprint(fact)}"
+                  vstash.remember(
+                      fact.text,
+                      title=f"fact_{fp}",
+                      layer="semantic",
+                      tags=f"derived_from:{','.join(fact.derived_from)}",
+                  )
+                       │
+                       ▼
+              return ConsolidationResult
+```
+
+The clustering uses vstash's embedder (resolved from vstash's
+`store_meta.embedding_model` at runtime, falling back to config
+default) with complete linkage at cosine threshold 0.70. Both
+knobs were picked via grid search on three loop-quality
+scenarios — see
+[`experiments/loop_quality/RESULTS.md`](../experiments/loop_quality/RESULTS.md).
+
+Fact identity is a stable SHA-1 of the sorted `derived_from`
+list, so re-running consolidation on the same episodic set is
+idempotent: the fact gets the same path and vstash overwrites
+it rather than duplicating.
+
+### `forget` — tombstone, not delete
+
+```
+   ┌────────────────────────────┐
+   │  Memory.forget()           │
+   └──────────┬─────────────────┘
+              │
+              ▼
+   ┌────────────────────────────┐
+   │  Build derived_in map:     │
+   │    event_path → [fact      │
+   │      paths citing it]      │
+   │  (from semantic layer's    │
+   │   `tags` field)            │
+   └──────────┬─────────────────┘
+              │
+              ▼
+   ┌────────────────────────────┐
+   │  For each episodic event:  │
+   │   ForgetDecider.decide()   │ ── audit row
+   └──────────┬─────────────────┘
+              │
+    ┌─────────┴──────────┐
+    │                    │
+  skip              tombstone
+    │                    │
+    │                    ▼
+    │            ┌──────────────────────┐
+    │            │ Write tombstone      │
+    │            │ row to engram_       │
+    │            │ tombstones with      │
+    │            │ full text            │
+    │            └──────┬───────────────┘
+    │                   │
+    │                   ▼
+    │            ┌──────────────────────┐
+    │            │ vstash.remove(path)  │
+    │            └──────────────────────┘
+    │                   │
+    └───────────────────┴─► ForgetResult
+```
+
+The tombstone is written **before** the removal. If the
+tombstone write fails, we raise — we must not remove the
+original without a backup. This is the one fail-closed path in
+the loop; every other audit write is fail-open.
+
+## Code map
+
+```
+engram/
+├── __init__.py            ← public surface. Exports Memory +
+│                            every decider + Fact/RememberResult/etc.
+├── memory.py              ← Memory class. Wires vstash + deciders,
+│                            implements remember/recall/consolidate/
+│                            forget/audit/tombstones. Resolves the
+│                            embed model at runtime.
+├── consolidation.py       ← Fact dataclass, cluster_by_{jaccard,
+│                            recall, embedding}, materialize_fact,
+│                            fact_fingerprint. Pure functions —
+│                            Memory is the only thing that calls
+│                            them.
+├── audit.py               ← format_{audit,recall,consolidate,
+│                            forget}_row helpers. Collection/layer
+│                            constants.
+├── cli.py                 ← argparse CLI. Eight subcommands, each
+│                            a thin wrapper around a Memory method.
+│                            No business logic.
+├── mcp_server.py          ← FastMCP server. Same eight
+│                            primitives as the CLI, exposed as MCP
+│                            tools.
+└── policies/
+    ├── __init__.py        ← re-exports every public policy
+    ├── types.py           ← Event, Decision, WriteContext,
+    │                        WriteDecider Protocol
+    ├── should_remember.py ← AlwaysWrite, HeuristicWriteDecider
+    ├── should_recall.py   ← SemanticOnlyRecaller, LayeredRecaller,
+    │                        RecallPlan, LayerRequest, RecallContext
+    ├── should_consolidate.py  ← NeverConsolidate, PeriodicConsolidator
+    │                            ConsolidationDecision, ConsolidateContext
+    └── should_forget.py   ← NeverForget, ForgetConsolidated,
+                              ForgetContext, ForgetDecision
+```
+
+**Invariants maintained by the code map:**
+
+1. `memory.py` is the only module that talks to vstash. Every
+   decision primitive and every helper function takes pure
+   data in and returns pure data out — they never open a
+   vstash connection.
+2. `policies/` is the only place a user subclasses or extends.
+   Writing a custom decider never requires touching `memory.py`.
+3. `cli.py` and `mcp_server.py` are thin wrappers. If either
+   needs behavior that isn't in `memory.py`, the method goes
+   in `memory.py` first.
+
+## Interaction with vstash
+
+engram is a **strict consumer** of vstash's public API:
+
+- `vstash.Memory.remember(text, title, collection, layer, tags)`
+  — every write goes through here.
+- `vstash.Memory.search(query, top_k, collection, layer)` — every
+  read (except direct list/get_chunks) goes through here.
+- `vstash.Memory.list(collection, layer)` — used by consolidate
+  and forget to enumerate episodic/semantic docs.
+- `vstash.Memory.get_document_chunks(path, collection)` — used
+  by consolidate to re-assemble event text from stored chunks.
+- `vstash.Memory.remove(path)` — used by forget to remove the
+  original event after writing its tombstone.
+- `vstash.Memory.stats()` — passed through by the `stats` CLI
+  command.
+- `vstash.embed.embed_texts(texts, model_name, backend)` — used
+  by `cluster_by_embedding` to compute raw cosine for
+  consolidation clustering.
+
+engram **does not** touch:
+
+- `vstash._store` internals, except to read `_store.db_path`
+  for the embed-model resolver
+- SQLite tables directly (except in probe scripts under
+  `notes/`)
+- `vstash.Memory.ask` (the RAG-style chat method)
+- `vstash` journal API (`journal_log`, `journal_save`, etc.)
+
+When a vstash feature is missing or surprising, the
+resolution is an upstream issue, not a workaround. Filed
+issues so far: #165 (closed), #172, #173.
+
+## What this architecture is NOT
+
+- **Not a graph database.** There is no edge table, no
+  Neo4j-style traversal, no "tunnels between rooms" like
+  mempalace. Engram represents relationships as `derived_from`
+  tags on semantic facts and nothing else. If a knowledge
+  graph is needed, it goes in a separate layer that also wraps
+  vstash, not inside engram.
+- **Not a multi-agent system.** One engram Memory = one agent.
+  Multiple agents mean multiple DBs. Shared memory between
+  agents is a separate problem not addressed here.
+- **Not a framework.** There is no plugin registry, no DSL, no
+  YAML config. Deciders are plain Python objects that match a
+  Protocol. Configure via constructor kwargs.
+- **Not RAG-as-a-service.** Recall returns `SearchResult`
+  objects from vstash; it does not call an LLM to generate
+  answers. What you do with the hits is your problem.
+
+See [`CONSTITUTION.md`](../CONSTITUTION.md) §3 for the full
+non-goals list.
+
+## Further reading
+
+- [`primitives.md`](primitives.md) — each decision primitive in depth
+- [`cli.md`](cli.md) — CLI command reference
+- [`mcp-server.md`](mcp-server.md) — MCP tools + Claude Code setup
+- [`extending.md`](extending.md) — write your own decider
+- [`../CONSTITUTION.md`](../CONSTITUTION.md) — principles
+- [`../experiments/BENCHMARK_STRATEGY.md`](../experiments/BENCHMARK_STRATEGY.md) — measurement doctrine
+- [`../notes/silt.md`](../notes/silt.md) — design-rule provenance
