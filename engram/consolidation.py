@@ -317,9 +317,12 @@ def cluster_by_embedding(
         groups = _single_link(n, sim, threshold)
     elif linkage == "complete":
         groups = _complete_link(n, sim, threshold)
+    elif linkage == "average":
+        groups = _average_link(n, sim, threshold)
     else:
         raise ValueError(
-            f"unknown linkage {linkage!r}; expected 'single' or 'complete'"
+            f"unknown linkage {linkage!r}; "
+            f"expected 'single', 'complete', or 'average'"
         )
 
     return [
@@ -371,6 +374,11 @@ def _complete_link(
     two clusters merge. Otherwise no more merges are possible and
     we stop. The weakest-edge criterion is equivalent to maximum
     distance in distance-space (the textbook "complete linkage").
+
+    Trade-off: strictest of the three linkage strategies. Prevents
+    single cross-topic edges from cascading, but can subcluster
+    genuinely related groups if one outlier is below threshold
+    with the rest. See ``_average_link`` for the middle ground.
     """
     clusters: list[set[int]] = [{i} for i in range(n)]
 
@@ -388,6 +396,53 @@ def _complete_link(
                     best_pair = (i, j)
 
         if best_pair is None or best_min_sim < threshold:
+            break
+
+        i, j = best_pair
+        clusters[i] = clusters[i] | clusters[j]
+        clusters.pop(j)
+
+    return clusters
+
+
+def _average_link(
+    n: int,
+    sim: list[list[float]],
+    threshold: float,
+) -> list[set[int]]:
+    """Agglomerative average-link: merge when the mean cross-pair passes.
+
+    The middle ground between single-link (any edge passes) and
+    complete-link (every edge must pass). At each step, the cluster
+    pair with the highest *average* cross-pair similarity merges,
+    if that average is above ``threshold``. More forgiving than
+    complete-link — one outlier below threshold does not veto the
+    merge — while still resistant to the single-link cascade,
+    because an outlier cross-topic edge is diluted by all the
+    within-cluster edges in its pair's clusters as they grow.
+
+    Added 2026-04-09 after Jay's architecture review pointed out
+    that complete-link can subcluster genuinely related groups
+    when one outlier is weaker than the rest. See
+    ``experiments/loop_quality/RESULTS.md`` for the grid comparing
+    complete and average at threshold 0.70 on all three scenarios.
+    """
+    clusters: list[set[int]] = [{i} for i in range(n)]
+
+    while len(clusters) > 1:
+        best_pair: tuple[int, int] | None = None
+        best_avg = -1.0
+        for i in range(len(clusters)):
+            for j in range(i + 1, len(clusters)):
+                pairs = [
+                    sim[a][b] for a in clusters[i] for b in clusters[j]
+                ]
+                avg = sum(pairs) / len(pairs)
+                if avg > best_avg:
+                    best_avg = avg
+                    best_pair = (i, j)
+
+        if best_pair is None or best_avg < threshold:
             break
 
         i, j = best_pair

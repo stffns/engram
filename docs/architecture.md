@@ -42,8 +42,15 @@ This is where actual memory lives. Events land here when
   fact has `derived_from:<path1>,<path2>` in its vstash `tags`,
   so provenance is queryable.
 
-engram never writes to `layer="procedural"` yet — that's the
-fourth CONSTITUTION §5 layer, not implemented in v1.
+engram does NOT currently use `layer="procedural"`. CONSTITUTION §5
+describes procedural memory as a potential fourth memory layer
+for captured-on-success task recipes ("how the agent solved X
+last time"). It is not in v1, and **it is not on the near-term
+roadmap** — there is no scheduled slice that implements it. The
+layer is mentioned here only so a reader who reads CONSTITUTION
+§5 knows why it's not represented in any diagram. Treat the
+two-layer model (episodic + semantic) as engram's full memory
+shape until a scenario demonstrably requires a third layer.
 
 ### `engram_audit` collection — every decision
 
@@ -135,6 +142,35 @@ Two non-obvious things in this flow:
    CLI and MCP server — every time you run `engram remember`,
    the fresh decider sees everything already in the store.
 
+   **Scaling caveat.** Current hydration is O(N) memory and
+   O(N) SQLite round-trips per `Memory` construction: one
+   `list()` + N `get_document_chunks()` calls, then every text
+   joined into a `set[str]`. At ~10k episodic events this costs
+   roughly 5 MB of in-process strings and 15-25 seconds of
+   startup latency per CLI invocation; at 100k it becomes
+   minutes of startup and tens of MB of memory. **The current
+   implementation is expected to break usefully around
+   10k–50k events**, depending on hardware.
+
+   This is a known gap, not a hidden footgun. Two concrete
+   fixes, neither implemented in v1:
+
+   - **Hash-only hydration** — store SHA-1 of normalized text
+     instead of the text itself (~8 bytes per entry, 60× memory
+     reduction, same startup cost). ~20 lines of code; backward
+     compatible with `HeuristicWriteDecider` semantics.
+   - **Persistent dedup sidecar** — move `_seen` into a dedicated
+     `engram_dedup` collection with one row per hash. One query
+     at startup, incremental writes on each `remember`. Scales
+     by design. ~50 lines of code.
+
+   Neither fix ships until a loop-quality scenario exercises a
+   large store. Building for a problem that no scenario
+   demonstrates would be speculative work, and we'd have no way
+   to validate the fix doesn't regress. Track under
+   `loop_quality/scenarios/` — a "10k events" scenario is the
+   gating requirement.
+
 Similar flow diagrams exist for `recall`, `consolidate`, and
 `forget`. All four end in an audit row.
 
@@ -221,10 +257,43 @@ who already know exactly which layer they want.
 
 The clustering uses vstash's embedder (resolved from vstash's
 `store_meta.embedding_model` at runtime, falling back to config
-default) with complete linkage at cosine threshold 0.70. Both
-knobs were picked via grid search on three loop-quality
+default) with **complete linkage at cosine threshold 0.70**.
+Both knobs were picked via grid search on three loop-quality
 scenarios — see
 [`experiments/loop_quality/RESULTS.md`](../experiments/loop_quality/RESULTS.md).
+
+**Why complete linkage and not average:** a 2026-04-09 grid
+compared `complete` and `average` linkage across the three
+scenarios at thresholds 0.65 – 0.82. Headline findings:
+
+- **Complete @ 0.70 is the unique Pareto point** — the lowest
+  threshold where all three scenarios hit 100% pass rate AND
+  100% purity simultaneously, with the highest mean
+  topic_coverage (71%).
+- **Average linkage matches complete at threshold 0.72+** and
+  loses to complete at 0.70 specifically on
+  `jay_vstash_2026_04_09_snapshot`: average pulls the
+  `agent-memory-use-cases` event into the `vstash_notes`
+  cluster because the mean cross-pair stays above 0.70 even
+  though one cross-pair is below. Complete rejects that outlier
+  and keeps the cluster pure.
+- **Neither linkage strictly dominates the other.** They are
+  equivalent at 0.72+; complete wins at 0.70 because the
+  outlier-rejection behavior matters at the lowest viable
+  threshold.
+- **Average linkage is a real option.** It is implemented,
+  tested, and passable via `Memory.consolidate(
+  embedding_linkage="average")`. A user whose content
+  distribution differs from the three scenarios (e.g. denser
+  clusters with deliberate inclusion of borderline members)
+  should try average — it may Pareto-dominate complete on
+  different content. The default is complete because **these
+  specific scenarios** prefer it.
+
+The trade-off in one line: **complete is conservative about
+the identity of a cluster, average is generous to cluster
+growth**. Neither is objectively correct; the grid picked the
+one that Pareto-wins on engram's own design bar.
 
 Fact identity is a stable SHA-1 of the sorted `derived_from`
 list, so re-running consolidation on the same episodic set is
