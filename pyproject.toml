@@ -37,6 +37,9 @@ dev = [
 Homepage = "https://github.com/stffns/engram"
 Issues = "https://github.com/stffns/engram/issues"
 
+[project.scripts]
+engram = "engram.cli:main"
+
 [tool.hatch.build.targets.wheel]
 packages = ["engram"]
 

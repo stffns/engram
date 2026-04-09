@@ -181,12 +181,27 @@ def test_memory_recall_does_not_leak_audit_rows(tmp_path: Path) -> None:
 
 
 def test_memory_always_write_overrides_default(tmp_path: Path) -> None:
+    """AlwaysWrite bypasses HeuristicWriteDecider's dedup rule.
+
+    We use a duplicate-write test instead of a too_short test because
+    vstash has its own guardrail (rejects texts < ~20 chars with
+    status="empty"), and Memory.remember now surfaces that as a
+    failed write. AlwaysWrite overriding the decider's "too_short"
+    rule is moot when vstash will reject anyway.
+    """
+    text = (
+        "A sentence long enough to pass vstash's ingest guardrail for "
+        "the AlwaysWrite override test on 2026-04-09."
+    )
     with Memory(
         project="phase1_baseline",
         db=tmp_path / "e.db",
         write_decider=AlwaysWrite(),
     ) as mem:
-        result = mem.remember("hi")
+        r1 = mem.remember(text)
+        r2 = mem.remember(text)  # HeuristicWriteDecider would skip as dup_exact
 
-    assert result.written
-    assert result.decision.reason == "always_write"
+    assert r1.written
+    assert r2.written  # AlwaysWrite accepts the duplicate
+    assert r1.decision.reason == "always_write"
+    assert r2.decision.reason == "always_write"
