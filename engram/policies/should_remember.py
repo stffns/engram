@@ -15,6 +15,8 @@ phase, gated on a benchmark per CONSTITUTION §9.
 
 from __future__ import annotations
 
+from collections.abc import Callable, Iterable
+
 from engram.policies.types import Decision, Event, WriteContext
 
 
@@ -51,25 +53,29 @@ class HeuristicWriteDecider:
     3. Length above ``max_chars`` → skip (``too_long:>N``). Not a hard
        failure; the user can override the decider if they want truly large
        writes.
-    4. Exact-text duplicate already seen by this decider instance → skip
-       (``dup_exact``). Comparison is whitespace-normalized and uses an
-       in-process set, NOT a recall against vstash. Recall-based dedup
-       was the original design but a real-data run on LongMemEval showed
-       it dominates ingest cost (each write triggered a 700ms+ hybrid
-       search against an expanding index — O(N²) per haystack). Exact
-       dedup is what this rule actually wants, and a hash lookup is the
-       right tool. The ``ctx.recall`` callable stays in the WriteContext
-       for *future* similarity-based deciders that genuinely need it.
+    4. Exact-text duplicate already seen → skip (``dup_exact``).
+       Comparison is whitespace-normalized and uses an in-process set,
+       NOT a recall against vstash (that dominates ingest cost at
+       real-data scale, O(N²) per haystack).
     5. Otherwise → write (``novel``) and remember the normalized text.
 
-    No LLM, no embedding-similarity threshold. Embedding-based novelty
-    detection is intentionally deferred until a benchmark says it earns
-    its cost.
+    **State hydration (2026-04-09):** originally the decider's ``_seen``
+    set was fresh on every instantiation, which meant cross-invocation
+    duplicates weren't caught — a CLI user who re-piped the same chat
+    log twice would get every line written twice because each CLI
+    invocation constructed a new decider. Fix: ``Memory`` now hands the
+    decider a ``hydrate_fn`` callable that returns the texts of every
+    existing episodic doc in the collection. On the first ``decide()``
+    call, the decider lazily pulls those texts into ``_seen``. Cross-
+    invocation dedup now works for any caller who keeps the same DB
+    between runs. If ``hydrate_fn`` is None (the default for tests and
+    standalone usage), the decider is stateless across instances — old
+    behavior preserved.
 
-    Per-instance state: ``HeuristicWriteDecider`` is **stateful**. The
-    ``seen`` set lives for the life of the decider, which mirrors the life
-    of the engram ``Memory`` it's attached to. A fresh ``Memory`` gets a
-    fresh decider with an empty set — no cross-conversation contamination.
+    The hydration is lazy (deferred to the first ``decide()``) because
+    it's expensive: one ``list()`` plus N ``get_document_chunks()``
+    calls against vstash. For a caller that never writes, we never
+    pay the cost.
     """
 
     name = "HeuristicWriteDecider"
@@ -79,10 +85,51 @@ class HeuristicWriteDecider:
         *,
         min_chars: int = 8,
         max_chars: int = 100_000,
+        hydrate_fn: Callable[[], Iterable[str]] | None = None,
     ) -> None:
         self.min_chars = min_chars
         self.max_chars = max_chars
         self._seen: set[str] = set()
+        self._hydrate_fn = hydrate_fn
+        # ``_hydrated`` is strictly "has the hydration run yet?" — it
+        # does NOT short-circuit construction with no hydrate_fn, so
+        # a later ``set_hydrate_fn`` call (from Memory.__init__) can
+        # still wire the decider before the first ``decide()``.
+        self._hydrated = False
+
+    def set_hydrate_fn(
+        self,
+        fn: Callable[[], Iterable[str]],
+    ) -> None:
+        """Attach a hydration callable after construction.
+
+        Used by ``Memory.__init__`` to wire the decider to its
+        surrounding vstash without requiring the caller to know about
+        the dedup set. If the decider has already hydrated (the first
+        ``decide()`` ran), this is a no-op — we don't retro-fill the
+        set, the caller should provide hydrate_fn at construction
+        time for that.
+        """
+        if self._hydrated:
+            return
+        self._hydrate_fn = fn
+
+    def _hydrate_if_needed(self) -> None:
+        if self._hydrated:
+            return
+        self._hydrated = True
+        if self._hydrate_fn is None:
+            return
+        try:
+            for text in self._hydrate_fn():
+                if text:
+                    self._seen.add(_normalize(text))
+        except Exception:
+            # Hydration failures must not block writes. If vstash is
+            # unreachable at hydration time, the decider behaves as if
+            # ``_seen`` is empty and future dup_exact checks are lost
+            # — acceptable degradation.
+            pass
 
     def decide(self, event: Event, ctx: WriteContext) -> Decision:  # noqa: ARG002
         text = event.text.strip()
@@ -95,6 +142,8 @@ class HeuristicWriteDecider:
 
         if len(text) > self.max_chars:
             return Decision(False, f"too_long:>{self.max_chars}", 1.0, self.name)
+
+        self._hydrate_if_needed()
 
         norm = _normalize(text)
         if norm in self._seen:

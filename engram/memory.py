@@ -198,6 +198,38 @@ class Memory:
         self._recall_decider: RecallDecider = recall_decider or LayeredRecaller()
         self._forget_decider: ForgetDecider = forget_decider or NeverForget()
 
+        # Wire the write decider's hydration to vstash so cross-invocation
+        # dedup works without the caller knowing about _seen sets. If the
+        # decider doesn't support hydration (e.g. AlwaysWrite, or a
+        # user's custom decider), this is a silent no-op.
+        if hasattr(self._write_decider, "set_hydrate_fn"):
+            self._write_decider.set_hydrate_fn(self._hydrate_write_seen)
+
+    def _hydrate_write_seen(self) -> list[str]:
+        """Pull existing episodic texts for the write decider's dedup set.
+
+        Called lazily on the decider's first ``decide()`` after init.
+        One ``list()`` + N ``get_document_chunks()`` calls. Expensive
+        per init but O(1) per subsequent write.
+        """
+        docs = self._vstash.list(
+            collection=self.collection,
+            layer=DEFAULT_LAYER,
+        )
+        out: list[str] = []
+        for doc in docs:
+            try:
+                chunks = self._vstash.get_document_chunks(
+                    doc.path,
+                    collection=self.collection,
+                )
+                text = " ".join(chunks).strip()
+                if text:
+                    out.append(text)
+            except Exception:
+                continue
+        return out
+
     # ------------------------------------------------------------------ write
 
     def remember(
@@ -229,6 +261,23 @@ class Memory:
             layer=layer,
             tags=tags,
         )
+
+        # vstash has its own guardrails (e.g. it rejects text shorter
+        # than ~20 chars with status="empty", no error, no chunks).
+        # Surface that as a failed write instead of claiming success —
+        # a downstream caller who reads ``written=True`` on a
+        # vstash-rejected ingest would be lied to.
+        status = getattr(ingest, "status", "ok")
+        if status != "ok":
+            override = Decision(
+                write=False,
+                reason=f"vstash_rejected:{status}",
+                confidence=1.0,
+                policy=decision.policy,
+            )
+            self._write_audit(event, override)
+            return RememberResult(written=False, decision=override, ingest=ingest)
+
         return RememberResult(written=True, decision=decision, ingest=ingest)
 
     # ------------------------------------------------------------------- read
