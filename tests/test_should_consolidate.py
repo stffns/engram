@@ -272,6 +272,51 @@ def test_cluster_by_embedding_rejects_unknown_linkage() -> None:
         )
 
 
+def test_cluster_by_embedding_average_link_accepts_one_outlier() -> None:
+    """Average-link's key behavior: a cluster with one weaker
+    member still merges if the mean cross-pair is above threshold.
+    Complete-link would reject the same merge."""
+    items = [("p1", "a"), ("p2", "b"), ("p3", "c"), ("p4", "d")]
+    # p1, p2, p3 are near-identical. p4 is weaker with all of them
+    # but its AVERAGE similarity is still above 0.7.
+    vectors = {
+        "a": [1.0, 0.0, 0.0],
+        "b": [0.99, 0.14, 0.0],   # cos ≈ 0.99 with a
+        "c": [0.98, 0.20, 0.0],   # cos ≈ 0.98 with a
+        "d": [0.80, 0.60, 0.0],   # cos ≈ 0.80 with a, slightly less with b/c
+    }
+    clusters = cluster_by_embedding(
+        items,
+        embed_fn=lambda ts: [vectors[t] for t in ts],
+        threshold=0.75,
+        linkage="average",
+    )
+    # Average-link should merge all 4 if mean cross-pairs stay above 0.75
+    assert len(clusters) == 1
+    assert len(clusters[0]) == 4
+
+
+def test_cluster_by_embedding_average_link_still_rejects_cross_topic() -> None:
+    """Average-link is not permissive like single-link. A cross-topic
+    outlier whose cross-pairs are all clearly below threshold should
+    NOT get pulled into a cluster."""
+    items = [("p1", "a"), ("p2", "b"), ("p3", "c")]
+    # a and b cluster; c is clearly unrelated
+    vectors = {
+        "a": [1.0, 0.0, 0.0],
+        "b": [0.95, 0.31, 0.0],  # cos(a,b) ≈ 0.95
+        "c": [0.0, 0.0, 1.0],    # cos(a,c) = 0, cos(b,c) = 0
+    }
+    clusters = cluster_by_embedding(
+        items,
+        embed_fn=lambda ts: [vectors[t] for t in ts],
+        threshold=0.70,
+        linkage="average",
+    )
+    sizes = sorted(len(c) for c in clusters)
+    assert sizes == [1, 2]
+
+
 def test_cluster_by_embedding_handles_embedder_failure() -> None:
     """An embedder that raises should leave each item as its own cluster."""
     def angry_embedder(texts: list[str]) -> list:

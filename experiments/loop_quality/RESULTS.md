@@ -34,6 +34,56 @@ positioning" disclaimer to hide behind.
 | 2026-04-09 | `HEAD` | `session_2026_04_09` | `embedding_v1` | **0.70** | complete | 12 | 2 | **100.00%** (4/4) | **100.00%** | 33.33% | **Purity jumped 75% → 100%.** Higher threshold drops the two cross-topic edges that were crossing (0.663, 0.652) and also drops the borderline `consolidation_design` pair (0.661). Only 2 pure facts remain (mempalace, vstash_bug), coverage drops 50% → 33%. But `query_pass_rate` stays at 100% because the interleave fallback in `Memory.recall` catches dedup_fix, longmemeval, and consolidation_design queries episodically. Coverage is a means, not an end — pass_rate is what users feel. |
 | 2026-04-09 | `HEAD` | `jay_vstash_2026_04_09_snapshot` | `embedding_v1` | **0.70** | complete | 20 | 4 | **100.00%** (4/4) | **100.00%** | 80.00% | **Pass rate jumped 75% → 100%, purity 75% → 100%.** Raising the threshold broke up Fact 4 — the agent-memory-use-cases doc no longer clusters with the vstash_notes group, so the vstash cluster becomes pure. `vstash_notes` query now passes. The full three-scenario picture at 0.70: all three at 100% pass_rate and 100% purity. |
 
+## Linkage × threshold grid search (2026-04-09, arch review follow-up)
+
+Jay's architecture review pointed out that complete-link is
+conservative and can sub-cluster when one outlier is weaker
+than the rest. Average-link is the natural middle ground
+between single (cascades) and complete (can reject). The
+threshold grid from earlier only varied threshold at linkage
+fixed to `complete`; this second grid adds `average` as a
+dimension.
+
+```
+                       complete                    average
+scenario               0.65  0.68  0.70  0.72      0.65  0.68  0.70  0.72
+─────────────────────  ─────────────────────────  ─────────────────────────
+analytics_project      100   100   100   100       100   100   100   100
+  (min_pass/min_pur)
+session_2026_04_09     100   100   100   100       100   100   100   100
+jay_vstash_snapshot     75    75   100   100        75    75    75   100
+                                                              ↑
+                                                     fails at 0.70
+```
+
+**Observations:**
+
+- **At threshold 0.70, complete strictly dominates average on
+  `jay_vstash_snapshot`.** Complete keeps the vstash_notes
+  cluster pure by rejecting `agent-memory-use-cases` as an
+  outlier with at least one cross-pair below threshold.
+  Average admits it because the mean cross-pair stays above
+  threshold, resulting in an impure 4-event cluster and
+  dragging pass_rate and purity to 75%.
+- **At threshold 0.72+, complete and average are equivalent**
+  on all three scenarios. Both hit 100% pass rate AND 100%
+  purity everywhere.
+- **Complete @ 0.70 is the unique Pareto point** for the
+  combined (pass, purity, coverage) objective. It is the
+  *lowest threshold* where both complete and average can
+  possibly reach the 100%/100% plateau, and complete is the
+  only linkage that actually gets there.
+
+**Verdict:** keep `complete` as the engram default. Document
+`average` as a supported alternative accessible via
+`Memory.consolidate(embedding_linkage="average")`. A user whose
+content looks different from the three scenarios (denser
+clusters, more generous inclusion tolerance) may find average
+Pareto-wins on their data — we just can't show it on this
+scenario set.
+
+**No change to defaults.** `complete @ 0.70` remains.
+
 ## Threshold grid search (2026-04-09, all three scenarios)
 
 Once there were three scenarios in the safety net, the "right
