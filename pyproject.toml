@@ -50,3 +50,13 @@ select = ["E", "F", "I", "UP", "B", "SIM"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra"
+# pytest-asyncio is not used by engram but is installed in the
+# developer's environment. Pin the fixture scope to silence its
+# default-unset deprecation warning.
+asyncio_default_fixture_loop_scope = "function"
+# faiss ships SWIG bindings without __module__ attributes. Suppress
+# the upstream DeprecationWarning so we do not mask our own.
+filterwarnings = [
+    "ignore::DeprecationWarning:importlib._bootstrap",
+    "ignore::DeprecationWarning:sys",
+]
