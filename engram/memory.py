@@ -57,10 +57,59 @@ if TYPE_CHECKING:
 
 DEFAULT_LAYER = "episodic"
 DEFAULT_COLLECTION = "default"
-# Default embedding model for consolidation. Matches vstash's own
-# default (``BAAI/bge-small-en-v1.5``) so consolidation sees the same
-# vector space as the episodic index that produced the events.
-DEFAULT_EMBED_MODEL = "BAAI/bge-small-en-v1.5"
+
+
+def _resolve_vstash_embed_model(vstash_memory: vstash.Memory) -> str:
+    """Return the embedding model this vstash Memory is actually using.
+
+    Priority:
+
+    1. ``store_meta.embedding_model`` from the vstash SQLite DB. This is
+       authoritative for an existing store because it records the model
+       vstash used to *ingest* the chunks that are now sitting in the
+       vector index. Reading any other model at clustering time creates
+       a silent vector-space mismatch between "how engram groups" and
+       "how vstash retrieves."
+    2. ``vstash.config.EmbeddingsConfig().model`` — vstash's current
+       factory default. Used when the store is fresh (no ingests yet,
+       so no ``store_meta`` row) and when reading the DB fails for any
+       reason.
+
+    The earlier implementation hardcoded ``BAAI/bge-small-en-v1.5`` as
+    ``DEFAULT_EMBED_MODEL``, which was wrong for any user who had
+    configured vstash with a different model. On Jay's live vstash
+    (which uses ``paraphrase-multilingual-MiniLM-L12-v2``), engram
+    consolidation was re-embedding chunks with bge-small and then
+    writing facts that vstash indexed back with multilingual. Clusters
+    were internally coherent but misaligned with the actual retrieval
+    vector space. Caught 2026-04-09 while verifying the store wasn't
+    mixed (it wasn't — but engram was pretending it was bge-small).
+    """
+    import sqlite3
+
+    from vstash.config import EmbeddingsConfig
+
+    fallback = EmbeddingsConfig().model
+
+    db_path = getattr(getattr(vstash_memory, "_store", None), "db_path", None)
+    if db_path is None:
+        return fallback
+
+    try:
+        con = sqlite3.connect(str(db_path))
+        try:
+            row = con.execute(
+                "SELECT value FROM store_meta WHERE key = ?",
+                ("embedding_model",),
+            ).fetchone()
+        finally:
+            con.close()
+    except Exception:
+        return fallback
+
+    if row and row[0]:
+        return row[0]
+    return fallback
 
 
 @dataclass(frozen=True)
@@ -326,11 +375,13 @@ class Memory:
             )
 
         if method == "embedding_v1":
+            model_name = _resolve_vstash_embed_model(self._vstash)
+
             def _embed(texts: list[str]) -> list[Any]:
                 from vstash.embed import embed_texts
                 return embed_texts(
                     texts,
-                    model_name=DEFAULT_EMBED_MODEL,
+                    model_name=model_name,
                     backend="auto",
                 )
             clusters = cluster_by_embedding(
