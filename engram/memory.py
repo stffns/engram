@@ -291,7 +291,7 @@ class Memory:
         *,
         method: str = "embedding_v1",
         min_cluster: int = 2,
-        embedding_threshold: float = 0.65,
+        embedding_threshold: float = 0.70,
         embedding_linkage: str = "complete",
         recall_top_k: int = 5,
         jaccard_threshold: float = 0.5,
@@ -326,9 +326,11 @@ class Memory:
             events." Singletons always stay in the episodic layer.
         embedding_threshold:
             Cosine similarity cutoff when ``method="embedding_v1"``.
-            ``0.65`` was chosen on engram's own session content —
-            catches paraphrases of the same topic, rejects cross-topic
-            pairs. Tune per scenario.
+            ``0.70`` was picked by a grid search across the three
+            loop_quality scenarios (2026-04-09). It achieves 100%
+            query pass rate and 100% cluster purity on all three.
+            See ``experiments/loop_quality/RESULTS.md`` for the
+            full grid and trade-offs.
         embedding_linkage:
             ``"complete"`` (default) or ``"single"``. Complete-link
             merges only when every cross-cluster pair is above

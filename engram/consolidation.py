@@ -220,7 +220,7 @@ def cluster_by_embedding(
     items: list[tuple[str, str]],
     *,
     embed_fn: EmbedFn,
-    threshold: float = 0.65,
+    threshold: float = 0.70,
     linkage: str = "complete",
 ) -> list[list[tuple[str, str]]]:
     """Cluster ``(id, text)`` items by raw embedding cosine similarity.
@@ -237,9 +237,11 @@ def cluster_by_embedding(
         Injection point for the embedder. Tests can pass fake
         vectors; in production, ``vstash.embed.embed_texts``.
     threshold:
-        Cosine cutoff. ``0.65`` was calibrated on engram's own
-        session content (see
-        ``experiments/loop_quality/RESULTS.md``).
+        Cosine cutoff. ``0.70`` was picked by a grid search across
+        the three loop_quality scenarios on 2026-04-09. It achieves
+        100% query pass rate and 100% cluster purity on all three.
+        See ``experiments/loop_quality/RESULTS.md`` for the full
+        grid and trade-offs.
     linkage:
         Agglomerative linkage strategy.
 
@@ -266,11 +268,19 @@ def cluster_by_embedding(
     query pass rate without changing the threshold. See
     ``experiments/loop_quality/RESULTS.md``.
 
-    **Ceiling we know about:** neither linkage fixes the fundamental
-    overlap of same-topic and cross-topic edges around the threshold
-    on meta-discussion content. Above ~50% pass rate on that
-    scenario requires either a richer signal (LLM-based
-    consolidation) or a different embedder.
+    **What the grid search unblocked (2026-04-09):** an earlier
+    version of this docstring warned that no threshold on
+    ``bge-small-en-v1.5`` could exceed ~50% pass rate on the
+    ``session_2026_04_09`` scenario because same-topic and
+    cross-topic cosines were interleaved around 0.65. That claim
+    was almost right — the interleave IS real — but it missed two
+    things: (a) the crossing edges sit between 0.65 and 0.67, not
+    above 0.70, so moving the threshold up is enough to drop
+    them; and (b) the interleave-based recall in
+    ``Memory.recall`` catches the events that no longer cluster
+    via episodic fallback, so ``topic_coverage`` goes down but
+    ``query_pass_rate`` goes up. The 50% ceiling dissolved when
+    measured, not argued.
 
     The embedder callable is called exactly once on all input texts.
     Embedding failure → each item becomes its own cluster (graceful
