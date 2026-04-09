@@ -1,0 +1,88 @@
+{
+  "name": "session_2026_04_09",
+  "description": "Twelve snippets from engram's own design session on 2026-04-08/09. Six topics, two events each. Deliberately includes two borderline pairs (loop_philosophy, consolidation_design) whose embedding cosine sits right around the 0.65 default threshold — a known weakness we're tracking, not a bug to hide.",
+  "events": [
+    {
+      "id": "mempalace_a",
+      "text": "The user never asked to compete with mempalace; they just stumbled on it before starting and used it as a mirror to check their own architectural instincts.",
+      "topic": "mempalace"
+    },
+    {
+      "id": "mempalace_b",
+      "text": "User said mempalace is not the target — it's a reflection to learn from the architecture and avoid their launch failure mode.",
+      "topic": "mempalace"
+    },
+    {
+      "id": "loop_philosophy_a",
+      "text": "The real target is building a local agent loop that decides when to remember, when to recall, when to consolidate, and when to forget.",
+      "topic": "loop_philosophy"
+    },
+    {
+      "id": "loop_philosophy_b",
+      "text": "User wants engram to be useful for their own loop first and then compare it with existing systems afterward.",
+      "topic": "loop_philosophy"
+    },
+    {
+      "id": "longmemeval_a",
+      "text": "HeuristicWriteDecider's exact-dedup rule never fires on LongMemEval because the haystacks have no duplicates.",
+      "topic": "longmemeval"
+    },
+    {
+      "id": "longmemeval_b",
+      "text": "The LongMemEval benchmark cannot validate engram's filtering logic; a different scenario-driven benchmark is needed.",
+      "topic": "longmemeval"
+    },
+    {
+      "id": "vstash_bug_a",
+      "text": "A vstash UX bug was found: Memory.search() without a collection argument leaks results across all collections; issue 165 was filed upstream.",
+      "topic": "vstash_bug"
+    },
+    {
+      "id": "vstash_bug_b",
+      "text": "vstash.SearchResult does not expose tags or layer on recall hits, so metadata has to be smuggled via the title field.",
+      "topic": "vstash_bug"
+    },
+    {
+      "id": "dedup_fix_a",
+      "text": "The original dedup in HeuristicWriteDecider called vstash.search on every write, making ingest O(N squared) per haystack.",
+      "topic": "dedup_fix"
+    },
+    {
+      "id": "dedup_fix_b",
+      "text": "The recall-based dedup was replaced with an in-process set of normalized strings for exact matching, constant time per check.",
+      "topic": "dedup_fix"
+    },
+    {
+      "id": "consolidation_design_a",
+      "text": "Consolidation is additive, not destructive: episodic events stay raw and semantic facts are derived on top of them with provenance pointers.",
+      "topic": "consolidation_design"
+    },
+    {
+      "id": "consolidation_design_b",
+      "text": "The v1 consolidate pipeline uses embedding cosine clustering with threshold 0.65, no LLM, and records method=embedding_v1 on each fact.",
+      "topic": "consolidation_design"
+    }
+  ],
+  "queries": [
+    {
+      "question": "why did we not set mempalace as a target to beat?",
+      "expect_topic": "mempalace",
+      "expect_contains": ["mempalace"]
+    },
+    {
+      "question": "what vstash bug did we find while building the audit log?",
+      "expect_topic": "vstash_bug",
+      "expect_contains": ["vstash"]
+    },
+    {
+      "question": "why was the dedup rule rewritten to use an in-process set?",
+      "expect_topic": "dedup_fix",
+      "expect_contains": ["dedup"]
+    },
+    {
+      "question": "what did we learn about LongMemEval as a benchmark for engram?",
+      "expect_topic": "longmemeval",
+      "expect_contains": ["LongMemEval"]
+    }
+  ]
+}
