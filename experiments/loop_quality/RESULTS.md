@@ -28,7 +28,44 @@ positioning" disclaimer to hide behind.
 | 2026-04-09 | `f83115e` | `session_2026_04_09` | `embedding_v1` | 0.65 | complete | 12 | 4 | **50.00%** (2/4) | 75.00% | 50.00% | Complete-link refuses to merge `{vstash_bug_a,b}` with `{longmemeval_a, dedup_fix_a}` because the weakest cross-pair (`vstash_bug_a~longmemeval_a=0.616`) is below 0.65. Three pure clusters emerge (mempalace, vstash_bug, consolidation_design) plus one impure mini-cluster (longmemeval_a+dedup_fix_a, the one edge that did cross). pass_rate doubles without changing the threshold. |
 | 2026-04-09 | `8ff6953` | `analytics_project` | `embedding_v1` | 0.65 | complete | 12 | 6 | **100.00%** (4/4) | 100.00% | 100.00% | **Control scenario.** Six lexically distinct topics (auth/database/deploy/frontend/monitoring/billing). Pre-measured pairwise cosines: same-topic pairs [0.778, 0.937] median 0.915; cross-topic pairs [0.320, 0.617] median 0.465. Clean 0.162 gap — any threshold in (0.617, 0.778) gives 100%. This is the "loop works when the embedder cooperates" reference point. Future consolidator changes must not drop this below 100% without naming the trade-off. Recall path: explicit `layer="semantic"`. |
 | 2026-04-09 | `HEAD` | `session_2026_04_09` | `embedding_v1` | 0.65 | complete | 12 | 4 | **100.00%** (4/4) | 75.00% | 50.00% | **`should_recall` enabled.** Same consolidation as row 2 (purity/coverage unchanged). The lift to 100% comes from `LayeredRecaller` falling back to the episodic layer when semantic doesn't have a topic-pure fact. `dedup_fix` and `longmemeval` queries now match their raw episodic events directly instead of failing for lack of a pure fact. The loop is now robust to imperfect consolidation — an impure cluster no longer takes down the query. |
-| 2026-04-09 | `HEAD` | `analytics_project` | `embedding_v1` | 0.65 | complete | 12 | 6 | **100.00%** (4/4) | 100.00% | 100.00% | `should_recall` enabled. No regression: the scenario that was already at 100% stays at 100%. This is the "did we break anything" check; it passed. |
+| 2026-04-09 | `7e85566` | `analytics_project` | `embedding_v1` | 0.65 | complete | 12 | 6 | **100.00%** (4/4) | 100.00% | 100.00% | `should_recall` enabled. No regression: the scenario that was already at 100% stays at 100%. This is the "did we break anything" check; it passed. |
+| 2026-04-09 | `HEAD` | `jay_vstash_2026_04_09_snapshot` | `embedding_v1` | 0.65 | complete | **20** | 4 | **75.00%** (3/4) | 75.00% | 60.00% | **First real-content row.** 20 organic docs from Jay's vstash frozen as a fixture, topic labels assigned by honest reading of titles (6 topics). Three queries pass: `kafka_meeting` (singleton via interleave fix), `engram_design` (singleton episodic), `medlocal_clinical` (pure 4-event cluster). One fails: `vstash_notes` — the real failure mode is that Fact 4 mixes 3 vstash_notes events with 1 engram_design event (agent-memory-use-cases-2026-04-07 has overlapping vocabulary), so `_fact_path_to_topic` excludes it from the pure lookup. The fact's anchor text literally contains "vstash Upstream Improvement Ideas" — a human would call it a pass, but the strict purity check correctly rejects an impure cluster. This is the test answering "what happens on real content nobody curated." |
+
+## Three-scenario picture (post real-snapshot)
+
+As of the real-vstash snapshot commit, the metric table has three
+rows that are all running under the same runner, in the same
+`pytest tests/` invocation, on the same commit:
+
+|                          | analytics_project | session_2026_04_09 | jay_vstash_2026_04_09_snapshot |
+|---|---|---|---|
+| Type                     | synthetic control | synthetic borderline | real organic content |
+| Events                   | 12                | 12                  | 20                  |
+| Topics                   | 6 distinct        | 6 overlapping       | 6 (real distribution) |
+| Same-topic median cosine | 0.915             | 0.649               | (not measured yet)  |
+| facts_written            | 6                 | 4                   | 4                   |
+| **pass_rate**            | **100%**          | **100%**            | **75%**             |
+| cluster_purity           | 100%              | 75%                 | 75%                 |
+| topic_coverage           | 100%              | 50%                 | 60%                 |
+
+The three scenarios stress the loop from three angles:
+
+- **analytics_project** — the embedder cooperates. This is the
+  "nothing is broken" control. Any regression here is a disaster.
+- **session_2026_04_09** — the embedder disagrees with ground
+  truth. Tests how well the loop survives overlapping vocabulary.
+  cluster_purity and topic_coverage are stuck but query routing
+  still succeeds via the interleave fallback.
+- **jay_vstash_2026_04_09_snapshot** — the real thing. Content
+  the user produced organically, topic labels assigned by honest
+  title-reading. The 75% is the first number that measures
+  engram's loop on content nobody tuned for it.
+
+The gap between "curated scenarios pass rate" (100%) and
+"real-content pass rate" (75%) is the number to watch over time.
+If it closes, the loop is improving. If it widens, the curated
+scenarios are drifting away from what real content looks like and
+need new siblings.
 
 ## Real-content smoke (2026-04-09, post should_recall)
 
