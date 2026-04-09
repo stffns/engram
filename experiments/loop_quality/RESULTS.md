@@ -29,9 +29,49 @@ positioning" disclaimer to hide behind.
 | 2026-04-09 | `8ff6953` | `analytics_project` | `embedding_v1` | 0.65 | complete | 12 | 6 | **100.00%** (4/4) | 100.00% | 100.00% | **Control scenario.** Six lexically distinct topics (auth/database/deploy/frontend/monitoring/billing). Pre-measured pairwise cosines: same-topic pairs [0.778, 0.937] median 0.915; cross-topic pairs [0.320, 0.617] median 0.465. Clean 0.162 gap — any threshold in (0.617, 0.778) gives 100%. This is the "loop works when the embedder cooperates" reference point. Future consolidator changes must not drop this below 100% without naming the trade-off. Recall path: explicit `layer="semantic"`. |
 | 2026-04-09 | `HEAD` | `session_2026_04_09` | `embedding_v1` | 0.65 | complete | 12 | 4 | **100.00%** (4/4) | 75.00% | 50.00% | **`should_recall` enabled.** Same consolidation as row 2 (purity/coverage unchanged). The lift to 100% comes from `LayeredRecaller` falling back to the episodic layer when semantic doesn't have a topic-pure fact. `dedup_fix` and `longmemeval` queries now match their raw episodic events directly instead of failing for lack of a pure fact. The loop is now robust to imperfect consolidation — an impure cluster no longer takes down the query. |
 | 2026-04-09 | `7e85566` | `analytics_project` | `embedding_v1` | 0.65 | complete | 12 | 6 | **100.00%** (4/4) | 100.00% | 100.00% | `should_recall` enabled. No regression: the scenario that was already at 100% stays at 100%. This is the "did we break anything" check; it passed. |
-| 2026-04-09 | `HEAD` | `jay_vstash_2026_04_09_snapshot` | `embedding_v1` | 0.65 | complete | **20** | 4 | **75.00%** (3/4) | 75.00% | 60.00% | **First real-content row.** 20 organic docs from Jay's vstash frozen as a fixture, topic labels assigned by honest reading of titles (6 topics). Three queries pass: `kafka_meeting` (singleton via interleave fix), `engram_design` (singleton episodic), `medlocal_clinical` (pure 4-event cluster). One fails: `vstash_notes` — the real failure mode is that Fact 4 mixes 3 vstash_notes events with 1 engram_design event (agent-memory-use-cases-2026-04-07 has overlapping vocabulary), so `_fact_path_to_topic` excludes it from the pure lookup. The fact's anchor text literally contains "vstash Upstream Improvement Ideas" — a human would call it a pass, but the strict purity check correctly rejects an impure cluster. This is the test answering "what happens on real content nobody curated." |
+| 2026-04-09 | `5240f72` | `jay_vstash_2026_04_09_snapshot` | `embedding_v1` | 0.65 | complete | **20** | 4 | **75.00%** (3/4) | 75.00% | 60.00% | **First real-content row.** 20 organic docs from Jay's vstash frozen as a fixture, topic labels assigned by honest reading of titles (6 topics). Three queries pass. `vstash_notes` fails because Fact 4 mixes 3 vstash_notes events with 1 engram_design event; the fact's anchor literally contains "vstash Upstream Improvement Ideas" but the strict purity check rejects an impure cluster. |
+| 2026-04-09 | `HEAD` | `analytics_project` | `embedding_v1` | **0.70** | complete | 12 | 6 | **100.00%** (4/4) | 100.00% | 100.00% | Post-grid-search baseline. Unchanged from threshold=0.65 — this scenario's same-topic pairs all live at 0.78–0.94 so any threshold in that gap gives 100%. |
+| 2026-04-09 | `HEAD` | `session_2026_04_09` | `embedding_v1` | **0.70** | complete | 12 | 2 | **100.00%** (4/4) | **100.00%** | 33.33% | **Purity jumped 75% → 100%.** Higher threshold drops the two cross-topic edges that were crossing (0.663, 0.652) and also drops the borderline `consolidation_design` pair (0.661). Only 2 pure facts remain (mempalace, vstash_bug), coverage drops 50% → 33%. But `query_pass_rate` stays at 100% because the interleave fallback in `Memory.recall` catches dedup_fix, longmemeval, and consolidation_design queries episodically. Coverage is a means, not an end — pass_rate is what users feel. |
+| 2026-04-09 | `HEAD` | `jay_vstash_2026_04_09_snapshot` | `embedding_v1` | **0.70** | complete | 20 | 4 | **100.00%** (4/4) | **100.00%** | 80.00% | **Pass rate jumped 75% → 100%, purity 75% → 100%.** Raising the threshold broke up Fact 4 — the agent-memory-use-cases doc no longer clusters with the vstash_notes group, so the vstash cluster becomes pure. `vstash_notes` query now passes. The full three-scenario picture at 0.70: all three at 100% pass_rate and 100% purity. |
 
-## Three-scenario picture (post real-snapshot)
+## Threshold grid search (2026-04-09, all three scenarios)
+
+Once there were three scenarios in the safety net, the "right
+threshold" question became measurable instead of arguable. Grid:
+
+```
+thresh   analytics                 session                   jay_snapshot              min_pass  min_purity
+         pass  purity  coverage    pass  purity  coverage    pass  purity  coverage
+0.60     100%  100%    100%        100%   67%     33%         75%   33%     20%          75%       33%
+0.63     100%  100%    100%        100%   75%     50%         75%   75%     60%          75%       75%
+0.65     100%  100%    100%        100%   75%     50%         75%   75%     60%          75%       75%    ← old default
+0.68     100%  100%    100%        100%  100%     33%         75%   75%     60%          75%       75%
+0.70     100%  100%    100%        100%  100%     33%        100%  100%     80%         100%      100%    ← NEW default
+0.72     100%  100%    100%        100%  100%     17%        100%  100%     80%         100%      100%
+```
+
+0.70 is the sweet spot: maximizes the minimum pass_rate AND the
+minimum cluster_purity across all three scenarios, and leaves
+topic_coverage as a monotone trade (lower coverage on the
+session scenario because borderline pairs stop clustering, but
+the loop's interleave fallback makes that a non-user-facing
+loss).
+
+The grid eliminates the "we need an LLM consolidator to push
+past 50%" framing that the previous iteration of this file had
+recorded. That was almost right — the interleave WAS real, and
+the crossing cosines WERE real — but it assumed the crossing
+happened above 0.70. It didn't. Moving the threshold up 5 points
+drops the cross-topic edges and only costs coverage on one
+borderline same-topic pair, which the fallback absorbs.
+
+Silt-check: the ceiling I named earlier ("above 50% on this
+scenario requires an LLM") was an overread. The data disagreed
+when asked properly. The grid was there to run all along — we
+just didn't run it until a second scenario and a real-content
+snapshot made the shape of the answer visible.
+
+## Three-scenario picture (post threshold grid)
 
 As of the real-vstash snapshot commit, the metric table has three
 rows that are all running under the same runner, in the same

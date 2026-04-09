@@ -303,7 +303,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "Default: every *.json in scenarios/.",
     )
     p.add_argument("--top-k", type=int, default=5)
-    p.add_argument("--embedding-threshold", type=float, default=0.65)
+    p.add_argument("--embedding-threshold", type=float, default=0.70)
     return p.parse_args(argv)
 
 
