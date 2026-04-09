@@ -5,7 +5,7 @@ that should outlive any specific implementation.
 """
 
 from engram.consolidation import ConsolidationResult, Fact
-from engram.memory import Memory, RememberResult
+from engram.memory import ForgetResult, Memory, RememberResult
 from engram.policies import (
     AlwaysWrite,
     ConsolidateContext,
@@ -13,10 +13,15 @@ from engram.policies import (
     ConsolidationDecision,
     Decision,
     Event,
+    ForgetConsolidated,
+    ForgetContext,
+    ForgetDecider,
+    ForgetDecision,
     HeuristicWriteDecider,
     LayerRequest,
     LayeredRecaller,
     NeverConsolidate,
+    NeverForget,
     PeriodicConsolidator,
     RecallContext,
     RecallDecider,
@@ -36,11 +41,17 @@ __all__ = [
     "Decision",
     "Event",
     "Fact",
+    "ForgetConsolidated",
+    "ForgetContext",
+    "ForgetDecider",
+    "ForgetDecision",
+    "ForgetResult",
     "HeuristicWriteDecider",
     "LayerRequest",
     "LayeredRecaller",
     "Memory",
     "NeverConsolidate",
+    "NeverForget",
     "PeriodicConsolidator",
     "RecallContext",
     "RecallDecider",

@@ -25,9 +25,13 @@ import vstash
 from engram.audit import (
     AUDIT_COLLECTION,
     AUDIT_LAYER,
+    TOMBSTONE_COLLECTION,
+    TOMBSTONE_LAYER,
     format_audit_row,
     format_consolidate_audit_row,
+    format_forget_audit_row,
     format_recall_audit_row,
+    format_tombstone_row,
 )
 from engram.consolidation import (
     ConsolidationResult,
@@ -42,6 +46,12 @@ from engram.policies.should_consolidate import (
     ConsolidateDecider,
     ConsolidationDecision,
     PeriodicConsolidator,
+)
+from engram.policies.should_forget import (
+    ForgetContext,
+    ForgetDecider,
+    ForgetDecision,
+    NeverForget,
 )
 from engram.policies.should_recall import (
     LayeredRecaller,
@@ -113,6 +123,21 @@ def _resolve_vstash_embed_model(vstash_memory: vstash.Memory) -> str:
 
 
 @dataclass(frozen=True)
+class ForgetResult:
+    """The outcome of a ``Memory.forget`` call.
+
+    ``tombstoned`` is the list of event paths that were tombstoned
+    in this call. ``skipped`` pairs each surviving event path with
+    the reason the decider gave for keeping it.
+    """
+
+    tombstoned: list[str]
+    skipped: list[tuple[str, str]]
+    events_examined: int
+    decider: str
+
+
+@dataclass(frozen=True)
 class RememberResult:
     """The outcome of a ``Memory.remember`` call.
 
@@ -156,6 +181,7 @@ class Memory:
         write_decider: WriteDecider | None = None,
         consolidate_decider: ConsolidateDecider | None = None,
         recall_decider: RecallDecider | None = None,
+        forget_decider: ForgetDecider | None = None,
     ) -> None:
         self.project = project
         self.collection = collection
@@ -170,6 +196,7 @@ class Memory:
             consolidate_decider or PeriodicConsolidator()
         )
         self._recall_decider: RecallDecider = recall_decider or LayeredRecaller()
+        self._forget_decider: ForgetDecider = forget_decider or NeverForget()
 
     # ------------------------------------------------------------------ write
 
@@ -445,6 +472,129 @@ class Memory:
             method=method,
         )
 
+    # --------------------------------------------------------------- forget
+
+    def forget(self, *, force: bool = False) -> ForgetResult:
+        """Tombstone episodic events whose content is preserved in facts.
+
+        Walks the semantic layer to build a reverse map
+        ``event_path → [fact_paths that cite it in derived_from]``,
+        then asks the configured ``should_forget`` decider about
+        each episodic event. When the decider says yes (or ``force``
+        is set), the event is:
+
+        1. Copied to ``engram_tombstones`` with full text + metadata
+           + provenance to the facts that preserve it. This is the
+           authoritative forgetting record — reversible via
+           ``unforget`` (not implemented yet; future slice).
+        2. Removed from the engram collection via ``vstash.remove``
+           so it no longer surfaces in recall.
+
+        Every decision (tombstone or skip) writes a ``should_forget``
+        audit row. Forget operations are intentionally slow and
+        loud on purpose — losing a memory is a big deal, even with
+        the tombstone safety net.
+
+        Parameters
+        ----------
+        force:
+            Tombstone *every* episodic event regardless of the
+            decider. Useful for ``mem.forget(force=True)`` as a
+            "wipe the episodic layer" operation after a known-good
+            consolidation pass. Still writes tombstones and audit
+            rows for each — nothing is destroyed, only moved.
+        """
+        facts = self._vstash.list(
+            collection=self.collection,
+            layer="semantic",
+        )
+        derived_in: dict[str, list[str]] = {}
+        for fact in facts:
+            tags = fact.tags or ""
+            if tags.startswith("derived_from:"):
+                paths = tags[len("derived_from:"):].split(",")
+                for p in paths:
+                    p = p.strip()
+                    if p:
+                        derived_in.setdefault(p, []).append(fact.path)
+
+        episodic = self._vstash.list(
+            collection=self.collection,
+            layer="episodic",
+        )
+
+        tombstoned: list[str] = []
+        skipped: list[tuple[str, str]] = []
+
+        for event in episodic:
+            chunks = self._vstash.get_document_chunks(
+                event.path,
+                collection=self.collection,
+            )
+            full_text = " ".join(chunks).strip()
+
+            event_derived = derived_in.get(event.path, [])
+            ctx = ForgetContext(
+                project=self.project,
+                derived_in_facts=event_derived,
+            )
+            decision = self._forget_decider.decide(
+                event.path,
+                full_text,
+                ctx,
+            )
+
+            self._write_forget_audit(event.path, decision, event_derived)
+
+            if not (decision.tombstone or force):
+                skipped.append((event.path, decision.reason))
+                continue
+
+            self._write_tombstone(
+                event_path=event.path,
+                event_text=full_text,
+                event_title=event.title,
+                event_layer=event.layer,
+                event_tags=event.tags,
+                derived_in_facts=event_derived,
+                reason=decision.reason if decision.tombstone else "forced",
+                policy=decision.policy if decision.tombstone else "force",
+            )
+            try:
+                self._vstash.remove(event.path)
+                tombstoned.append(event.path)
+            except Exception:
+                # If remove fails, the tombstone still exists — the
+                # event is in both places until the next forget run.
+                # Better than silently losing the tombstone.
+                skipped.append((event.path, "vstash_remove_failed"))
+
+        return ForgetResult(
+            tombstoned=tombstoned,
+            skipped=skipped,
+            events_examined=len(episodic),
+            decider=self._forget_decider.name,
+        )
+
+    def tombstones(
+        self,
+        query: str = "tombstone",
+        *,
+        top_k: int = 20,
+    ) -> list[SearchResult]:
+        """Query the tombstone collection.
+
+        Use this to find "what did I forget?" The tombstone
+        collection is searched in isolation from normal memory and
+        from the audit log.
+        """
+        return self._vstash.search(
+            query,
+            top_k=top_k,
+            collection=TOMBSTONE_COLLECTION,
+            layer=TOMBSTONE_LAYER,
+        )
+
     # --------------------------------------------------------------- audit
 
     def audit(
@@ -534,6 +684,66 @@ class Memory:
             )
         except Exception:
             pass
+
+    def _write_forget_audit(
+        self,
+        event_path: str,
+        decision: ForgetDecision,
+        derived_in_facts: list[str],
+    ) -> None:
+        """Audit one ``should_forget`` decision. Fail-open."""
+        title, body = format_forget_audit_row(
+            event_path, decision, derived_in_facts
+        )
+        try:
+            self._vstash.remember(
+                body,
+                title=title,
+                collection=AUDIT_COLLECTION,
+                layer=AUDIT_LAYER,
+            )
+        except Exception:
+            pass
+
+    def _write_tombstone(
+        self,
+        *,
+        event_path: str,
+        event_text: str,
+        event_title: str | None,
+        event_layer: str | None,
+        event_tags: str | None,
+        derived_in_facts: list[str],
+        reason: str,
+        policy: str,
+    ) -> None:
+        """Persist the full-text tombstone so the event can be unforgotten.
+
+        Unlike the audit row (which is a decision log), this stores
+        everything needed to reconstruct the event: full text, title,
+        layer, tags. Lives in ``engram_tombstones`` collection so a
+        user can query "what did I forget?" without touching audit.
+
+        NOT fail-open. If the tombstone write fails, we raise — we
+        must not remove the event from the main collection without a
+        tombstone to restore from.
+        """
+        title, body = format_tombstone_row(
+            event_path=event_path,
+            event_text=event_text,
+            event_title=event_title,
+            event_layer=event_layer,
+            event_tags=event_tags,
+            derived_in_facts=derived_in_facts,
+            reason=reason,
+            policy=policy,
+        )
+        self._vstash.remember(
+            body,
+            title=title,
+            collection=TOMBSTONE_COLLECTION,
+            layer=TOMBSTONE_LAYER,
+        )
 
     # ------------------------------------------------------------------- misc
 
