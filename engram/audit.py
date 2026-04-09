@@ -16,12 +16,31 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
+from engram.policies.should_consolidate import ConsolidationDecision
 from engram.policies.types import Decision, Event
 
 AUDIT_COLLECTION = "engram_audit"
 AUDIT_LAYER = "audit"
 
 _PREVIEW_CHARS = 160
+
+
+def format_consolidate_audit_row(
+    decision: ConsolidationDecision,
+    n_events: int,
+) -> tuple[str, str]:
+    """Build a (title, body) pair for one consolidation audit entry."""
+    ts = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    body = (
+        f"timestamp: {ts}\n"
+        f"decision: should_consolidate\n"
+        f"proceed: {decision.proceed}\n"
+        f"reason: {decision.reason}\n"
+        f"policy: {decision.policy}\n"
+        f"n_events: {n_events}\n"
+    )
+    title = f"audit:should_consolidate:{decision.reason}:{ts}"
+    return title, body
 
 
 def format_audit_row(event: Event, decision: Decision) -> tuple[str, str]:

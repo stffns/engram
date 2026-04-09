@@ -2,9 +2,9 @@
 
 Two implementations land in Phase 1:
 
-- ``AlwaysWrite`` — the mempalace baseline ("store everything"). Useful as a
-  benchmark control in ``experiments/longmemeval/``: it tells us whether
-  engram's filtering is helping or hurting.
+- ``AlwaysWrite`` — the "store-everything" baseline. Useful as a control
+  in ``experiments/`` runs: it tells us whether engram's filtering is
+  helping or hurting on a given dataset.
 - ``HeuristicWriteDecider`` — engram's default. No LLM. Skips empty,
   too-short, too-long, and exact-duplicate writes. The minimum policy that
   is honestly better than ``AlwaysWrite`` for a real loop.
@@ -24,10 +24,10 @@ def _normalize(text: str) -> str:
 
 
 class AlwaysWrite:
-    """Baseline: every event gets written. Mirrors the mempalace philosophy.
+    """Baseline: every event gets written.
 
-    Exists so that experiments can isolate the cost/benefit of filtering.
-    Not the engram default.
+    Exists so that experiments can isolate the cost/benefit of engram's
+    filtering against a "store everything" control. Not the engram default.
     """
 
     name = "AlwaysWrite"

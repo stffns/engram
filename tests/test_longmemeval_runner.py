@@ -6,8 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from experiments.longmemeval.dataset import Conversation, load_fixture
-from experiments.longmemeval.runner import (
+from experiments.retrieval.longmemeval.dataset import Conversation, load_fixture
+from experiments.retrieval.longmemeval.runner import (
     _ADAPTERS,
     bootstrap_ci,
     eval_baseline,
@@ -15,7 +15,14 @@ from experiments.longmemeval.runner import (
     format_result,
 )
 
-FIXTURE = Path(__file__).parent.parent / "experiments" / "longmemeval" / "fixtures" / "tiny.json"
+FIXTURE = (
+    Path(__file__).parent.parent
+    / "experiments"
+    / "retrieval"
+    / "longmemeval"
+    / "fixtures"
+    / "tiny.json"
+)
 
 
 # --------------------------------------------------------------------- dataset

@@ -30,7 +30,9 @@ This file is the entry point for any Claude session opened in the engram repo.
   they each write to a `layer="audit"` collection.
 - **No new vector storage.** No ChromaDB, no second store, no FTS
   reimplementation. (CONSTITUTION §3, §8.)
-- **No bespoke compression dialect.** (Lesson from mempalace's AAAK.)
+- **No bespoke compression dialect.** Measure with a real tokenizer
+  before claiming any compression result. See `notes/prior-art.md` for
+  the cautionary tale.
 - **Empirical first.** Every default-policy change cites a benchmark in
   `experiments/`. (CONSTITUTION §9.)
 
