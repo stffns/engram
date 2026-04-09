@@ -13,6 +13,13 @@ from engram.policies.should_consolidate import (
     NeverConsolidate,
     PeriodicConsolidator,
 )
+from engram.policies.should_forget import (
+    ForgetConsolidated,
+    ForgetContext,
+    ForgetDecider,
+    ForgetDecision,
+    NeverForget,
+)
 from engram.policies.should_recall import (
     LayeredRecaller,
     LayerRequest,
@@ -31,10 +38,15 @@ __all__ = [
     "ConsolidationDecision",
     "Decision",
     "Event",
+    "ForgetConsolidated",
+    "ForgetContext",
+    "ForgetDecider",
+    "ForgetDecision",
     "HeuristicWriteDecider",
     "LayerRequest",
     "LayeredRecaller",
     "NeverConsolidate",
+    "NeverForget",
     "PeriodicConsolidator",
     "RecallContext",
     "RecallDecider",
