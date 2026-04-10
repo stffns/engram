@@ -59,6 +59,32 @@ that return 0 results, or the interleave should give empty layers
 no slots. This is a behavior change that must pass all 4 loop_quality
 scenarios before landing.
 
+## Post-fix results: budget redistribution (2026-04-10)
+
+Commit `42d40ef` — when a layer returns 0 hits, its top_k budget
+carries forward to the next layer. Two lines changed in memory.py.
+
+| Date | Commit | Baseline | Task | n | R@5 (95% CI) | Δ vs pre-fix |
+|------|--------|----------|------|---|--------------|-------------|
+| 2026-04-10 | `42d40ef` | `engram-heuristic` | single_hop | 840 | **0.568** [0.537, 0.601] | +0.066 |
+| 2026-04-10 | `42d40ef` | `engram-heuristic` | multi_hop | 280 | **0.450** [0.393, 0.507] | +0.082 |
+| 2026-04-10 | `42d40ef` | `engram-heuristic` | temporal_reasoning | 321 | **0.620** [0.570, 0.670] | +0.031 |
+| 2026-04-10 | `42d40ef` | `engram-heuristic` | adversarial | 446 | **0.433** [0.388, 0.478] | +0.083 |
+| 2026-04-10 | `42d40ef` | `engram-heuristic` | open_domain | 89 | **0.303** [0.213, 0.393] | +0.022 |
+
+### Before/after summary
+
+| Task | vstash | engram (before) | engram (after) | Gap closed |
+|------|--------|-----------------|----------------|------------|
+| single_hop | 0.573 | 0.502 (-7.1pp) | **0.568** (-0.5pp) | 93% |
+| multi_hop | 0.464 | 0.368 (-9.6pp) | **0.450** (-1.4pp) | 85% |
+| temporal | 0.626 | 0.589 (-3.7pp) | **0.620** (-0.6pp) | 84% |
+| adversarial | 0.439 | 0.350 (-8.9pp) | **0.433** (-0.6pp) | 93% |
+| open_domain | 0.326 | 0.281 (-4.5pp) | **0.303** (-2.3pp) | 49% |
+
+All CIs now overlap with vstash. Average gap: ~6.8pp → ~1.1pp.
+The fix recovered >80% of the lost recall on 4 of 5 categories.
+
 ## Honesty discipline
 
 Same as the rest of the repo: no silent edits, corrections are
