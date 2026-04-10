@@ -584,6 +584,28 @@ class Memory:
             layer="episodic",
         )
 
+        # Build supersession map: for each event, which newer events
+        # claim to supersede it? An event B with tag
+        # "supersedes:event_A_title" means B replaces A.
+        superseded_by: dict[str, list[str]] = {}
+        title_to_path: dict[str, str] = {}
+        for event in episodic:
+            if event.title:
+                title_to_path[event.title] = event.path
+
+        for event in episodic:
+            if not event.tags:
+                continue
+            for tag in event.tags.split(","):
+                tag = tag.strip()
+                if tag.startswith("supersedes:"):
+                    target_title = tag[len("supersedes:"):]
+                    target_path = title_to_path.get(target_title)
+                    if target_path and target_path != event.path:
+                        superseded_by.setdefault(target_path, []).append(
+                            event.title or event.path
+                        )
+
         tombstoned: list[str] = []
         skipped: list[tuple[str, str]] = []
 
@@ -598,6 +620,7 @@ class Memory:
             ctx = ForgetContext(
                 project=self.project,
                 derived_in_facts=event_derived,
+                superseded_by=superseded_by.get(event.path, []),
             )
             decision = self._forget_decider.decide(
                 event.path,

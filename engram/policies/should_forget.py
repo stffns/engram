@@ -59,6 +59,7 @@ class ForgetContext:
 
     project: str
     derived_in_facts: list[str] = field(default_factory=list)
+    superseded_by: list[str] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -152,3 +153,74 @@ class ForgetConsolidated:
             confidence=1.0,
             policy=self.name,
         )
+
+
+class ForgetSuperseded:
+    """Tombstone events that a newer event explicitly supersedes.
+
+    When event B is remembered with ``tags="supersedes:event_A_title"``,
+    it declares that it replaces event A's content. On ``forget()``,
+    any event whose title or path matches a ``superseded_by`` entry
+    in its ForgetContext is tombstoned.
+
+    This combines with ``ForgetConsolidated`` in a chain: an event
+    is tombstoned if it was superseded OR consolidated (either
+    condition suffices). Use ``ForgetConsolidatedOrSuperseded`` for
+    the combined policy.
+
+    Motivated by the ``knowledge_update`` scenario (2026-04-10):
+    when "decided to use Redis" is superseded by "reverted to
+    Caffeine", the old decision should not compete for recall slots.
+    Consolidation alone misses this because v1 and v3 often have
+    cosine < threshold (the technology vocabulary changed too much).
+    """
+
+    name = "ForgetSuperseded"
+
+    def decide(
+        self,
+        event_path: str,  # noqa: ARG002
+        event_text: str,  # noqa: ARG002
+        ctx: ForgetContext,
+    ) -> ForgetDecision:
+        if ctx.superseded_by:
+            return ForgetDecision(
+                tombstone=True,
+                reason=f"superseded_by:{','.join(ctx.superseded_by[:3])}",
+                confidence=1.0,
+                policy=self.name,
+            )
+        return ForgetDecision(
+            tombstone=False,
+            reason="not_superseded",
+            confidence=1.0,
+            policy=self.name,
+        )
+
+
+class ForgetConsolidatedOrSuperseded:
+    """Tombstone if consolidated OR superseded — the recommended policy
+    for projects with evolving decisions.
+
+    Combines ``ForgetConsolidated`` and ``ForgetSuperseded``: an event
+    is tombstoned if either condition is true. This is the minimum
+    viable policy for keeping the episodic layer clean of both
+    redundant (consolidated) and obsolete (superseded) events.
+    """
+
+    name = "ForgetConsolidatedOrSuperseded"
+
+    def __init__(self, *, min_facts: int = 1) -> None:
+        self._consolidated = ForgetConsolidated(min_facts=min_facts)
+        self._superseded = ForgetSuperseded()
+
+    def decide(
+        self,
+        event_path: str,
+        event_text: str,
+        ctx: ForgetContext,
+    ) -> ForgetDecision:
+        sup = self._superseded.decide(event_path, event_text, ctx)
+        if sup.tombstone:
+            return sup
+        return self._consolidated.decide(event_path, event_text, ctx)

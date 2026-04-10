@@ -15,9 +15,11 @@ from engram.policies.should_consolidate import (
 )
 from engram.policies.should_forget import (
     ForgetConsolidated,
+    ForgetConsolidatedOrSuperseded,
     ForgetContext,
     ForgetDecider,
     ForgetDecision,
+    ForgetSuperseded,
     NeverForget,
 )
 from engram.policies.should_recall import (
@@ -44,9 +46,11 @@ __all__ = [
     "Decision",
     "Event",
     "ForgetConsolidated",
+    "ForgetConsolidatedOrSuperseded",
     "ForgetContext",
     "ForgetDecider",
     "ForgetDecision",
+    "ForgetSuperseded",
     "HeuristicWriteDecider",
     "LayerRequest",
     "LayeredRecaller",
