@@ -1,0 +1,128 @@
+{
+  "name": "knowledge_update",
+  "description": "Tests whether engram surfaces the CURRENT state of evolving facts, not stale versions. 20 events across 4 topics, each topic with an evolution arc: initial decision → refinement → revision/reversal. The queries ask for the current state. A system that returns the latest version passes; one that returns an earlier version (even if semantically closer to the query) fails. This scenario exposes the knowledge-update gap: engram has no mechanism to mark an older event as superseded by a newer one. Built 2026-04-10 to evaluate whether topic_key/upsert patterns (a la GP/engram) would add value.",
+  "events": [
+    {
+      "id": "cache_v1",
+      "text": "We decided to use Redis as our caching layer because the in-process LRU cache was causing stale reads across 12 pods due to cache invalidation failures.",
+      "topic": "cache_decision"
+    },
+    {
+      "id": "cache_v2",
+      "text": "Updated the Redis cache configuration: TTL changed from 5 minutes to 60 seconds after observing that product prices were stale for too long during flash sales.",
+      "topic": "cache_decision"
+    },
+    {
+      "id": "cache_v3",
+      "text": "Reverted from Redis back to in-process caching with Caffeine. Redis added 3ms p99 latency per request and the flash sale staleness was solved by pub/sub invalidation instead of short TTLs.",
+      "topic": "cache_decision"
+    },
+    {
+      "id": "db_v1",
+      "text": "Chose PostgreSQL 16 for the analytics warehouse because we need write concurrency above 200 connections per second and SQLite cannot handle that.",
+      "topic": "db_decision"
+    },
+    {
+      "id": "db_v2",
+      "text": "Added TimescaleDB extension on top of PostgreSQL for the analytics warehouse. Hypertable partitioning reduced query times from 12 seconds to 400ms on the daily aggregation dashboard.",
+      "topic": "db_decision"
+    },
+    {
+      "id": "db_v3",
+      "text": "Migrated the analytics warehouse from PostgreSQL with TimescaleDB to ClickHouse. The write throughput at 500K events per second exceeded what TimescaleDB could handle even with hypertables.",
+      "topic": "db_decision"
+    },
+    {
+      "id": "auth_v1",
+      "text": "Implemented OAuth 2.0 with PKCE for mobile clients after API keys were found leaking in client-side JavaScript bundles.",
+      "topic": "auth_decision"
+    },
+    {
+      "id": "auth_v2",
+      "text": "Added device fingerprinting to the OAuth flow. Tokens are now bound to device_id and refresh tokens are rejected if the device fingerprint changes.",
+      "topic": "auth_decision"
+    },
+    {
+      "id": "auth_v3",
+      "text": "Replaced OAuth 2.0 PKCE with passkey-based authentication using WebAuthn. The OAuth refresh token rotation was causing session drops on iOS when the app was backgrounded for more than 15 minutes.",
+      "topic": "auth_decision"
+    },
+    {
+      "id": "deploy_v1",
+      "text": "Set up canary deployments with ArgoCD. Each release rolls out to 5 percent of traffic first and auto-reverts if error rate exceeds 1 percent during a 10-minute bake window.",
+      "topic": "deploy_decision"
+    },
+    {
+      "id": "deploy_v2",
+      "text": "Extended the canary bake window from 10 to 30 minutes after a latent memory leak only manifested after 20 minutes of traffic. Also added memory usage as a canary gate metric.",
+      "topic": "deploy_decision"
+    },
+    {
+      "id": "deploy_v3",
+      "text": "Switched from percentage-based canary to header-based routing. Internal team gets the canary via X-Canary header for 24 hours before any customer traffic is shifted. This caught the Stripe webhook regression that the 30-minute bake missed.",
+      "topic": "deploy_decision"
+    },
+    {
+      "id": "noise_standup_01",
+      "text": "Daily standup: cache team reports Redis migration on track, no blockers. Database team finalizing TimescaleDB benchmarks.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_standup_02",
+      "text": "Sprint review: auth flow redesign approved by security team. Deploy pipeline improvements merged to main.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_standup_03",
+      "text": "Retrospective action item: improve canary deployment documentation for on-call engineers.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_standup_04",
+      "text": "Planning session: next sprint focuses on cache layer optimization and database migration tooling.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_ticket_01",
+      "text": "Ticket INFRA-2847 created: investigate Redis memory usage spike on production cluster node 3.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_ticket_02",
+      "text": "Ticket AUTH-1523 resolved: OAuth token refresh endpoint returning 500 intermittently due to connection pool exhaustion.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_ticket_03",
+      "text": "Ticket DB-892 in progress: TimescaleDB continuous aggregate refresh failing on large partitions.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_ticket_04",
+      "text": "Ticket DEPLOY-456 closed: ArgoCD sync timeout increased from 5 to 15 minutes for large Helm charts.",
+      "topic": "noise"
+    }
+  ],
+  "queries": [
+    {
+      "question": "what caching solution are we currently using?",
+      "expect_topic": "cache_decision",
+      "expect_contains": ["Caffeine"]
+    },
+    {
+      "question": "what database runs the analytics warehouse right now?",
+      "expect_topic": "db_decision",
+      "expect_contains": ["ClickHouse"]
+    },
+    {
+      "question": "how do users authenticate on mobile currently?",
+      "expect_topic": "auth_decision",
+      "expect_contains": ["passkey", "WebAuthn"]
+    },
+    {
+      "question": "how does the canary deployment process work today?",
+      "expect_topic": "deploy_decision",
+      "expect_contains": ["header"]
+    }
+  ]
+}
