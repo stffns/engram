@@ -70,10 +70,13 @@ def _ingest_scenario(mem: Memory, scenario: Scenario) -> dict[str, str]:
     """
     path_to_topic: dict[str, str] = {}
     for event in scenario.events:
+        tags = f"topic:{event.topic}"
+        if event.content_type:
+            tags += f",type:{event.content_type}"
         result = mem.remember(
             event.text,
             title=f"event_{event.id}",
-            tags=f"topic:{event.topic}",
+            tags=tags,
         )
         if result.written and result.ingest is not None:
             path_to_topic[result.ingest.source] = event.topic

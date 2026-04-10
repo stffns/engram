@@ -42,11 +42,19 @@ from pathlib import Path
 
 @dataclass(frozen=True)
 class ScenarioEvent:
-    """One event in the episodic stream, with ground-truth topic label."""
+    """One event in the episodic stream, with ground-truth topic label.
+
+    The optional ``content_type`` field maps to A-MAC-style type priors
+    (e.g. ``decision``, ``tool_echo``, ``ack``, ``ambient_chat``). When
+    present, the runner encodes it as a ``type:<kind>`` tag alongside
+    the ``topic:<topic>`` tag, so a ``ContentTypePriorDecider`` can act
+    on it.
+    """
 
     id: str
     text: str
     topic: str
+    content_type: str | None = None
 
 
 @dataclass(frozen=True)
@@ -84,7 +92,12 @@ def load_scenario(path: str | Path) -> Scenario:
     data = json.loads(Path(path).read_text(encoding="utf-8"))
 
     events = [
-        ScenarioEvent(id=e["id"], text=e["text"], topic=e["topic"])
+        ScenarioEvent(
+            id=e["id"],
+            text=e["text"],
+            topic=e["topic"],
+            content_type=e.get("content_type"),
+        )
         for e in data["events"]
     ]
     queries = [

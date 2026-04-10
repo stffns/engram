@@ -151,3 +151,85 @@ class HeuristicWriteDecider:
 
         self._seen.add(norm)
         return Decision(True, "novel", 0.8, self.name)
+
+
+class ContentTypePriorDecider:
+    """Extends HeuristicWriteDecider with an A-MAC-style content-type prior.
+
+    Gates acceptance on a tag-based prior before falling through to the
+    heuristic rules. Events tagged with low-prior types (< 0.25) are
+    rejected immediately; the rest delegate to ``HeuristicWriteDecider``
+    with the prior folded into the confidence score.
+
+    Expected tag format: ``type:<kind>``, e.g. ``type:decision``.
+    Events without a type tag get the default prior (1.0 — pass through
+    unchanged). Multiple tags are comma-separated; the first ``type:``
+    tag wins.
+
+    See ``notes/research-2026-04-09.md`` for the A-MAC paper analysis
+    and ``docs/extending.md`` for usage examples.
+    """
+
+    name = "ContentTypePriorDecider"
+
+    _DEFAULT_PRIORS: dict[str, float] = {
+        "decision": 1.0,
+        "fact": 0.9,
+        "observation": 0.7,
+        "question": 0.6,
+        "status": 0.3,
+        "ambient_chat": 0.2,
+        "ack": 0.15,
+        "tool_echo": 0.1,
+    }
+
+    def __init__(
+        self,
+        *,
+        priors: dict[str, float] | None = None,
+        low_prior_threshold: float = 0.25,
+        **heuristic_kwargs,
+    ) -> None:
+        self._priors = priors or dict(self._DEFAULT_PRIORS)
+        self._low_prior_threshold = low_prior_threshold
+        self._heuristic = HeuristicWriteDecider(**heuristic_kwargs)
+
+    def set_hydrate_fn(
+        self,
+        fn: Callable[[], Iterable[str]],
+    ) -> None:
+        """Delegate hydration to the inner heuristic decider."""
+        self._heuristic.set_hydrate_fn(fn)
+
+    def decide(self, event: Event, ctx: WriteContext) -> Decision:
+        content_type = self._extract_type(event.tags)
+        prior = self._priors.get(content_type, 1.0)
+
+        if prior < self._low_prior_threshold:
+            return Decision(
+                write=False,
+                reason=f"low_prior:{content_type}:{prior:.2f}",
+                confidence=1.0 - prior,
+                policy=self.name,
+            )
+
+        base = self._heuristic.decide(event, ctx)
+
+        if base.write:
+            return Decision(
+                write=True,
+                reason=f"novel+prior:{content_type}:{prior:.2f}",
+                confidence=base.confidence * prior,
+                policy=self.name,
+            )
+        return base
+
+    @staticmethod
+    def _extract_type(tags: str | None) -> str:
+        if not tags:
+            return "unknown"
+        for tag in tags.split(","):
+            tag = tag.strip()
+            if tag.startswith("type:"):
+                return tag.split(":", 1)[1]
+        return "unknown"

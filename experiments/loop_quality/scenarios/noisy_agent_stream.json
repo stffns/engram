@@ -1,0 +1,172 @@
+{
+  "name": "noisy_agent_stream",
+  "description": "Simulates a realistic agent stream where high-value decisions are mixed with noise: tool echoes, status confirmations, ambient chat, and boilerplate acknowledgments. 24 events total — 8 signal (4 topics × 2 events) and 16 noise (4 noise categories × 4 events each). The current HeuristicWriteDecider admits all 24 because every event passes the length and dedup checks. This scenario exists to measure whether noise dilutes consolidation quality — if the consolidator mixes signal with noise into impure facts, there's a case for a ContentTypePriorDecider that filters by content type before admission. Built 2026-04-10 to test A-MAC's claim that content-type prior is the most influential factor in memory admission.",
+  "events": [
+    {
+      "id": "decision_auth_a",
+      "text": "We decided to migrate from API keys to OAuth 2.0 with PKCE for all mobile clients because API keys were leaking through client-side JavaScript bundles in production.",
+      "topic": "auth_decision",
+      "content_type": "decision"
+    },
+    {
+      "id": "decision_auth_b",
+      "text": "OAuth 2.0 PKCE migration is complete for iOS and Android. API key rotation scheduled for next week as a deprecation step — old keys will stop working on May 1st.",
+      "topic": "auth_decision",
+      "content_type": "decision"
+    },
+    {
+      "id": "decision_db_a",
+      "text": "The team chose TimescaleDB over plain PostgreSQL for the metrics warehouse because we need hypertable partitioning for the 2B+ rows per month of telemetry data.",
+      "topic": "db_decision",
+      "content_type": "decision"
+    },
+    {
+      "id": "decision_db_b",
+      "text": "TimescaleDB deployment uses continuous aggregates for the dashboard queries — raw data retention is 90 days, aggregates kept for 2 years.",
+      "topic": "db_decision",
+      "content_type": "decision"
+    },
+    {
+      "id": "decision_cache_a",
+      "text": "We replaced the in-process LRU cache with Redis because cache invalidation across 12 pods was causing stale reads on the product catalog for up to 30 seconds.",
+      "topic": "cache_decision",
+      "content_type": "decision"
+    },
+    {
+      "id": "decision_cache_b",
+      "text": "Redis cache layer is live with a 5-minute TTL on catalog entries. Cache hit rate jumped from 62% to 94% and stale reads dropped to zero across all pods.",
+      "topic": "cache_decision",
+      "content_type": "decision"
+    },
+    {
+      "id": "decision_deploy_a",
+      "text": "Canary deployments now gate on error rate and p99 latency — if either metric regresses more than 10% during the 15-minute bake window, the rollout auto-reverts.",
+      "topic": "deploy_decision",
+      "content_type": "decision"
+    },
+    {
+      "id": "decision_deploy_b",
+      "text": "The canary auto-revert saved us last Thursday — a bad config change spiked p99 from 200ms to 1.2s and the rollout killed itself within 4 minutes.",
+      "topic": "deploy_decision",
+      "content_type": "decision"
+    },
+    {
+      "id": "noise_tool_echo_01",
+      "text": "Running npm install... Done in 14.3 seconds. 1847 packages installed, 0 vulnerabilities found.",
+      "topic": "noise_tool_echo",
+      "content_type": "tool_echo"
+    },
+    {
+      "id": "noise_tool_echo_02",
+      "text": "git status: On branch feature/metrics-dashboard. Changes not staged for commit: modified src/dashboard/Chart.tsx, modified src/api/metrics.ts.",
+      "topic": "noise_tool_echo",
+      "content_type": "tool_echo"
+    },
+    {
+      "id": "noise_tool_echo_03",
+      "text": "pytest tests/test_metrics.py — 47 passed, 0 failed, 0 skipped in 3.21 seconds.",
+      "topic": "noise_tool_echo",
+      "content_type": "tool_echo"
+    },
+    {
+      "id": "noise_tool_echo_04",
+      "text": "docker compose up -d postgres redis. Creating network app_default. Creating container app-postgres-1. Creating container app-redis-1. Both healthy.",
+      "topic": "noise_tool_echo",
+      "content_type": "tool_echo"
+    },
+    {
+      "id": "noise_ack_01",
+      "text": "Got it, I'll update the config file with those Redis connection parameters now.",
+      "topic": "noise_ack",
+      "content_type": "ack"
+    },
+    {
+      "id": "noise_ack_02",
+      "text": "Understood. I'll make sure the OAuth scopes match what the mobile team requested.",
+      "topic": "noise_ack",
+      "content_type": "ack"
+    },
+    {
+      "id": "noise_ack_03",
+      "text": "Sure, let me check the TimescaleDB docs for the continuous aggregate syntax and I'll set that up.",
+      "topic": "noise_ack",
+      "content_type": "ack"
+    },
+    {
+      "id": "noise_ack_04",
+      "text": "OK, I've noted that the canary window should be 15 minutes. Updating the pipeline config.",
+      "topic": "noise_ack",
+      "content_type": "ack"
+    },
+    {
+      "id": "noise_status_01",
+      "text": "Build #4521 passed. All 312 tests green. Coverage at 87.3%. No new lint warnings.",
+      "topic": "noise_status",
+      "content_type": "status"
+    },
+    {
+      "id": "noise_status_02",
+      "text": "Deployment to staging completed at 14:32 UTC. Health checks passing on all 4 pods. Smoke tests green.",
+      "topic": "noise_status",
+      "content_type": "status"
+    },
+    {
+      "id": "noise_status_03",
+      "text": "Pull request #287 merged into main. 3 approvals, all checks passed. Branch deleted.",
+      "topic": "noise_status",
+      "content_type": "status"
+    },
+    {
+      "id": "noise_status_04",
+      "text": "Monitoring alert resolved: CPU usage on metrics-worker dropped back below 70% after the query optimization.",
+      "topic": "noise_status",
+      "content_type": "status"
+    },
+    {
+      "id": "noise_ambient_01",
+      "text": "Let me think about this for a moment... yeah, I think the approach with Redis makes more sense than trying to fix the LRU cache.",
+      "topic": "noise_ambient",
+      "content_type": "ambient_chat"
+    },
+    {
+      "id": "noise_ambient_02",
+      "text": "Interesting — I hadn't considered that TimescaleDB continuous aggregates could replace the materialized view we were planning.",
+      "topic": "noise_ambient",
+      "content_type": "ambient_chat"
+    },
+    {
+      "id": "noise_ambient_03",
+      "text": "Hold on, let me re-read the canary deployment docs. I want to make sure we're not missing an edge case with the rollback trigger.",
+      "topic": "noise_ambient",
+      "content_type": "ambient_chat"
+    },
+    {
+      "id": "noise_ambient_04",
+      "text": "Hmm, the OAuth PKCE flow has a slightly different redirect URI format than what we had before. Let me check the RFC.",
+      "topic": "noise_ambient",
+      "content_type": "ambient_chat"
+    }
+  ],
+  "queries": [
+    {
+      "question": "why did we switch from API keys to OAuth for mobile clients?",
+      "expect_topic": "auth_decision",
+      "expect_contains": ["OAuth", "PKCE"]
+    },
+    {
+      "question": "which database did we choose for the metrics warehouse and why?",
+      "expect_topic": "db_decision",
+      "expect_contains": ["TimescaleDB"]
+    },
+    {
+      "question": "what replaced the in-process LRU cache and what was the result?",
+      "expect_topic": "cache_decision",
+      "expect_contains": ["Redis"]
+    },
+    {
+      "question": "how do canary deployments decide when to auto-revert?",
+      "expect_topic": "deploy_decision",
+      "expect_contains": ["canary"]
+    }
+  ]
+}

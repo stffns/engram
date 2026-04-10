@@ -28,11 +28,16 @@ from engram.policies.should_recall import (
     RecallPlan,
     SemanticOnlyRecaller,
 )
-from engram.policies.should_remember import AlwaysWrite, HeuristicWriteDecider
+from engram.policies.should_remember import (
+    AlwaysWrite,
+    ContentTypePriorDecider,
+    HeuristicWriteDecider,
+)
 from engram.policies.types import Decision, Event, WriteContext, WriteDecider
 
 __all__ = [
     "AlwaysWrite",
+    "ContentTypePriorDecider",
     "ConsolidateContext",
     "ConsolidateDecider",
     "ConsolidationDecision",

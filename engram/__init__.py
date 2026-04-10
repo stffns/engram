@@ -8,6 +8,7 @@ from engram.consolidation import ConsolidationResult, Fact
 from engram.memory import ForgetResult, Memory, RememberResult
 from engram.policies import (
     AlwaysWrite,
+    ContentTypePriorDecider,
     ConsolidateContext,
     ConsolidateDecider,
     ConsolidationDecision,
@@ -34,6 +35,7 @@ from engram.policies import (
 __version__ = "0.1.0"
 __all__ = [
     "AlwaysWrite",
+    "ContentTypePriorDecider",
     "ConsolidateContext",
     "ConsolidateDecider",
     "ConsolidationDecision",
