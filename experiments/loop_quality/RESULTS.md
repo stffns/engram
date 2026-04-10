@@ -404,6 +404,131 @@ Each option above is a hypothesis. The right way to resolve them is
 to run the runner again with the change and land a new row here. Do
 not tune the scenario to make the current numbers look better.
 
+## ContentTypePriorDecider experiment (2026-04-10)
+
+The A-MAC paper's central claim — *content-type prior is the most
+influential factor in memory admission* — was tested on a new
+`noisy_agent_stream` scenario: 8 signal events (4 decision topics × 2)
+mixed with 16 noise events (4 tool_echo, 4 ack, 4 status, 4
+ambient_chat).
+
+### Baseline vs ContentTypePriorDecider (explicit tags)
+
+| Metric | HeuristicWriteDecider | ContentTypePriorDecider |
+|---|---|---|
+| Events ingested | 24 | 8 |
+| Facts written | 6 | 3 |
+| Noise facts (impure) | 3 | **0** |
+| cluster_purity | **50%** | **100%** |
+| query_pass_rate | 100% | 100% |
+| topic_coverage | 37.5% | 37.5% |
+| Elapsed | 4.3s | 2.8s |
+
+**What happened:** the consolidator was grouping ambient chat ("let me
+think about Redis...") with ack events ("OK, I'll update the canary
+config") because `bge-small-en-v1.5` sees them as semantically similar.
+Filtering noise before ingestion eliminated all 3 impure facts. The
+decision events consolidated cleanly into 3 pure facts. `db_decision`
+(TimescaleDB) did not consolidate in either case — its two events sit
+below threshold 0.70 (embedder limit, not decider limit).
+
+### Auto-classification without explicit tags
+
+The auto-classifier (`engram/classification.py`) uses regex + keyword
+patterns to detect noise from text alone, no LLM:
+
+| Type | Precision | Pattern |
+|---|---|---|
+| tool_echo | 100% (4/4) | CLI tool names + output keywords |
+| ack | 100% (4/4) | Formulaic phrase starters + short length |
+| status | 100% (4/4) | Metric keywords + status verbs |
+| ambient_chat | 100% (4/4) | Thinking-out-loud phrases |
+| decision | N/A | Falls through as "unknown" (prior 1.0) |
+
+**End-to-end without tags:** 12/24 events written (8 decisions + 4
+status that pass the 0.3 > 0.25 threshold check), 0 noise facts,
+100% query pass rate. Same quality as explicit tagging.
+
+**Cross-validation on real content (`jay_vstash_2026_04_09_snapshot`):**
+0/20 false positives. All 20 organic events classified as "unknown" and
+pass through unchanged. One bug caught and fixed: bare keyword "pod"
+matched Spanish words ("poder", "podemos").
+
+### What the experiment says
+
+1. **The A-MAC hypothesis holds.** Content-type prior is a cheap, high-
+   impact filter. No LLM needed for the noise categories that matter.
+2. **The impact is on consolidation, not recall.** query_pass_rate was
+   100% with and without the filter because `LayeredRecaller`'s
+   episodic fallback catches everything. The damage from noise is in
+   the semantic layer: impure facts that pollute long-term memory.
+3. **Auto-classification is conservative and safe.** It only rejects
+   categories with obvious structural patterns. Decisions, observations,
+   and everything ambiguous passes through unchanged.
+4. **The limitation is honest:** distinguishing decisions from
+   observations requires semantic understanding the classifier can't do.
+   But it doesn't need to — both should be written.
+
+## Recall routing experiment (2026-04-10)
+
+Tested the hypothesis that query-type-aware routing (specific queries
+→ episodic-first, thematic queries → semantic-first) would improve
+recall quality.
+
+### Three recallers compared across all scenarios
+
+| Scenario | SemanticOnly | Layered (default) | EpisodicOnly |
+|---|---|---|---|
+| analytics_project | 100% | 100% | 100% |
+| jay_vstash_real | **25%** | 75% | **75%** |
+| noisy_agent_stream | **50%** | 100% | **100%** |
+| session_2026_04_09 | **50%** | 100% | **100%** |
+
+### What the data says
+
+1. **EpisodicOnly = Layered on 3 of 4 scenarios.** The semantic layer
+   never provides a hit that episodic doesn't also have. On these
+   scenario sizes (12-24 events), the episodic layer contains the
+   same information as the semantic layer plus more.
+
+2. **SemanticOnly fails hard on singleton topics.** `kafka_meeting` (1
+   event) and `engram_design` (2 events below threshold) never produce
+   a semantic fact, so semantic-only recall can't find them.
+
+3. **The hypothesis of smart routing doesn't apply at this scale.**
+   Changing the order (episodic-first vs semantic-first) wouldn't
+   change results because round-robin interleave already gives both
+   layers slots. The "routing" question only matters when one layer
+   has so many candidates that it drowns out the other.
+
+4. **The semantic layer's value is not in recall — it's in
+   compression.** At 20 events, episodic is fine. At 2,000 events,
+   the episodic haystack becomes too large for the embedder to
+   reliably find specific events, and consolidated facts become the
+   more reliable path. This scenario set cannot test that.
+
+### When smart routing would matter
+
+The hypothesis deserves revisiting when:
+
+- A scenario has >200 events per topic (episodic haystack large
+  enough that retrieval quality degrades)
+- The semantic layer has enough facts that broad queries reliably
+  return the right cluster
+- A temporal dimension exists (recency-sensitive queries that
+  episodic handles better by design)
+
+None of these conditions exist in the current 4-scenario safety net.
+Building a scenario that tests at scale is the prerequisite for this
+hypothesis to be actionable.
+
+### Implication for engram defaults
+
+`LayeredRecaller` (semantic-first + episodic fallback) remains the
+right default. It is never worse than either layer alone, and the
+round-robin interleave ensures both layers contribute. The cost is
+one extra vstash query per recall — negligible at current scale.
+
 ## Honesty discipline
 
 Same as the rest of the repo:
