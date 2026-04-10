@@ -161,10 +161,14 @@ class ContentTypePriorDecider:
     rejected immediately; the rest delegate to ``HeuristicWriteDecider``
     with the prior folded into the confidence score.
 
-    Expected tag format: ``type:<kind>``, e.g. ``type:decision``.
-    Events without a type tag get the default prior (1.0 — pass through
-    unchanged). Multiple tags are comma-separated; the first ``type:``
-    tag wins.
+    **Type resolution order:**
+
+    1. Explicit ``type:<kind>`` tag on the event — always wins.
+    2. If ``auto_classify=True`` (default) and no explicit tag,
+       ``classify_content_type()`` infers the type from the text using
+       regex/keyword heuristics. No LLM.
+    3. If both fail, the type is ``"unknown"`` and the prior is 1.0
+       (pass through unchanged).
 
     See ``notes/research-2026-04-09.md`` for the A-MAC paper analysis
     and ``docs/extending.md`` for usage examples.
@@ -188,10 +192,12 @@ class ContentTypePriorDecider:
         *,
         priors: dict[str, float] | None = None,
         low_prior_threshold: float = 0.25,
+        auto_classify: bool = True,
         **heuristic_kwargs,
     ) -> None:
         self._priors = priors or dict(self._DEFAULT_PRIORS)
         self._low_prior_threshold = low_prior_threshold
+        self._auto_classify = auto_classify
         self._heuristic = HeuristicWriteDecider(**heuristic_kwargs)
 
     def set_hydrate_fn(
@@ -202,7 +208,7 @@ class ContentTypePriorDecider:
         self._heuristic.set_hydrate_fn(fn)
 
     def decide(self, event: Event, ctx: WriteContext) -> Decision:
-        content_type = self._extract_type(event.tags)
+        content_type = self._resolve_type(event)
         prior = self._priors.get(content_type, 1.0)
 
         if prior < self._low_prior_threshold:
@@ -223,6 +229,17 @@ class ContentTypePriorDecider:
                 policy=self.name,
             )
         return base
+
+    def _resolve_type(self, event: Event) -> str:
+        """Resolve content type: explicit tag first, then auto-classify."""
+        explicit = self._extract_type(event.tags)
+        if explicit != "unknown":
+            return explicit
+        if self._auto_classify:
+            from engram.classification import classify_content_type
+
+            return classify_content_type(event.text)
+        return "unknown"
 
     @staticmethod
     def _extract_type(tags: str | None) -> str:
