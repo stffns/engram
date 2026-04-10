@@ -107,6 +107,168 @@ one of these systems looks worth examining, it gets a section here.
 
 ---
 
+## neo4j-labs/agent-memory — engram's cousin, not its competitor
+
+> *Analyzed 2026-04-10, after engram's four decision primitives were
+> complete. neo4j-labs/agent-memory is the closest published system
+> to engram in **shape** — both are policy/loop layers sitting on
+> top of a substrate they don't reimplement. The substrates are
+> what differ.*
+
+### The parallel
+
+```
+┌────────────┬──────────────────────────────────┬──────────────────────────────────┐
+│    Capa    │       Dense-retrieval side       │          Graph side              │
+├────────────┼──────────────────────────────────┼──────────────────────────────────┤
+│ Substrate  │ vstash (SQLite + sqlite-vec +    │ Neo4j (graph + vector + text     │
+│            │ FTS5 + RRF)                      │ search)                          │
+├────────────┼──────────────────────────────────┼──────────────────────────────────┤
+│ Agent-loop │ engram (4 decision primitives    │ neo4j-labs/agent-memory          │
+│            │ + audit + tombstones)            │ (3 tiers + entity extraction     │
+│            │                                  │ + POLE+O)                        │
+└────────────┴──────────────────────────────────┴──────────────────────────────────┘
+```
+
+Both are policy layers on a substrate. Both decide what to
+remember, what to recall, what to consolidate. The API shapes
+are parallel:
+
+- engram: `should_remember` / `should_recall` /
+  `should_consolidate` / `should_forget` as explicit decision
+  primitives with audit logs
+- neo4j-labs: short-term/long-term/reasoning tiers with entity
+  extraction pipeline and entity resolution
+
+### The philosophical difference
+
+Two theories of memory:
+
+**Dense substrate + policy loop (engram/vstash):**
+
+"Remember the text raw, fuse with RRF adaptivo, and the loop
+decides what to promote to consolidated facts. The agent does
+reasoning at runtime over chunks."
+
+- Write cost: trivial (embed + store). Consolidation is cosine
+  clustering, no NER, no LLM in the hot path.
+- Read cost: `vstash.search` + interleave + the *caller's* LLM
+  reasoning over the hits. engram itself does not reason — it
+  returns strings.
+- Failure mode: **retrieval miss**. The event IS in the DB,
+  vstash just didn't surface it for this query. Recoverable by
+  improving query / embedder / threshold. **No information loss.**
+
+**Symbolic substrate + extraction pipeline (neo4j-labs):**
+
+"Extract entities and relations at write time, and the graph
+answers structured queries. Reasoning happens at the write
+side."
+
+- Write cost: NER + relation extraction per event (spaCy /
+  GLiNER / LLM). Expensive, fragile if extractor fails.
+- Read cost: graph traversal + optional vector similarity.
+  Cheap for relational queries ("all entities connected to X").
+- Failure mode: **extraction miss**. The NER didn't recognize
+  the entity, the relation was never extracted, **no node
+  represents that knowledge in the graph**. Potentially
+  unrecoverable without re-ingest with a better extractor.
+
+### Cost model comparison
+
+```
+                     engram/vstash                neo4j-labs/neo4j
+write cost           O(N²) cosine on consolidate  O(N) NER + relation per event
+read cost            O(log N) hybrid + interleave  O(log N) graph + vector hybrid
+failure mode         retrieval miss (recoverable)  extraction miss (structural)
+query shape          text similarity               structured relational
+extractor fragility  none                           high (NER/LLM quality)
+content agnosticism  high (any text survives)       low (needs recognizable entities)
+```
+
+The asymmetry that matters most: **engram never loses
+information by pipeline failure**. It may lose *access* to
+information (a bad query, a wrong threshold), but the text is
+always in episodic. neo4j-labs can lose information
+structurally if the extractor misses an entity on ingest.
+
+The counter-case: if the extractor IS good for your domain
+(a stable schema, typed business entities, academic papers),
+the structured queries you get from the graph are worth the
+extraction fragility. Domains with stable entity types
+probably prefer the graph approach.
+
+### engram already has a seed of graph structure
+
+Every semantic `Fact` in engram has `derived_from: list[str]`
+— paths to the episodic events that produced it. That's a
+bipartite graph:
+
+```
+episodic events ──derived_from──▶ semantic facts
+```
+
+Not traversable yet (no "give me all events that contributed
+to fact X" query exists), but the structure is in the data.
+A future `engram_edges` table would generalize this implicit
+graph, not invent one from scratch.
+
+### Why we're NOT building a KG layer now
+
+Three concrete reasons, not just "later":
+
+1. **Extraction source is the unsolved problem.** LLM
+   extraction at `consolidate()` time inherits neo4j-labs'
+   fragility. Rule-based extraction (spaCy/GLiNER) adds a
+   pipeline dependency engram has explicitly avoided. User-
+   supplied tags are safe but add nothing `vstash` tags don't
+   already provide. None of the three options is clearly
+   better than no-extraction for v1.
+
+2. **Query shape changes.** Once you have edges, users expect
+   graph queries ("all facts about entity X", "path from A
+   to B"). That requires either a query language, or wrapping
+   a graph engine, or reinventing traversal. The "lightweight
+   KG" scope-creeps into an engineering project.
+
+3. **CONSTITUTION §6 gates this.** The constitution already
+   anticipates the KG question and defers it: "optional,
+   gated on a benchmark." No `loop_quality/` scenario
+   currently exposes a gap that relational queries would
+   solve. The scenario is the gating requirement.
+
+### What we learned from reading neo4j-labs
+
+1. **engram and neo4j-labs are parallel, not competing.**
+   Comparing them on LongMemEval (dense retrieval) would be
+   like comparing a car and a boat on a road — the graph
+   system isn't built for that benchmark and engram isn't
+   built for entity-centric queries.
+
+2. **The right framing for engram in the landscape:**
+   engram is the **policy-loop layer for dense-retrieval
+   substrates**. neo4j-labs is the **policy-loop layer for
+   graph substrates**. Both are loops on substrates. The
+   substrate choice is upstream of both.
+
+3. **If engram ever adds a graph view,** the honest path is
+   caller-supplied edges via tags (option 3 above), not
+   extraction in the hot path. The graph view would be a
+   secondary index on the primary dense-retrieval model, not
+   a replacement.
+
+### How this maps to engram decisions
+
+| neo4j-labs finding | engram decision |
+|---|---|
+| Entity extraction at write-time is expensive and fragile | Keep consolidation write-time cost cheap (cosine, no NER/LLM) |
+| Extraction miss = structural information loss | Episodic layer is write-once, never extracted from — information survives even when recall fails |
+| POLE+O data model gives structured queries | `derived_from` tags are the seed of a graph view; generalize only if a scenario demands it |
+| 3 memory tiers (short/long/reasoning) | 2 layers (episodic/semantic) + audit + tombstones. Procedural is the third layer from CONSTITUTION §5, gated and not implemented. |
+| Dense-retrieval vs symbolic-extraction are two memory theories | engram explicitly bets on the dense side. The bet is: embeddings are sufficient and the loop only needs to decide what to keep/promote/forget. Reviewable if a scenario shows otherwise. |
+
+---
+
 *This file is working notes. Move stable conclusions into
 `CONSTITUTION.md`. Move broken claims into a strikethrough section so
 the mistake stays visible.*
