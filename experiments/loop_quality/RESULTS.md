@@ -507,6 +507,51 @@ recall quality.
    reliably find specific events, and consolidated facts become the
    more reliable path. This scenario set cannot test that.
 
+### Scale experiment (2026-04-10)
+
+Tested whether episodic recall degrades at scale, making semantic
+recall necessary. Generated events with 6 distinct topics (2 signal
+events each) + increasing confusing fillers that share vocabulary
+with real topics (auth-adjacent, deploy-adjacent, etc).
+
+```
+N      Signal%   Semantic     Layered      Episodic
+12     100.0%    0/6 (0%)     6/6 (100%)   6/6 (100%)
+30      40.0%    0/6 (0%)     6/6 (100%)   6/6 (100%)
+60      20.0%    0/6 (0%)     5/6 (83%)    6/6 (100%)
+100     12.0%    0/6 (0%)     5/6 (83%)    6/6 (100%)
+200      6.0%    0/6 (0%)     5/6 (83%)    6/6 (100%)
+500      2.4%    0/6 (0%)     5/6 (83%)    6/6 (100%)
+```
+
+**Findings:**
+
+1. **Episodic stays at 100% through 500 events** with 2.4% signal
+   density. The embedder finds 12 signal events among 488 confusing
+   fillers reliably. The "needle in haystack" degradation does not
+   appear at this scale.
+
+2. **Semantic stays at 0%.** Confusing fillers (e.g. "Stripe webhook
+   reliability improved" near "Stripe replaced in-house billing")
+   contaminate clusters, producing only 5 impure facts. No pure
+   facts match query topics.
+
+3. **Layered drops to 83% from 60 events onwards.** The semantic
+   layer produces an impure fact that takes a round-robin slot away
+   from a correct episodic hit. The semantic layer actively hurts
+   recall when its facts are impure.
+
+4. **The crossover point was not reached.** At 500 events, episodic
+   is still strictly better than layered. To find the crossover we
+   would need either: (a) much larger scale (thousands of events),
+   or (b) real conversational data where topics blend more naturally.
+   Synthetic generation hits a ceiling because the fillers are
+   structurally different from real agent streams.
+
+**Implication:** the question of scale requires real datasets, not
+synthetic generation. LMEB and BEAM are candidates — both have real
+multi-session conversational data at scales from 100K to 10M tokens.
+
 ### When smart routing would matter
 
 The hypothesis deserves revisiting when:
@@ -517,9 +562,11 @@ The hypothesis deserves revisiting when:
   return the right cluster
 - A temporal dimension exists (recency-sensitive queries that
   episodic handles better by design)
+- **Real conversational data is available at scale** (LMEB, BEAM)
+  where topic boundaries are natural, not engineered
 
 None of these conditions exist in the current 4-scenario safety net.
-Building a scenario that tests at scale is the prerequisite for this
+Building a runner against a real dataset is the prerequisite for this
 hypothesis to be actionable.
 
 ### Implication for engram defaults
