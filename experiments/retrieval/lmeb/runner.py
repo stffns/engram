@@ -303,9 +303,9 @@ def eval_task(
     all_hits: list[bool] = []
 
     for scene in scenes:
-        db = db_dir / f"{baseline}_{scene.scene_id}.db"
+        db = db_dir / f"{baseline}_{task_dir.name}_{scene.scene_id}.db"
         adapter = _ADAPTERS[baseline](
-            f"lmeb_{baseline}_{scene.scene_id}", db
+            f"lmeb_{baseline}_{task_dir.name}_{scene.scene_id}", db
         )
         try:
             result = eval_scene(
