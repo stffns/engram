@@ -82,6 +82,18 @@ class _Adapter:
         """Returns True if the row was actually written, False if skipped."""
         raise NotImplementedError
 
+    def remember_batch(self, items: list[tuple[str, str]]) -> int:
+        """Batch ingest [(text, title), ...]. Returns count written.
+
+        Default implementation falls back to sequential remember().
+        Adapters with native batch support override this.
+        """
+        written = 0
+        for text, title in items:
+            if self.remember(text, title=title):
+                written += 1
+        return written
+
     def recall(self, query: str, *, top_k: int) -> list[Any]:
         raise NotImplementedError
 
@@ -98,6 +110,45 @@ class _VstashAdapter(_Adapter):
     def remember(self, text: str, *, title: str) -> bool:
         self._m.remember(text, title=title, collection="default")
         return True
+
+    def remember_batch(self, items: list[tuple[str, str]]) -> int:
+        """Batch ingest using vstash 0.28.0 store-level API.
+
+        Falls back to sequential remember() if batch API is unavailable
+        or if accessing store internals fails (vstash API change).
+        """
+        try:
+            store = self._m._store
+            batch_fn = getattr(store, "add_documents_batch", None)
+            if batch_fn is None:
+                return super().remember_batch(items)
+
+            from vstash.embed import embed_texts
+            from vstash.ingest import chunk_text
+
+            model = store.get_meta("embedding_model")
+            if not model:
+                return super().remember_batch(items)
+
+            docs = []
+            for text, title in items:
+                chunks = chunk_text(text)
+                embeddings = embed_texts(chunks, model)
+                docs.append({
+                    "path": f"text://{title}",
+                    "title": title,
+                    "chunks": chunks,
+                    "embeddings": embeddings,
+                    "source_type": "text",
+                    "collection": "default",
+                    "project": store._project,
+                    "layer": "episodic",
+                })
+            if docs:
+                batch_fn(docs)
+            return len(docs)
+        except Exception:
+            return super().remember_batch(items)
 
     def recall(self, query: str, *, top_k: int) -> list[Any]:
         return self._m.search(query, top_k=top_k, collection="default")
@@ -171,14 +222,15 @@ def eval_question(
     top_k: int,
 ) -> QuestionResult:
     t0 = time.perf_counter()
-    attempted = 0
-    written = 0
 
+    # Collect all turns, then batch-ingest if the adapter supports it.
+    items: list[tuple[str, str]] = []
     for sid, turns in conv.haystack_sessions.items():
         for turn_idx, turn in enumerate(turns):
-            attempted += 1
-            if adapter.remember(_format_turn(turn), title=_title_for(conv.question_id, sid, turn_idx)):
-                written += 1
+            items.append((_format_turn(turn), _title_for(conv.question_id, sid, turn_idx)))
+
+    attempted = len(items)
+    written = adapter.remember_batch(items)
 
     hits = adapter.recall(conv.question, top_k=top_k)
     answer_set = set(conv.answer_session_ids)
