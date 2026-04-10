@@ -332,14 +332,26 @@ class Memory:
         # user's top_k is reached), which is what "layered recall"
         # was supposed to mean all along.
         per_layer_hits: list[list[SearchResult]] = []
+        empty_budget = 0
         for req in plan.layers:
+            # When a prior layer returned nothing, redistribute its
+            # budget to subsequent layers so the caller's top_k is
+            # still satisfiable. Without this, an empty semantic
+            # layer (no consolidation) wastes its budget and the
+            # episodic layer only fetches its own smaller quota.
+            effective_top_k = req.top_k + empty_budget
             layer_hits = self._vstash.search(
                 query,
-                top_k=req.top_k,
+                top_k=effective_top_k,
                 collection=self.collection,
                 layer=req.layer,
             )
-            per_layer_hits.append(list(layer_hits))
+            hits_list = list(layer_hits)
+            if hits_list:
+                per_layer_hits.append(hits_list)
+                empty_budget = 0
+            else:
+                empty_budget += req.top_k
 
         seen_paths: set[str] = set()
         merged: list[SearchResult] = []
