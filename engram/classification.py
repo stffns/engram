@@ -102,7 +102,6 @@ _STATUS_KEYWORDS = (
     "merged into",
     "branch deleted",
     "alert resolved",
-    "pod",
 )
 
 # Status metric patterns (numbers + units that signal automated output)
