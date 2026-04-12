@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import argparse
 import random
+import re
 import sys
 import time
 from collections.abc import Callable
@@ -59,8 +60,14 @@ def _session_from_title(title: str | None) -> str | None:
     return parts[1]
 
 
+_SPECIAL_TOKENS = re.compile(r"<\|[a-z_]+\|>")
+
+
 def _format_turn(turn: Turn) -> str:
-    return f"{turn.role}: {turn.content}"
+    text = f"{turn.role}: {turn.content}"
+    # Strip tiktoken special tokens that appear in some LongMemEval
+    # haystacks (e.g. <|endoftext|>) — these crash vstash's chunk_text.
+    return _SPECIAL_TOKENS.sub("", text)
 
 
 # --------------------------------------------------------------------- adapters
