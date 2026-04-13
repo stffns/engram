@@ -134,7 +134,7 @@ row.
 |---|---|---|
 | `should_remember` | Does this event merit a write? | `HeuristicWriteDecider` — skip empty / too short / too long / exact duplicate via an in-process set that hydrates lazily from vstash |
 | `should_consolidate` | Is it time to distill episodic events into semantic facts? | `PeriodicConsolidator` — fires when ≥ `min_events` unconsolidated events accumulate |
-| `should_recall` | Which layers to query and with what budget? | `LayeredRecaller` — semantic first, episodic fallback, round-robin interleave with dedup by path |
+| `should_recall` | Which layers to query and with what budget? | `LayeredRecaller` — semantic first, episodic fallback, round-robin interleave with dedup by path. Optional temporal reranking via `temporal_weight` |
 | `should_forget` | Is this event safe to tombstone? | `NeverForget` — safe default, only forgets on `force=True` or with `ForgetConsolidated` opt-in |
 
 Full depth: [`docs/primitives.md`](docs/primitives.md).
@@ -159,6 +159,22 @@ merken audit dup_exact
 
 Deeper: [`docs/architecture.md`](docs/architecture.md).
 
+## Temporal reranking
+
+When facts evolve over time (e.g., "we switched from Redis to
+Caffeine"), queries should prefer the latest version. Enable with
+`temporal_weight`:
+
+```python
+mem = Memory(project="my_agent", temporal_weight=0.2)
+hits = mem.recall("what caching solution are we using?")
+# → Caffeine (newest) ranks above Redis (oldest)
+```
+
+Formula: `reranked_score = score × (1 + weight × recency_fraction)`.
+Multiplicative, bounded, default **off** (0.0). See
+[`docs/primitives.md`](docs/primitives.md) for details.
+
 ## Quick start
 
 ```bash
@@ -180,8 +196,8 @@ claude mcp add merken -- merken-mcp
 
 ## Tests and scenarios
 
-- **154 tests** across four decision primitives, three deployment
-  surfaces, and three `loop_quality` scenarios.
+- **171 tests** across four decision primitives, three deployment
+  surfaces, and five `loop_quality` scenarios.
 - **Loop-quality scenarios** live in
   [`experiments/loop_quality/`](experiments/loop_quality/) and enforce
   that every decider change is validated against at least one

@@ -33,7 +33,9 @@ All four decision primitives from CONSTITUTION §5.1 are implemented:
 - **`should_recall`** — `LayeredRecaller` (default, semantic-first
   with episodic fallback) and `SemanticOnlyRecaller` baseline.
   `Memory.recall` does round-robin interleave across layers with
-  dedup-by-path.
+  dedup-by-path. Optional temporal reranking via `temporal_weight`
+  (default 0.0 = off). Grid search across 5 scenarios at 8 weights
+  showed zero regressions.
 - **`should_forget`** — `NeverForget` (default, safe) and
   `ForgetConsolidated`. Tombstone-not-delete: full text preserved
   in `merken_tombstones`, reversible.

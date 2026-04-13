@@ -247,6 +247,41 @@ final list (until the user's `top_k` runs out), which is what
 See [`../notes/silt.md`](../notes/silt.md) for the commit chain
 behind this fix.
 
+### Temporal reranking (opt-in)
+
+After interleave, `Memory.recall` can optionally boost newer
+results via the `temporal_weight` parameter:
+
+```python
+reranked_score = score * (1 + temporal_weight * recency_fraction)
+```
+
+Where `recency_fraction` is `(t - t_min) / (t_max - t_min)` over
+the current result set, computed from vstash's `added_at` field.
+
+- **Default: off** (`temporal_weight=0.0`). No reranking.
+- **Multiplicative**: poor semantic matches don't get promoted
+  just for being recent.
+- **Bounded**: at `temporal_weight=0.2`, the newest result gets
+  at most a 20% score boost.
+- **Graceful**: results without `added_at` get no boost (not
+  penalized either).
+
+Enable per-instance or per-call:
+
+```python
+# Per-instance (all recall calls use it)
+mem = Memory(project="my_agent", temporal_weight=0.2)
+
+# Per-call override
+mem.recall("what caching solution?", temporal_weight=0.3)
+```
+
+This is particularly useful for knowledge-update workloads where
+facts evolve over time (e.g., "we switched from Redis to Caffeine")
+and queries expect the latest version. Grid search across all
+loop_quality scenarios at weights 0.0–1.0 showed zero regressions.
+
 ### Explicit layer bypass
 
 If the caller passes `layer=` explicitly, the decider is
