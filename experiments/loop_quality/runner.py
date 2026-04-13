@@ -216,6 +216,7 @@ def run_scenario(
     recall_decider: Any = None,
     consolidate_decider: Any = None,
     forget_decider: Any = None,
+    temporal_weight: float = 0.0,
 ) -> ScenarioResult:
     """Run one scenario end-to-end against a fresh ``Memory``.
 
@@ -243,6 +244,7 @@ def run_scenario(
         recall_decider=recall_decider,
         consolidate_decider=cons_decider,
         forget_decider=forget_decider,
+        temporal_weight=temporal_weight,
     ) as mem:
         path_to_topic = _ingest_scenario(mem, scenario)
 
@@ -408,6 +410,12 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         metavar="DOTTED.PATH",
         help="same format as --write-decider, for ForgetDecider",
     )
+    p.add_argument(
+        "--temporal-weight",
+        type=float,
+        default=0.0,
+        help="Recency boost weight for recall (0.0 = off, 0.2 = moderate)",
+    )
     return p.parse_args(argv)
 
 
@@ -443,6 +451,7 @@ def main(argv: list[str] | None = None) -> int:
                 recall_decider=recall_dec,
                 consolidate_decider=cons_dec,
                 forget_decider=forget_dec,
+                temporal_weight=args.temporal_weight,
             )
             print(format_result(result))
             print()

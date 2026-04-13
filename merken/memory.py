@@ -182,9 +182,11 @@ class Memory:
         consolidate_decider: ConsolidateDecider | None = None,
         recall_decider: RecallDecider | None = None,
         forget_decider: ForgetDecider | None = None,
+        temporal_weight: float = 0.0,
     ) -> None:
         self.project = project
         self.collection = collection
+        self._temporal_weight = temporal_weight
         self._vstash = vstash.Memory(
             config=config,
             project=project,
@@ -288,6 +290,7 @@ class Memory:
         *,
         top_k: int = 5,
         layer: str | None = None,
+        temporal_weight: float | None = None,
     ) -> list[SearchResult]:
         """Read from memory.
 
@@ -355,6 +358,10 @@ class Memory:
 
         seen_paths: set[str] = set()
         merged: list[SearchResult] = []
+        # Over-fetch when temporal reranking is active so the reranker
+        # has enough candidates to reorder meaningfully.
+        tw = temporal_weight if temporal_weight is not None else self._temporal_weight
+        fetch_limit = top_k * 2 if tw > 0.0 else top_k
         max_len = max((len(hs) for hs in per_layer_hits), default=0)
         for i in range(max_len):
             for layer_hits in per_layer_hits:
@@ -367,8 +374,15 @@ class Memory:
                 if path is not None:
                     seen_paths.add(path)
                 merged.append(h)
-                if len(merged) >= top_k:
-                    return merged
+                if len(merged) >= fetch_limit:
+                    break
+            if len(merged) >= fetch_limit:
+                break
+
+        if tw > 0.0:
+            from merken.reranking import rerank_by_recency
+
+            merged = rerank_by_recency(merged, temporal_weight=tw)
 
         return merged[:top_k]
 
