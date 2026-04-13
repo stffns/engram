@@ -1,4 +1,4 @@
-# engram
+# merken
 
 > Agent-loop layer for persistent memory, built on top of
 > [vstash](https://github.com/stffns/vstash).
@@ -11,9 +11,9 @@ scenarios all at 100% pass rate and 100% cluster purity.
 
 vstash is a **glass-box retrieval substrate** — SQLite + sqlite-vec +
 FTS5 + reciprocal rank fusion, with observability and explicit limits.
-engram is the **loop on top**: when to write a memory, when to recall,
+merken is the **loop on top**: when to write a memory, when to recall,
 when to distill raw events into semantic facts, when to tombstone the
-ones that are redundant. vstash stores and searches; engram reasons
+ones that are redundant. vstash stores and searches; merken reasons
 about *what* is worth storing and searching. Every decision is logged
 to an audit collection you can query.
 
@@ -24,7 +24,7 @@ to an audit collection you can query.
                             │ remember / recall / consolidate / forget
                             ▼
        ┌──────────────────────────────────────────┐
-       │                   engram                  │
+       │                   merken                  │
        │                                           │
        │  ┌────────────┐  ┌─────────────────────┐ │
        │  │ Decision   │  │ Memory              │ │
@@ -40,8 +40,8 @@ to an audit collection you can query.
        │         │                   │             │
        │         └─────────┬─────────┘             │
        │                   ▼                       │
-       │          engram_audit collection          │
-       │          engram_tombstones collection     │
+       │          merken_audit collection          │
+       │          merken_tombstones collection     │
        └────────────────────┬─────────────────────┘
                             │ every storage + search call
                             ▼
@@ -54,13 +54,13 @@ to an audit collection you can query.
 
 ## The three deployment surfaces
 
-engram ships as one library with three ways to call it. They all wrap
+merken ships as one library with three ways to call it. They all wrap
 the same `Memory` class.
 
 ### 1. Python SDK
 
 ```python
-from engram import Memory, ForgetConsolidated, PeriodicConsolidator
+from merken import Memory, ForgetConsolidated, PeriodicConsolidator
 
 with Memory(
     project="my_agent",
@@ -87,28 +87,28 @@ Deeper SDK docs: [`docs/primitives.md`](docs/primitives.md),
 ### 2. CLI (after `pip install -e .`)
 
 ```bash
-engram remember "the user switched to Postgres on 2026-04-08"
-engram recall "what database does the analytics warehouse use?"
-engram consolidate
-engram forget --decider consolidated
-engram audit should_remember
-engram tombstones
-engram status
-engram stats
+merken remember "the user switched to Postgres on 2026-04-08"
+merken recall "what database does the analytics warehouse use?"
+merken consolidate
+merken forget --decider consolidated
+merken audit should_remember
+merken tombstones
+merken status
+merken stats
 ```
 
 Human output by default; pass `--json` anywhere for pipeable output.
 Every command accepts `--project NAME` (or `ENGRAM_PROJECT` env var) and
-`--db PATH` (default `~/.engram/<project>.db`, deliberately separate
+`--db PATH` (default `~/.merken/<project>.db`, deliberately separate
 from `~/.vstash/memory.db`).
 
 Deeper CLI reference: [`docs/cli.md`](docs/cli.md).
 
-### 3. MCP server — use engram from Claude Code
+### 3. MCP server — use merken from Claude Code
 
 ```bash
-# attach engram to Claude Code as an MCP server
-claude mcp add engram -- engram-mcp
+# attach merken to Claude Code as an MCP server
+claude mcp add merken -- merken-mcp
 ```
 
 Then, inside any Claude Code session:
@@ -117,16 +117,16 @@ Then, inside any Claude Code session:
 > *"Claude, what did we decide about the analytics warehouse database?"*
 > *"Claude, consolidate what we've discussed."*
 
-Eight tools, one per CLI command: `engram_remember`, `engram_recall`,
-`engram_consolidate`, `engram_forget`, `engram_audit`,
-`engram_tombstones`, `engram_status`, `engram_stats`. Config via
+Eight tools, one per CLI command: `merken_remember`, `merken_recall`,
+`merken_consolidate`, `merken_forget`, `merken_audit`,
+`merken_tombstones`, `merken_status`, `merken_stats`. Config via
 environment: `ENGRAM_PROJECT`, `ENGRAM_DB`.
 
 Deeper MCP reference: [`docs/mcp-server.md`](docs/mcp-server.md).
 
 ## The four decision primitives
 
-Every memory system eventually has to answer four questions. engram
+Every memory system eventually has to answer four questions. merken
 makes each one an explicit decision with inputs, outputs, and an audit
 row.
 
@@ -139,12 +139,12 @@ row.
 
 Full depth: [`docs/primitives.md`](docs/primitives.md).
 
-Every decision writes a row to the `engram_audit` collection — you can
+Every decision writes a row to the `merken_audit` collection — you can
 always query *why* something was kept or dropped:
 
 ```bash
-engram audit should_remember
-engram audit dup_exact
+merken audit should_remember
+merken audit dup_exact
 ```
 
 ## Memory layers
@@ -153,9 +153,9 @@ engram audit dup_exact
 - **semantic** — consolidated facts derived from episodic, with
   `derived_from` provenance pointers to the source events
 - **audit** — every decision the loop made, queryable via
-  `mem.audit()` / `engram audit`
+  `mem.audit()` / `merken audit`
 - **tombstones** — forgotten events with full text preserved for
-  unforgetting, queryable via `mem.tombstones()` / `engram tombstones`
+  unforgetting, queryable via `mem.tombstones()` / `merken tombstones`
 
 Deeper: [`docs/architecture.md`](docs/architecture.md).
 
@@ -163,19 +163,19 @@ Deeper: [`docs/architecture.md`](docs/architecture.md).
 
 ```bash
 # Clone and install
-git clone https://github.com/stffns/engram && cd engram
+git clone https://github.com/stffns/engram && cd merken
 pip install -e .
 
 # Run the full test suite (~10s)
 python3 -m pytest tests/ -q
 
 # Try the CLI
-engram remember "the user asked about postgres on 2026-04-08"
-engram recall "postgres"
-engram status
+merken remember "the user asked about postgres on 2026-04-08"
+merken recall "postgres"
+merken status
 
 # Attach to Claude Code
-claude mcp add engram -- engram-mcp
+claude mcp add merken -- merken-mcp
 ```
 
 ## Tests and scenarios
@@ -201,18 +201,18 @@ Measurement doctrine:
 ## Repository layout
 
 ```
-engram/
+merken/
 ├── README.md                    ← you are here
 ├── CONSTITUTION.md              ← principles, non-negotiables
 ├── CLAUDE.md                    ← session entry-point for Claude sessions
 ├── pyproject.toml               ← package config, [project.scripts]
-├── engram/                      ← the package itself
+├── merken/                      ← the package itself
 │   ├── __init__.py              ← public surface
 │   ├── memory.py                ← Memory class, the glue
 │   ├── consolidation.py         ← Fact, clustering, consolidate pipeline
 │   ├── audit.py                 ← audit + tombstone row formats
-│   ├── cli.py                   ← engram CLI entry point
-│   ├── mcp_server.py            ← engram-mcp MCP server entry point
+│   ├── cli.py                   ← merken CLI entry point
+│   ├── mcp_server.py            ← merken-mcp MCP server entry point
 │   └── policies/
 │       ├── should_remember.py
 │       ├── should_recall.py
@@ -227,7 +227,7 @@ engram/
 │   └── extending.md             ← write your own decider
 ├── experiments/                 ← the empirical bar (CONSTITUTION §9)
 │   ├── BENCHMARK_STRATEGY.md    ← measurement doctrine
-│   ├── loop_quality/            ← engram's design bar (scenario runner)
+│   ├── loop_quality/            ← merken's design bar (scenario runner)
 │   │   ├── runner.py
 │   │   ├── scenario.py
 │   │   ├── RESULTS.md
@@ -250,7 +250,7 @@ engram/
 | Knob | Default | Where to change |
 |---|---|---|
 | Project name | `"default"` (or `$ENGRAM_PROJECT`) | `Memory(project=...)` / `--project` / env |
-| DB path | `~/.engram/<project>.db` | `Memory(db=...)` / `--db` / `$ENGRAM_DB` |
+| DB path | `~/.merken/<project>.db` | `Memory(db=...)` / `--db` / `$ENGRAM_DB` |
 | Collection | `"default"` | `Memory(collection=...)` |
 | Embedding model (consolidation) | read from vstash `store_meta` at runtime; fallback to `vstash.config.EmbeddingsConfig().model` | set on the vstash side |
 | Consolidation method | `"embedding_v1"` | `mem.consolidate(method=...)` |
@@ -261,9 +261,9 @@ engram/
 | `should_consolidate` decider | `PeriodicConsolidator(min_events=10)` | `Memory(consolidate_decider=...)` |
 | `should_forget` decider | `NeverForget()` (safe) | `Memory(forget_decider=...)` |
 
-**Deliberately isolated by default:** engram's default DB is NOT your
-`~/.vstash/memory.db`. It lives under `~/.engram/<project>.db` so a
-buggy decider can't corrupt your main vstash store. To attach engram
+**Deliberately isolated by default:** merken's default DB is NOT your
+`~/.vstash/memory.db`. It lives under `~/.merken/<project>.db` so a
+buggy decider can't corrupt your main vstash store. To attach merken
 to a live vstash, point at it explicitly via `--db` / `$ENGRAM_DB`.
 
 ## Design non-negotiables
@@ -275,7 +275,7 @@ From [`CONSTITUTION.md`](CONSTITUTION.md), enforced in
    offline against a local embedder and a local vstash.
 2. **Glass box.** Every decision writes to the audit collection.
 3. **Single process by default.** No daemons, no queues, no Redis.
-4. **vstash is a hard dependency.** engram never reimplements retrieval
+4. **vstash is a hard dependency.** merken never reimplements retrieval
    or reaches into `vstash._private`.
 5. **Empirical first.** Every default-policy change cites a benchmark
    in `experiments/`.
@@ -284,9 +284,9 @@ From [`CONSTITUTION.md`](CONSTITUTION.md), enforced in
 
 ## Development status
 
-engram is pre-v0.1. The four decision primitives are implemented and
+merken is pre-v0.1. The four decision primitives are implemented and
 tested, the three deployment surfaces are working, and the loop-quality
-safety net is in place. What's next is **use** — putting engram in
+safety net is in place. What's next is **use** — putting merken in
 front of real agent workflows and watching what the loop does with
 organic content.
 
@@ -316,6 +316,6 @@ MIT.
 
 ---
 
-*Read [`CONSTITUTION.md`](CONSTITUTION.md) for why engram exists.
+*Read [`CONSTITUTION.md`](CONSTITUTION.md) for why merken exists.
 Read [`CLAUDE.md`](CLAUDE.md) for how to work in the repo.
-Read [`docs/`](docs/) for how to use engram.*
+Read [`docs/`](docs/) for how to use merken.*

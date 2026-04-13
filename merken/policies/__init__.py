@@ -1,70 +1,66 @@
-"""engram — agent-loop layer for persistent memory, built on top of vstash.
+"""Decision policies for the merken loop.
 
-See ``CONSTITUTION.md`` for what engram is, what it isn't, and the principles
-that should outlive any specific implementation.
+Each policy is a plain Python callable (Protocol-typed) with explicit inputs
+and outputs that you can test, override, or replace. CONSTITUTION §4.7 — no
+premature abstraction; if you can't name three concrete callers, you can't
+ship the helper.
 """
 
-from engram.consolidation import ConsolidationResult, Fact
-from engram.memory import ForgetResult, Memory, RememberResult
-from engram.policies import (
-    AlwaysWrite,
-    ContentTypePriorDecider,
+from merken.policies.should_consolidate import (
     ConsolidateContext,
     ConsolidateDecider,
     ConsolidationDecision,
-    Decision,
-    Event,
+    NeverConsolidate,
+    PeriodicConsolidator,
+)
+from merken.policies.should_forget import (
     ForgetConsolidated,
     ForgetConsolidatedOrSuperseded,
     ForgetContext,
     ForgetDecider,
     ForgetDecision,
     ForgetSuperseded,
-    HeuristicWriteDecider,
-    LayerRequest,
-    LayeredRecaller,
-    NeverConsolidate,
     NeverForget,
-    PeriodicConsolidator,
+)
+from merken.policies.should_recall import (
+    LayeredRecaller,
+    LayerRequest,
     RecallContext,
     RecallDecider,
     RecallPlan,
     SemanticOnlyRecaller,
-    WriteContext,
-    WriteDecider,
 )
+from merken.policies.should_remember import (
+    AlwaysWrite,
+    ContentTypePriorDecider,
+    HeuristicWriteDecider,
+)
+from merken.policies.types import Decision, Event, WriteContext, WriteDecider
 
-__version__ = "0.1.0"
 __all__ = [
     "AlwaysWrite",
     "ContentTypePriorDecider",
     "ConsolidateContext",
     "ConsolidateDecider",
     "ConsolidationDecision",
-    "ConsolidationResult",
     "Decision",
     "Event",
-    "Fact",
     "ForgetConsolidated",
     "ForgetConsolidatedOrSuperseded",
     "ForgetContext",
     "ForgetDecider",
     "ForgetDecision",
-    "ForgetResult",
     "ForgetSuperseded",
     "HeuristicWriteDecider",
     "LayerRequest",
     "LayeredRecaller",
-    "Memory",
     "NeverConsolidate",
     "NeverForget",
     "PeriodicConsolidator",
     "RecallContext",
     "RecallDecider",
     "RecallPlan",
-    "RememberResult",
     "SemanticOnlyRecaller",
     "WriteContext",
     "WriteDecider",
-    "__version__",
 ]

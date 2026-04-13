@@ -1,6 +1,6 @@
-# engram CLI reference
+# merken CLI reference
 
-The `engram` CLI is a thin wrapper around the Python SDK. Every
+The `merken` CLI is a thin wrapper around the Python SDK. Every
 command maps 1:1 to a `Memory` method. There is no business
 logic in the CLI — if a command needs behavior the SDK doesn't
 have, the method goes in `Memory` first and the CLI wraps it.
@@ -8,17 +8,17 @@ have, the method goes in `Memory` first and the CLI wraps it.
 ## Install
 
 ```bash
-cd ~/Desktop/Personal/Projects/engram
+cd ~/Desktop/Personal/Projects/merken
 pip install -e .
 ```
 
-This puts `engram` on your `$PATH`. Verify:
+This puts `merken` on your `$PATH`. Verify:
 
 ```bash
-which engram
-# /Users/you/.pyenv/shims/engram   (or similar)
+which merken
+# /Users/you/.pyenv/shims/merken   (or similar)
 
-engram --help
+merken --help
 ```
 
 ## Global flags
@@ -29,7 +29,7 @@ subcommand):
 | Flag | Default | What it does |
 |---|---|---|
 | `--project NAME` | `default` (or `$ENGRAM_PROJECT`) | Logical project name. Drives the default DB path and tags every write. |
-| `--db PATH` | `~/.engram/<project>.db` | vstash DB to open. Deliberately isolated from `~/.vstash/memory.db`. |
+| `--db PATH` | `~/.merken/<project>.db` | vstash DB to open. Deliberately isolated from `~/.vstash/memory.db`. |
 | `--json` | off | Emit JSON instead of human-readable output. Pass it anywhere before the subcommand. |
 
 **Environment variable:** `ENGRAM_PROJECT` sets the default
@@ -37,13 +37,13 @@ project name when `--project` is not given. Same priority as
 git reading `~/.gitconfig`.
 
 **Non-destructive default DB path:** the first time you run
-`engram remember ...` without `--db`, engram creates
-`~/.engram/default.db` and writes to it. Your main `~/.vstash/`
-store is never touched. If you want engram to attach to your
+`merken remember ...` without `--db`, merken creates
+`~/.merken/default.db` and writes to it. Your main `~/.vstash/`
+store is never touched. If you want merken to attach to your
 real vstash:
 
 ```bash
-engram --db ~/.vstash/memory.db remember "..."
+merken --db ~/.vstash/memory.db remember "..."
 ```
 
 ## Commands
@@ -54,14 +54,14 @@ Write an event to memory.
 
 ```bash
 # Positional text
-engram remember "the user picked Postgres for the analytics warehouse"
+merken remember "the user picked Postgres for the analytics warehouse"
 
 # Via stdin (pipe-friendly)
-cat note.txt | engram remember --stdin
-echo "an event" | engram remember --stdin
+cat note.txt | merken remember --stdin
+echo "an event" | merken remember --stdin
 
 # With metadata
-engram remember "design meeting outcome" \
+merken remember "design meeting outcome" \
     --layer episodic \
     --title "meeting_2026_04_08" \
     --tags "type:decision,project:analytics"
@@ -104,7 +104,7 @@ decider's "no" is a valid outcome). 2 if neither `text` nor
 `--stdin` was provided.
 
 **Note on short text:** vstash silently rejects text shorter
-than ~20 characters with `status="empty"`. engram surfaces this
+than ~20 characters with `status="empty"`. merken surfaces this
 as `reason="vstash_rejected:empty"` and `written=False`. If you
 need to store short events, tag them with context or wrap them
 in longer strings.
@@ -115,14 +115,14 @@ Query memory and get ranked hits.
 
 ```bash
 # Default: layered routing via should_recall
-engram recall "what database did we pick for analytics?"
+merken recall "what database did we pick for analytics?"
 
 # Restrict to one layer (bypasses the decider)
-engram recall "analytics" --layer semantic
-engram recall "analytics" --layer episodic --top-k 10
+merken recall "analytics" --layer semantic
+merken recall "analytics" --layer episodic --top-k 10
 
 # JSON for piping
-engram --json recall "analytics" | jq '.[0].text'
+merken --json recall "analytics" | jq '.[0].text'
 ```
 
 **Flags:**
@@ -168,16 +168,16 @@ Cluster episodic events into semantic facts.
 
 ```bash
 # Default: runs if the decider says so (PeriodicConsolidator, min_events=10)
-engram consolidate
+merken consolidate
 
 # Force regardless of decider
-engram consolidate --force
+merken consolidate --force
 
 # Lower threshold (more aggressive clustering)
-engram consolidate --force --threshold 0.65
+merken consolidate --force --threshold 0.65
 
 # JSON for inspection
-engram --json consolidate --force
+merken --json consolidate --force
 ```
 
 **Flags:**
@@ -229,17 +229,17 @@ Or, if skipped:
 ### `forget`
 
 Tombstone episodic events. **Reversible** — the full text is
-preserved in the `engram_tombstones` collection.
+preserved in the `merken_tombstones` collection.
 
 ```bash
 # Default: NeverForget (no-op unless --force)
-engram forget
+merken forget
 
 # Forget events already in a semantic fact
-engram forget --decider consolidated
+merken forget --decider consolidated
 
 # Wipe all episodic events (still writes tombstones)
-engram forget --force --verbose
+merken forget --force --verbose
 ```
 
 **Flags:**
@@ -289,20 +289,20 @@ decision writes a row here.
 
 ```bash
 # All recent decisions (default query matches "should_")
-engram audit
+merken audit
 
 # By specific decision type
-engram audit should_remember
-engram audit should_recall
-engram audit should_consolidate
+merken audit should_remember
+merken audit should_recall
+merken audit should_consolidate
 
 # By reason
-engram audit dup_exact
-engram audit novel
-engram audit too_short
+merken audit dup_exact
+merken audit novel
+merken audit too_short
 
 # JSON for piping
-engram --json audit should_remember | jq '.[].text'
+merken --json audit should_remember | jq '.[].text'
 ```
 
 **Flags:**
@@ -337,11 +337,11 @@ full original text + provenance for every forgotten event.
 
 ```bash
 # All tombstones
-engram tombstones
+merken tombstones
 
 # Search by content
-engram tombstones "kafka meeting"
-engram tombstones postgres
+merken tombstones "kafka meeting"
+merken tombstones postgres
 ```
 
 **Flags:**
@@ -366,16 +366,16 @@ Project summary: project name, DB path, total event count,
 per-layer breakdown.
 
 ```bash
-engram status
-engram --project medlocal status
-engram --db ~/.vstash/memory.db --json status
+merken status
+merken --project medlocal status
+merken --db ~/.vstash/memory.db --json status
 ```
 
 **Output (human):**
 
 ```
 project:     default
-db:          /Users/you/.engram/default.db
+db:          /Users/you/.merken/default.db
 collection:  default
 total:       47
   episodic              42
@@ -387,7 +387,7 @@ total:       47
 ```json
 {
   "project": "default",
-  "db": "/Users/you/.engram/default.db",
+  "db": "/Users/you/.merken/default.db",
   "collection": "default",
   "total_events": 47,
   "layers": {
@@ -400,18 +400,18 @@ total:       47
 ### `stats`
 
 Pass-through to `vstash.Memory.stats()`. Reports document count
-across *all* collections in the DB (not just engram's default
+across *all* collections in the DB (not just merken's default
 collection), total chunks, DB size, etc.
 
 ```bash
-engram stats
-engram --json stats
+merken stats
+merken --json stats
 ```
 
 **Output (human):**
 
 ```
-documents=52 chunks=134 collections=3 db_size_mb=2.04 db_path='/Users/you/.engram/default.db'
+documents=52 chunks=134 collections=3 db_size_mb=2.04 db_path='/Users/you/.merken/default.db'
 ```
 
 **Output (`--json`):**
@@ -422,7 +422,7 @@ documents=52 chunks=134 collections=3 db_size_mb=2.04 db_path='/Users/you/.engra
   "chunks": 134,
   "collections": 3,
   "db_size_mb": 2.04,
-  "db_path": "/Users/you/.engram/default.db"
+  "db_path": "/Users/you/.merken/default.db"
 }
 ```
 
@@ -432,7 +432,7 @@ documents=52 chunks=134 collections=3 db_size_mb=2.04 db_path='/Users/you/.engra
 
 ```bash
 while IFS= read -r line; do
-    engram remember "$line"
+    merken remember "$line"
 done < notes.txt
 ```
 
@@ -443,14 +443,14 @@ Dedup is automatic — lines already in the store get
 
 ```bash
 tail -f /var/log/agent.log | while read line; do
-    engram remember --stdin <<< "$line"
+    merken remember --stdin <<< "$line"
 done
 ```
 
 Or as a one-shot:
 
 ```bash
-cat agent_session.log | engram remember --stdin
+cat agent_session.log | merken remember --stdin
 ```
 
 ### Daily consolidation cron
@@ -459,23 +459,23 @@ cat agent_session.log | engram remember --stdin
 # crontab: 0 23 * * *  /path/to/daily_consolidate.sh
 
 #!/usr/bin/env bash
-engram --project daily consolidate --force
-engram --project daily forget --decider consolidated
+merken --project daily consolidate --force
+merken --project daily forget --decider consolidated
 ```
 
 ### Recall into a Claude prompt
 
 ```bash
-context=$(engram --json recall "$user_question" | jq -r '.[].text' | head -3)
+context=$(merken --json recall "$user_question" | jq -r '.[].text' | head -3)
 echo "Context:\n$context\n\nQuestion: $user_question" | claude
 ```
 
 ### Inspect why something was dropped
 
 ```bash
-engram audit too_short
-engram audit dup_exact
-engram audit vstash_rejected
+merken audit too_short
+merken audit dup_exact
+merken audit vstash_rejected
 ```
 
 ## Multiple projects
@@ -484,20 +484,20 @@ Each project has its own DB file. Switch between them with
 `--project`:
 
 ```bash
-engram --project medlocal remember "new demo case: meningococcemia"
-engram --project perf_migration remember "SPL BR ready for CI"
-engram --project analytics remember "PG 16 chosen over SQLite"
+merken --project medlocal remember "new demo case: meningococcemia"
+merken --project perf_migration remember "SPL BR ready for CI"
+merken --project analytics remember "PG 16 chosen over SQLite"
 
-engram --project medlocal status
-engram --project perf_migration recall "SPL"
+merken --project medlocal status
+merken --project perf_migration recall "SPL"
 ```
 
 Or set a default for a session:
 
 ```bash
 export ENGRAM_PROJECT=medlocal
-engram remember "another note"
-engram status   # now implicitly medlocal
+merken remember "another note"
+merken status   # now implicitly medlocal
 ```
 
 ## Troubleshooting
@@ -505,7 +505,7 @@ engram status   # now implicitly medlocal
 **`(no hits)` when you know the event is there.** You probably
 wrote it with a layer other than `episodic` and are recalling
 with the default layered routing. Try `--layer episodic` or
-check `engram status`.
+check `merken status`.
 
 **`reason=vstash_rejected:empty` on text you know is not
 empty.** Your text is shorter than ~20 characters. vstash's
@@ -513,11 +513,11 @@ ingest pipeline has a minimum-length guardrail. Add context or
 wrap in a longer string.
 
 **CLI seems to use a different DB than expected.** Check
-`$ENGRAM_PROJECT` and `$ENGRAM_DB`. Run `engram status` to
+`$ENGRAM_PROJECT` and `$ENGRAM_DB`. Run `merken status` to
 print the resolved DB path.
 
 **Consolidate runs but produces 0 facts.** Check
-`engram audit should_consolidate` — the decider may be skipping
+`merken audit should_consolidate` — the decider may be skipping
 because of `too_few_events`. Or use `--force`. If it still
 writes 0, the events' pairwise cosine is below 0.70 — try
 lowering `--threshold` temporarily, or add a
@@ -525,8 +525,8 @@ lowering `--threshold` temporarily, or add a
 
 **Writes appear to succeed but recall returns nothing.** There's
 a race between writes and vstash's FTS index. In practice
-engram's tests have never hit this, but if you do, check that
-`engram stats` shows the document count going up — that rules
+merken's tests have never hit this, but if you do, check that
+`merken stats` shows the document count going up — that rules
 out the write actually failing silently.
 
 ## Further reading
@@ -536,4 +536,4 @@ out the write actually failing silently.
 - [`mcp-server.md`](mcp-server.md) — the same commands as MCP tools
 - [`extending.md`](extending.md) — write your own decider and wire
   it through the CLI
-- `engram/cli.py` — the source of truth
+- `merken/cli.py` — the source of truth

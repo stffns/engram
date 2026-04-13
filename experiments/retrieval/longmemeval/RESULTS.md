@@ -3,7 +3,7 @@
 ## Scope
 
 This file records absolute R@5 numbers on LongMemEval. **It does not
-measure whether engram's loop adds value** — LongMemEval is chat-replay
+measure whether merken's loop adds value** — LongMemEval is chat-replay
 with no duplicates in the haystack, so the decision primitives collapse
 to "ingest everything." For the benchmark that tries to catch loop
 value, see `../../loop_quality/`.
@@ -13,9 +13,9 @@ value, see `../../loop_quality/`.
 Every row records:
 
 - **Date** — when the run was made.
-- **Commit** — the engram commit SHA the run was made against.
-- **Baseline** — `vstash` (substrate only) / `engram-always` (no
-  filtering) / `engram-heuristic` (Phase 1 default decider).
+- **Commit** — the merken commit SHA the run was made against.
+- **Baseline** — `vstash` (substrate only) / `merken-always` (no
+  filtering) / `merken-heuristic` (Phase 1 default decider).
 - **Subset** — `longmemeval_s` (full distractor haystack) /
   `longmemeval_oracle` (oracle context only — sanity, not signal).
 - **n** — number of questions evaluated. **Anything below ~50 is
@@ -28,29 +28,29 @@ Every row records:
 
 | Date | Commit | Baseline | Subset | n | R@5 (95% CI) | API/q | Notes |
 |------|--------|----------|--------|---|--------------|-------|-------|
-| 2026-04-08 | `2bcf502` | `engram-always` | `longmemeval_s` | 3 | 1.000 [1.000, 1.000] | 0 | First real-data run. **Sanity only — n=3 produces a degenerate CI.** |
-| 2026-04-08 | `2bcf502` | `engram-heuristic` | `longmemeval_s` | 3 | 1.000 [1.000, 1.000] | 0 | Same caveat. With no exact duplicates in the haystack, behaves identically to `engram-always`. |
+| 2026-04-08 | `2bcf502` | `merken-always` | `longmemeval_s` | 3 | 1.000 [1.000, 1.000] | 0 | First real-data run. **Sanity only — n=3 produces a degenerate CI.** |
+| 2026-04-08 | `2bcf502` | `merken-heuristic` | `longmemeval_s` | 3 | 1.000 [1.000, 1.000] | 0 | Same caveat. With no exact duplicates in the haystack, behaves identically to `merken-always`. |
 | 2026-04-08 | `2bcf502` | `vstash` | `longmemeval_s` | 3 | 1.000 [1.000, 1.000] | 0 | Substrate-only baseline. Same caveat. |
-| 2026-04-08 | `e18d7d4` | `engram-heuristic` | `longmemeval_s` | 10 | **0.900** [0.700, 1.000] | 0 | First non-degenerate CI. 9/10 hits. seed=42. |
-| 2026-04-08 | `e18d7d4` | `vstash` | `longmemeval_s` | 10 | **0.900** [0.700, 1.000] | 0 | Identical hit set to engram-heuristic — confirms the heuristic decider is a no-op on this dataset. seed=42. |
-| 2026-04-13 | `5a6c820` | `vstash` | `longmemeval_s` | **500** | **0.964** [0.948, 0.978] | 0 | **Phase A complete.** Full n=500 run, seed=42. Positions engram's substrate at parity with mempalace's claimed 96.6% raw (CIs overlap). |
-| 2026-04-13 | `5a6c820` | `engram-heuristic` | `longmemeval_s` | **500** | **0.964** [0.948, 0.980] | 0 | Identical R@5 to vstash raw. Budget redistribution fix (commit `42d40ef`) closed the gap that existed at n=10. Heuristic decider is a no-op on this dataset (no duplicates). |
+| 2026-04-08 | `e18d7d4` | `merken-heuristic` | `longmemeval_s` | 10 | **0.900** [0.700, 1.000] | 0 | First non-degenerate CI. 9/10 hits. seed=42. |
+| 2026-04-08 | `e18d7d4` | `vstash` | `longmemeval_s` | 10 | **0.900** [0.700, 1.000] | 0 | Identical hit set to merken-heuristic — confirms the heuristic decider is a no-op on this dataset. seed=42. |
+| 2026-04-13 | `5a6c820` | `vstash` | `longmemeval_s` | **500** | **0.964** [0.948, 0.978] | 0 | **Phase A complete.** Full n=500 run, seed=42. Positions merken's substrate at parity with mempalace's claimed 96.6% raw (CIs overlap). |
+| 2026-04-13 | `5a6c820` | `merken-heuristic` | `longmemeval_s` | **500** | **0.964** [0.948, 0.980] | 0 | Identical R@5 to vstash raw. Budget redistribution fix (commit `42d40ef`) closed the gap that existed at n=10. Heuristic decider is a no-op on this dataset (no duplicates). |
 
 ### Wall-clock cost (informational, not part of the metric)
 
 | Baseline | n | Elapsed | Per-question |
 |---|---|---|---|
-| `engram-always` | 3 | 92.0 s | ~30.7 s |
-| `engram-heuristic` | 3 | 170.2 s | ~56.7 s |
+| `merken-always` | 3 | 92.0 s | ~30.7 s |
+| `merken-heuristic` | 3 | 170.2 s | ~56.7 s |
 | `vstash` | 3 | 129.2 s | ~43.1 s |
-| `engram-heuristic` | 10 | 405.5 s | ~40.6 s |
+| `merken-heuristic` | 10 | 405.5 s | ~40.6 s |
 | `vstash` | 10 | 355.8 s | ~35.6 s |
 | `vstash` | **500** | 8923.0 s (2.5h) | ~17.8 s |
-| `engram-heuristic` | **500** | 10166.6 s (2.8h) | ~20.3 s |
+| `merken-heuristic` | **500** | 10166.6 s (2.8h) | ~20.3 s |
 
 The n=500 run used vstash 0.28.0 batch ingest for the vstash baseline
 (single-transaction writes), cutting per-question cost from ~35s to
-~18s. engram-heuristic still ingests sequentially (events pass through
+~18s. merken-heuristic still ingests sequentially (events pass through
 the decider one by one) at ~20s/question — 14% overhead from the audit
 log, consistent with the n=10 measurement.
 
@@ -66,11 +66,11 @@ in the chat history; not yet in an issue.
 
 ## What the n=500 run says (Phase A complete)
 
-- **engram-heuristic and vstash are tied at 0.964 (R@5).** CIs
+- **merken-heuristic and vstash are tied at 0.964 (R@5).** CIs
   overlap completely: [0.948, 0.978] vs [0.948, 0.980]. The budget
   redistribution fix (commit `42d40ef`) closed the gap that existed
   at earlier runs where the empty semantic layer was stealing slots.
-- **96.4% positions engram at parity with mempalace's 96.6% raw
+- **96.4% positions merken at parity with mempalace's 96.6% raw
   claim.** The 0.2pp difference is well within the CI. Engram's
   substrate (vstash with bge-small-en-v1.5) is competitive with the
   strongest verified raw-mode claim in the space.
@@ -83,7 +83,7 @@ in the chat history; not yet in an issue.
 
 ## What the n=10 run said (historical)
 
-- engram-heuristic and vstash tied at 9/10 (R@5 = 0.900). CI was
+- merken-heuristic and vstash tied at 9/10 (R@5 = 0.900). CI was
   [0.700, 1.000] — too wide for claims. The n=500 run narrowed this
   to [0.948, 0.980].
 
@@ -94,8 +94,8 @@ in the chat history; not yet in an issue.
    schema surprises against the real LongMemEval-cleaned dataset.
 2. **Heuristic exact-dedup adds nothing on LongMemEval.** Real
    haystacks have no exact duplicates, so `HeuristicWriteDecider`'s
-   `dup_exact` rule never fires and engram-heuristic collapses to
-   engram-always behaviorally. This rule's value can only show in
+   `dup_exact` rule never fires and merken-heuristic collapses to
+   merken-always behaviorally. This rule's value can only show in
    live agent loops where the same content gets re-ingested. **The
    benchmark in this directory cannot validate this rule.** It needs
    a different benchmark — the one in `../../loop_quality/`.
@@ -112,25 +112,25 @@ in the chat history; not yet in an issue.
    writes beyond the user-facing ingest. Worth measuring on a bigger
    run before we decide whether to batch audit writes.
 5. **Wall-clock variance between baselines is unexplained.** With one
-   DB per (baseline, question), `engram-always` (92 s) < `vstash`
-   (129 s) < `engram-heuristic` (170 s) is suspicious — the three
+   DB per (baseline, question), `merken-always` (92 s) < `vstash`
+   (129 s) < `merken-heuristic` (170 s) is suspicious — the three
    baselines should be within ~10% of each other on identical
    hardware. Possibilities: model warmup spread across baselines,
    audit collection growth, or a per-DB cold-start cost.
 
 ## Competitive positioning (updated 2026-04-13)
 
-The n=500 result positions engram against the published landscape:
+The n=500 result positions merken against the published landscape:
 
 | System | R@5 | Mode | Actually tests the system? |
 |---|---|---|---|
-| **engram** | **96.4%** [0.948, 0.980] | raw, full loop | **Yes** — decider, recaller, audit all active |
+| **merken** | **96.4%** [0.948, 0.980] | raw, full loop | **Yes** — decider, recaller, audit all active |
 | mempalace "raw" | 96.6% | ChromaDB only | **No** — issue #214 showed the benchmark only calls ChromaDB, no mempalace code |
-| mempalace rooms | 89.4% | with palace features | Yes — 7pp below engram |
-| mempalace AAAK | 84.2% | with compression | Yes — 12pp below engram |
+| mempalace rooms | 89.4% | with palace features | Yes — 7pp below merken |
+| mempalace AAAK | 84.2% | with compression | Yes — 12pp below merken |
 | Mem0 | ~85% | hybrid + GPT-4 | Yes — LLM in path, higher cost per query |
 
-engram is the only system in this table that (a) publishes a CI,
+merken is the only system in this table that (a) publishes a CI,
 (b) runs its actual decision loop during the benchmark, and (c)
 matches the raw-retrieval ceiling without an LLM.
 
@@ -143,7 +143,7 @@ edit history. See `notes/prior-art.md` for the cautionary tale that
 pinned this rule down.
 
 The n ≤ 10 numbers above are **absolute positioning only** — they
-cannot support any claim of the form "engram matches X" or "engram
+cannot support any claim of the form "merken matches X" or "merken
 beats Y." Claims like that require n ≥ 50 with a non-degenerate CI
 on the same `longmemeval_s_cleaned` split against the same metric.
 Until such a row exists in this table, the claim does not get made

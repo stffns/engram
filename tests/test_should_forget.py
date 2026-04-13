@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from engram import (
+from merken import (
     ForgetConsolidated,
     ForgetContext,
     ForgetDecision,

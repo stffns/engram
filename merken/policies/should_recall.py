@@ -1,6 +1,6 @@
 """``should_recall`` policies — decision primitive #3.
 
-Decides *how* to route a recall across engram's memory layers. Until
+Decides *how* to route a recall across merken's memory layers. Until
 this primitive exists, ``Memory.recall(query)`` is a pass-through to
 ``vstash.Memory.search`` with whatever layer the caller happened to
 pass, and the semantic facts produced by ``consolidate()`` are

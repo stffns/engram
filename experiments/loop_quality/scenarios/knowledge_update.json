@@ -1,6 +1,6 @@
 {
   "name": "knowledge_update",
-  "description": "Tests whether engram surfaces the CURRENT state of evolving facts, not stale versions. 20 events across 4 topics, each topic with an evolution arc: initial decision → refinement → revision/reversal. The queries ask for the current state. A system that returns the latest version passes; one that returns an earlier version (even if semantically closer to the query) fails. This scenario exposes the knowledge-update gap: engram has no mechanism to mark an older event as superseded by a newer one. Built 2026-04-10 to evaluate whether topic_key/upsert patterns (a la GP/engram) would add value.",
+  "description": "Tests whether merken surfaces the CURRENT state of evolving facts, not stale versions. 20 events across 4 topics, each topic with an evolution arc: initial decision → refinement → revision/reversal. The queries ask for the current state. A system that returns the latest version passes; one that returns an earlier version (even if semantically closer to the query) fails. This scenario exposes the knowledge-update gap: merken has no mechanism to mark an older event as superseded by a newer one. Built 2026-04-10 to evaluate whether topic_key/upsert patterns (a la GP/merken) would add value.",
   "events": [
     {
       "id": "cache_v1",

@@ -1,6 +1,6 @@
 {
   "name": "jay_vstash_2026_04_09_snapshot",
-  "description": "Real-content snapshot taken from Jay's vstash on 2026-04-09. Twenty documents the user actually produced while working on MedLocal, vstash, engram, and daily reviews over 2026-04-06 through 2026-04-08. Topic labels (6 topics) assigned by honest reading of titles; one label has a judgment call (agent-memory-use-cases-2026-04-07 → engram_design, but could equally be vstash_notes given its debugging-flavored content). This scenario is a FROZEN snapshot for regression testing — Jay's live vstash moves daily, but this JSON does not. When engram's recall or consolidation regresses against real content, this scenario catches it before the live smoke does.",
+  "description": "Real-content snapshot taken from Jay's vstash on 2026-04-09. Twenty documents the user actually produced while working on MedLocal, vstash, merken, and daily reviews over 2026-04-06 through 2026-04-08. Topic labels (6 topics) assigned by honest reading of titles; one label has a judgment call (agent-memory-use-cases-2026-04-07 → merken_design, but could equally be vstash_notes given its debugging-flavored content). This scenario is a FROZEN snapshot for regression testing — Jay's live vstash moves daily, but this JSON does not. When merken's recall or consolidation regresses against real content, this scenario catches it before the live smoke does.",
   "events": [
     {
       "id": "2026-04-08__teams_daily_review",
@@ -8,9 +8,9 @@
       "topic": "daily_review"
     },
     {
-      "id": "2026-04-08__engram_decisions_+_v0.1_arch",
-      "text": "## engram — Open Questions Resolved (§10)\n\n| # | Question | Decision |\n|---|----------|----------|\n| 1 | Name | `engram` — short, googleable, neuroscience metaphor fits |\n| 2 | License | MIT (match vstash) |\n| 3 | Repo | sibling `stffns/engram` (independent release cycles, sacred boundary) |\n| 4 | Python floor | 3.10+ (match vstash) |\n| 5 | Default LLM | Ollama local-first; Cerebras/OpenAI/LM Studio as opt-in |\n| 6 | Policy format | Plain Python functions; escalate to Pydantic only if real reuse problem |\n| 7 | Audit log | JSONL append-only, separate from vstash (don't contaminate substrate) |\n| 8 | MCP server | Later — SDK first |\n\n## Architecture Ideas for v0.1 (pending code validation)\n\n### 1. should_remember — rule-based first, no LLM\n- v0.1: length minimum, exact-hash dedup, noise token filter (\"ok\", \"thanks\", \"got it\")\n- LLM-based filtering is expensive and circular — opt-in in v0.2\n\n### 2. Consolidation: atomic facts format\n- One fact = one sentence + subject + origin timestamp + confidence score\n- Confidence derived from how many episodic entries mention the same thing\n- Makes dedup trivial: compare embeddings of atomic facts, not paragraphs\n\n### 3. Decay policy: soft delete, never hard delete\n- should_forget reads vstash frequency+decay scores\n- Facts not accessed in N days → candidate for archive collection\n- Soft delete → archive, never hard delete by default\n\n### 4. Procedural memory: stub in v0.1\n- Layer exists, manual writes allowed (`layer=\"procedural\"`)\n- No auto-capture — \"capture-on-success\" needs success definition\n- Document intent, defer implementation ### 5. Inspection log JSONL schema (define from day 1)\n```json\n{\n  \"ts\": \"ISO8601\",\n  \"decision\": \"remember|recall|consolidate|forget\",\n  \"inputs\": {},\n  \"policy\": \"rule_name\",\n  \"result\": \"accepted|rejected|deferred\",\n  \"vstash_op\": \"add|search|null\",\n  \"latency_ms\": 42\n}\n```",
-      "topic": "engram_design"
+      "id": "2026-04-08__merken_decisions_+_v0.1_arch",
+      "text": "## merken — Open Questions Resolved (§10)\n\n| # | Question | Decision |\n|---|----------|----------|\n| 1 | Name | `merken` — short, googleable, neuroscience metaphor fits |\n| 2 | License | MIT (match vstash) |\n| 3 | Repo | sibling `stffns/merken` (independent release cycles, sacred boundary) |\n| 4 | Python floor | 3.10+ (match vstash) |\n| 5 | Default LLM | Ollama local-first; Cerebras/OpenAI/LM Studio as opt-in |\n| 6 | Policy format | Plain Python functions; escalate to Pydantic only if real reuse problem |\n| 7 | Audit log | JSONL append-only, separate from vstash (don't contaminate substrate) |\n| 8 | MCP server | Later — SDK first |\n\n## Architecture Ideas for v0.1 (pending code validation)\n\n### 1. should_remember — rule-based first, no LLM\n- v0.1: length minimum, exact-hash dedup, noise token filter (\"ok\", \"thanks\", \"got it\")\n- LLM-based filtering is expensive and circular — opt-in in v0.2\n\n### 2. Consolidation: atomic facts format\n- One fact = one sentence + subject + origin timestamp + confidence score\n- Confidence derived from how many episodic entries mention the same thing\n- Makes dedup trivial: compare embeddings of atomic facts, not paragraphs\n\n### 3. Decay policy: soft delete, never hard delete\n- should_forget reads vstash frequency+decay scores\n- Facts not accessed in N days → candidate for archive collection\n- Soft delete → archive, never hard delete by default\n\n### 4. Procedural memory: stub in v0.1\n- Layer exists, manual writes allowed (`layer=\"procedural\"`)\n- No auto-capture — \"capture-on-success\" needs success definition\n- Document intent, defer implementation ### 5. Inspection log JSONL schema (define from day 1)\n```json\n{\n  \"ts\": \"ISO8601\",\n  \"decision\": \"remember|recall|consolidate|forget\",\n  \"inputs\": {},\n  \"policy\": \"rule_name\",\n  \"result\": \"accepted|rejected|deferred\",\n  \"vstash_op\": \"add|search|null\",\n  \"latency_ms\": 42\n}\n```",
+      "topic": "merken_design"
     },
     {
       "id": "daily_mail_review__2026-04-08",
@@ -75,7 +75,7 @@
     {
       "id": "agent-memory-use-cases-2026-04-07",
       "text": "## Casos de uso requeridos para el proyecto futuro de memoria agéntica\n\nCuando arranquemos el proyecto separado de memoria agéntica que vive sobre vstash,\ndebe poder resolver TODOS estos casos:\n\n1. **Soporte cross-session**: \"Mi agente de soporte olvida las preferencias del\n   usuario entre sesiones\" → necesita persistencia de hechos por usuario, recall\n   automático al inicio de sesión.\n\n2. **Coding agent decisiones**: \"Mi coding agent repite las mismas decisiones\n   porque no recuerda las anteriores\" → necesita memoria episódica de decisiones\n   tomadas y rationale, conflict detection cuando se contradice.\n\n3. **Research contradicciones**: \"Mi agente de research junta info contradictoria\n   y no sabe cuál es la actual\" → necesita versionado de hechos, freshness/\n   confidence scoring, conflict resolution con actualización.\n\n4. **Journaling consolidación**: \"Mi journaling agent acumula notas pero no\n   consolida temas recurrentes\" → necesita consolidación semántica, deduplicación,\n   promoción de hechos recurrentes a memoria semántica.\n\nLos 4 casos comparten primitivas: hechos versionados, freshness, deduplicación\nsemántica, conflict resolution, auto-extracción opcional. Esto es framework arriba\nde vstash, NO core de vstash.\n\nvstash core sigue siendo: substrato local de retrieval rápido, sin LLM dependencies,\nsin políticas de memoria. El proyecto nuevo (TBD nombre) consume vstash via SDK.",
-      "topic": "engram_design"
+      "topic": "merken_design"
     },
     {
       "id": "2026-04-06__teams_daily_review",
@@ -112,8 +112,8 @@
       ]
     },
     {
-      "question": "what are the engram architecture decisions and v0.1 ideas?",
-      "expect_topic": "engram_design",
+      "question": "what are the merken architecture decisions and v0.1 ideas?",
+      "expect_topic": "merken_design",
       "expect_contains": []
     },
     {

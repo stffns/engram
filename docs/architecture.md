@@ -1,6 +1,6 @@
-# engram architecture
+# merken architecture
 
-This document describes engram's memory model, the decision loop,
+This document describes merken's memory model, the decision loop,
 and how the code is organized. It is the "mental model" doc —
 read it once before diving into
 [`primitives.md`](primitives.md), [`cli.md`](cli.md), or
@@ -8,16 +8,16 @@ read it once before diving into
 
 ## The memory model
 
-engram organizes memory into four **collections**, each with a
+merken organizes memory into four **collections**, each with a
 specific role. All four live in the same SQLite database via
-vstash — engram does not create its own storage.
+vstash — merken does not create its own storage.
 
 ```
 ┌──────────────────────────────────────────────────────────┐
-│ vstash SQLite (one DB per engram project)                 │
+│ vstash SQLite (one DB per merken project)                 │
 │                                                           │
 │  ┌──────────────┐  ┌──────────────┐  ┌────────────────┐  │
-│  │ default      │  │ engram_audit │  │ engram_        │  │
+│  │ default      │  │ merken_audit │  │ merken_        │  │
 │  │ (user data)  │  │ (decisions)  │  │  tombstones    │  │
 │  │              │  │              │  │ (forgotten)    │  │
 │  │  layer:      │  │  layer:      │  │                │  │
@@ -42,20 +42,20 @@ This is where actual memory lives. Events land here when
   fact has `derived_from:<path1>,<path2>` in its vstash `tags`,
   so provenance is queryable.
 
-engram does NOT currently use `layer="procedural"`. CONSTITUTION §5
+merken does NOT currently use `layer="procedural"`. CONSTITUTION §5
 describes procedural memory as a potential fourth memory layer
 for captured-on-success task recipes ("how the agent solved X
 last time"). It is not in v1, and **it is not on the near-term
 roadmap** — there is no scheduled slice that implements it. The
 layer is mentioned here only so a reader who reads CONSTITUTION
 §5 knows why it's not represented in any diagram. Treat the
-two-layer model (episodic + semantic) as engram's full memory
+two-layer model (episodic + semantic) as merken's full memory
 shape until a scenario demonstrably requires a third layer.
 
-### `engram_audit` collection — every decision
+### `merken_audit` collection — every decision
 
 When a decider runs (`should_remember`, `should_recall`,
-`should_consolidate`, `should_forget`), engram writes one row here
+`should_consolidate`, `should_forget`), merken writes one row here
 with:
 
 - The decision (`write: True/False` for remember; similar for
@@ -67,14 +67,14 @@ with:
 - The layers/top_k chosen (for should_recall)
 
 Layer is always `"audit"`. Collection is always
-`engram_audit`, isolated from `default` so audit rows never
+`merken_audit`, isolated from `default` so audit rows never
 leak into normal recall.
 
-You query it via `mem.audit(query, top_k)` or `engram audit`.
+You query it via `mem.audit(query, top_k)` or `merken audit`.
 
-### `engram_tombstones` collection — what was forgotten
+### `merken_tombstones` collection — what was forgotten
 
-When `should_forget` decides to tombstone an event, engram:
+When `should_forget` decides to tombstone an event, merken:
 
 1. Writes a row here with the **full text** of the original
    event plus metadata (title, layer, tags, derived_in_facts,
@@ -87,8 +87,8 @@ delete flag on the original row (vstash doesn't support that),
 it's a copy in a separate collection that the user can query
 and, in principle, restore from.
 
-Layer is `"tombstone"`. Collection is `engram_tombstones`.
-Query via `mem.tombstones(query)` or `engram tombstones`.
+Layer is `"tombstone"`. Collection is `merken_tombstones`.
+Query via `mem.tombstones(query)` or `merken tombstones`.
 
 ## The decision loop
 
@@ -132,14 +132,14 @@ Two non-obvious things in this flow:
 
 1. **vstash has its own guardrails.** Specifically, it rejects
    text shorter than ~20 chars with `status="empty"`, no
-   exception. engram surfaces this as a second decision
+   exception. merken surfaces this as a second decision
    (`vstash_rejected:empty`) and writes a corrective audit row
    so `RememberResult.written` never lies.
 2. **The write decider hydrates lazily from vstash.** The first
    `decide()` call after `Memory` construction pulls every
    existing episodic doc's text into the decider's in-process
    dedup set. This is how cross-invocation dedup works for the
-   CLI and MCP server — every time you run `engram remember`,
+   CLI and MCP server — every time you run `merken remember`,
    the fresh decider sees everything already in the store.
 
    **Scaling caveat.** Current hydration is O(N) memory and
@@ -160,7 +160,7 @@ Two non-obvious things in this flow:
      reduction, same startup cost). ~20 lines of code; backward
      compatible with `HeuristicWriteDecider` semantics.
    - **Persistent dedup sidecar** — move `_seen` into a dedicated
-     `engram_dedup` collection with one row per hash. One query
+     `merken_dedup` collection with one row per hash. One query
      at startup, incremental writes on each `remember`. Scales
      by design. ~50 lines of code.
 
@@ -293,7 +293,7 @@ scenarios at thresholds 0.65 – 0.82. Headline findings:
 The trade-off in one line: **complete is conservative about
 the identity of a cluster, average is generous to cluster
 growth**. Neither is objectively correct; the grid picked the
-one that Pareto-wins on engram's own design bar.
+one that Pareto-wins on merken's own design bar.
 
 Fact identity is a stable SHA-1 of the sorted `derived_from`
 list, so re-running consolidation on the same episodic set is
@@ -329,7 +329,7 @@ it rather than duplicating.
     │                    ▼
     │            ┌──────────────────────┐
     │            │ Write tombstone      │
-    │            │ row to engram_       │
+    │            │ row to merken_       │
     │            │ tombstones with      │
     │            │ full text            │
     │            └──────┬───────────────┘
@@ -350,7 +350,7 @@ the loop; every other audit write is fail-open.
 ## Code map
 
 ```
-engram/
+merken/
 ├── __init__.py            ← public surface. Exports Memory +
 │                            every decider + Fact/RememberResult/etc.
 ├── memory.py              ← Memory class. Wires vstash + deciders,
@@ -398,7 +398,7 @@ engram/
 
 ## Interaction with vstash
 
-engram is a **strict consumer** of vstash's public API:
+merken is a **strict consumer** of vstash's public API:
 
 - `vstash.Memory.remember(text, title, collection, layer, tags)`
   — every write goes through here.
@@ -416,7 +416,7 @@ engram is a **strict consumer** of vstash's public API:
   by `cluster_by_embedding` to compute raw cosine for
   consolidation clustering.
 
-engram **does not** touch:
+merken **does not** touch:
 
 - `vstash._store` internals, except to read `_store.db_path`
   for the embed-model resolver
@@ -436,8 +436,8 @@ issues so far: #165 (closed), #172, #173.
   mempalace. Engram represents relationships as `derived_from`
   tags on semantic facts and nothing else. If a knowledge
   graph is needed, it goes in a separate layer that also wraps
-  vstash, not inside engram.
-- **Not a multi-agent system.** One engram Memory = one agent.
+  vstash, not inside merken.
+- **Not a multi-agent system.** One merken Memory = one agent.
   Multiple agents mean multiple DBs. Shared memory between
   agents is a separate problem not addressed here.
 - **Not a framework.** There is no plugin registry, no DSL, no

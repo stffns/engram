@@ -1,6 +1,6 @@
 {
   "name": "analytics_project",
-  "description": "Control scenario: twelve events from a realistic analytics-project agent stream, six topics that are LEXICALLY DISTINCT (auth, database, deploy, frontend, monitoring, billing). Measured pairwise cosines on bge-small-en-v1.5: same-topic pairs span [0.778, 0.937] median 0.915; cross-topic pairs span [0.320, 0.617] median 0.465. Clean gap of 0.162 — any threshold in (0.617, 0.778) gives 100%. This scenario exists to confirm that engram's consolidation loop works when the embedder is on its side, and to function as a regression guard: any change to consolidation must not drop this scenario below 100%.",
+  "description": "Control scenario: twelve events from a realistic analytics-project agent stream, six topics that are LEXICALLY DISTINCT (auth, database, deploy, frontend, monitoring, billing). Measured pairwise cosines on bge-small-en-v1.5: same-topic pairs span [0.778, 0.937] median 0.915; cross-topic pairs span [0.320, 0.617] median 0.465. Clean gap of 0.162 — any threshold in (0.617, 0.778) gives 100%. This scenario exists to confirm that merken's consolidation loop works when the embedder is on its side, and to function as a regression guard: any change to consolidation must not drop this scenario below 100%.",
   "events": [
     {
       "id": "auth_a",

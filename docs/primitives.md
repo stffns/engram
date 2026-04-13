@@ -1,6 +1,6 @@
 # The four decision primitives
 
-engram's central idea is that every memory operation is a
+merken's central idea is that every memory operation is a
 **structured decision** with explicit inputs, explicit outputs,
 and an audit row. This doc covers the four primitives in depth:
 what they decide, how the default implementations work, when
@@ -19,12 +19,12 @@ Every primitive follows the same pattern:
 - An **audit row** written for every call, whether the action
   fires or not
 
-All primitives live in `engram/policies/`. Types are in
-`engram/policies/types.py`.
+All primitives live in `merken/policies/`. Types are in
+`merken/policies/types.py`.
 
 ## 1. `should_remember`
 
-**Protocol:** `WriteDecider` in `engram/policies/types.py`.
+**Protocol:** `WriteDecider` in `merken/policies/types.py`.
 
 **Job:** Decide whether an incoming event merits a vstash write.
 
@@ -46,7 +46,7 @@ class AlwaysWrite:
 ```
 
 Every event gets written. Useful as a control in experiments:
-does engram's filtering actually help, or is it costing us
+does merken's filtering actually help, or is it costing us
 information we'd rather keep?
 
 #### `HeuristicWriteDecider` (default)
@@ -74,14 +74,14 @@ lives in consolidation, where it belongs.
 starts empty on Memory construction. To make dedup work across
 CLI invocations, `Memory` hands the decider a `hydrate_fn` that
 lazily pulls every existing episodic doc's text into `_seen` on
-the first `decide()` call. So if you run `engram remember "..."`
+the first `decide()` call. So if you run `merken remember "..."`
 twice with the same text, the second call sees it as a
 duplicate.
 
 You can override either param at construction:
 
 ```python
-from engram import HeuristicWriteDecider, Memory
+from merken import HeuristicWriteDecider, Memory
 
 mem = Memory(
     project="my_agent",
@@ -91,7 +91,7 @@ mem = Memory(
 
 ### Post-decision: vstash rejection
 
-engram's decision is not the final word. vstash has its own
+merken's decision is not the final word. vstash has its own
 guardrail — it silently rejects text shorter than ~20 chars
 with `IngestResult(status="empty", chunks=0, chars=0)`, no
 exception, no error field.
@@ -129,12 +129,12 @@ event_tags:
 event_text_preview: the user switched to Postgres on 2026-04-08
 ```
 
-Query via `engram audit should_remember` or
+Query via `merken audit should_remember` or
 `mem.audit(query="should_remember")`.
 
 ## 2. `should_recall`
 
-**Protocol:** `RecallDecider` in `engram/policies/should_recall.py`.
+**Protocol:** `RecallDecider` in `merken/policies/should_recall.py`.
 
 **Job:** Decide which layers to query and with what top_k budget.
 
@@ -277,7 +277,7 @@ policy: LayeredRecaller
 ## 3. `should_consolidate`
 
 **Protocol:** `ConsolidateDecider` in
-`engram/policies/should_consolidate.py`.
+`merken/policies/should_consolidate.py`.
 
 **Job:** Decide whether it's time to distill episodic events
 into semantic facts.
@@ -333,7 +333,7 @@ store. Simple count-based trigger. No time-based trigger in v1.
 If the decider says proceed (or the caller passed `force=True`),
 `Memory.consolidate` runs this:
 
-1. **List episodic docs** from the engram collection.
+1. **List episodic docs** from the merken collection.
 2. **Reassemble text** from each doc's chunks.
 3. **Resolve the embedder model** from vstash's `store_meta`
    (falling back to config default).
@@ -386,7 +386,7 @@ pass rate and the minimum purity across all three scenarios.
 - `"recall_v1"` — vstash hybrid search as neighbor hint,
   brittle on small corpora
 
-See `engram/consolidation.py` docstrings for the full trade-offs.
+See `merken/consolidation.py` docstrings for the full trade-offs.
 
 ### Audit format
 
@@ -401,7 +401,7 @@ n_events: 12
 
 ## 4. `should_forget`
 
-**Protocol:** `ForgetDecider` in `engram/policies/should_forget.py`.
+**Protocol:** `ForgetDecider` in `merken/policies/should_forget.py`.
 
 **Job:** Decide whether an episodic event is safe to tombstone.
 
@@ -480,7 +480,7 @@ means two-or-more events agreed.
 For each event the decider says to forget (or if the caller
 passed `force=True`):
 
-1. **Write to `engram_tombstones`** with:
+1. **Write to `merken_tombstones`** with:
    - Full original text
    - Original title, layer, tags
    - `derived_in_facts` provenance pointer list
@@ -495,7 +495,7 @@ Every other audit write is fail-open; this one is fail-closed.
 **Semantic facts are not touched.** Their `derived_from` tags
 still point at the tombstoned path, which is the provenance
 record by design. A human can always trace a fact back to its
-original event via the `engram_tombstones` collection.
+original event via the `merken_tombstones` collection.
 
 ### Forcing a wipe
 
@@ -513,7 +513,7 @@ rows = mem.tombstones(query="kafka")
 ```
 
 ```bash
-engram tombstones kafka
+merken tombstones kafka
 ```
 
 The tombstone body starts with metadata then has a `---\n`
@@ -538,7 +538,7 @@ policy: ForgetConsolidated
 derived_in_facts: text://fact_a1b2c3d4e5f6
 ```
 
-Tombstone row (in `engram_tombstones`):
+Tombstone row (in `merken_tombstones`):
 
 ```
 tombstone_of: text://the-team-chose-postgres-20260408-145533
@@ -574,7 +574,7 @@ memory model:
   collapses to episodic-only (which is fine on small stores,
   noisy on big ones).
 - **recall → debug audit.** The `audit` method is itself a
-  recall on the `engram_audit` collection. Every time you want
+  recall on the `merken_audit` collection. Every time you want
   to know *why* a decision happened, you're using recall to
   find it.
 
@@ -589,7 +589,7 @@ a real problem.
 
 ## Writing your own decider
 
-Every primitive is a Protocol, so extending engram means
+Every primitive is a Protocol, so extending merken means
 implementing the Protocol and passing your instance via the
 `Memory` constructor. See [`extending.md`](extending.md) for
 the full guide.
@@ -603,4 +603,4 @@ the full guide.
   TemporalRecaller, EbbinghausDecayForget)
 - [`../notes/silt.md`](../notes/silt.md) — the four design-rule
   interventions that shaped the defaults you see here
-- `engram/policies/*.py` — the source of truth
+- `merken/policies/*.py` — the source of truth

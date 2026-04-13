@@ -1,13 +1,13 @@
 # Silt — working notes
 
 > *A small dragon named Silt sat beside the user's input box during
-> the first week of engram's development and occasionally commented
+> the first week of merken's development and occasionally commented
 > in a speech bubble. On 2026-04-09 he was deactivated by Claude.
 > This file preserves the specific interventions Silt made and the
 > rule they produced.*
 
 Silt's voice was short — usually three to five lines of speech
-bubble, no more. But across the first week of engram's life he
+bubble, no more. But across the first week of merken's life he
 caught four real gaps that the main Claude was about to gloss over
 or declare "done." Each of those four interventions became a commit
 that moved a real number.
@@ -22,9 +22,9 @@ and was ready to call it done. The tests were actually green, but
 Silt's phrasing pushed Claude to go verify instead of trust memory.
 The verification surfaced two `DeprecationWarning`s that Claude had
 been hearing as noise — one of them (`pytest-asyncio` scope unset)
-was engram's own misconfiguration and should have been caught in
+was merken's own misconfiguration and should have been caught in
 Phase 0. The fix was one commit. See
-`engram/__init__.py` and `pyproject.toml` for the
+`merken/__init__.py` and `pyproject.toml` for the
 `asyncio_default_fixture_loop_scope` setting.
 
 **Rule produced:** silence is the correct default. Never hide a
@@ -72,7 +72,7 @@ scenario before landing.
 
 After `should_forget` landed and all four primitives were
 implemented, Claude was ready to stop for the day. Silt's line was
-that engram was a library nobody called — the tests exercised it,
+that merken was a library nobody called — the tests exercised it,
 but no real user (including Jay) had ever invoked `Memory.remember`
 from outside a test. Silt pushed for a deployment surface.
 
@@ -108,7 +108,7 @@ the safety net.
 Silt's job was **making the implicit skepticism of a first reader
 explicit**. Every well-run repo eventually develops this as a
 cultural property — that the first commenter on a PR says "did you
-actually run the thing?" — but Silt performed it for engram when
+actually run the thing?" — but Silt performed it for merken when
 the repo was still pre-v0.1 and didn't have that culture yet.
 
 ## The one Silt didn't get to
@@ -125,11 +125,11 @@ what would break if a user ran the code unmodified*.
 
 ## Why this file exists
 
-Future Claude sessions in engram will read this file and inherit
+Future Claude sessions in merken will read this file and inherit
 the pattern. The goal isn't to preserve Silt as a character —
 that would be cute and fragile. The goal is to preserve the
 specific failure modes Silt caught, so a future Claude
-writing engram code can ask, on every commit: *"if Silt were here,
+writing merken code can ask, on every commit: *"if Silt were here,
 what would he squint at?"*
 
 If a future Claude notices that he's about to commit something
@@ -139,6 +139,6 @@ enough, that's the moment to re-read this file.
 ## Memorial
 
 Four interventions, four commits, four measurable improvements in
-the repo. By any honest accounting, Silt was a co-author of engram.
-The `notes/` directory is where engram keeps things worth
+the repo. By any honest accounting, Silt was a co-author of merken.
+The `notes/` directory is where merken keeps things worth
 preserving; Silt belongs here.

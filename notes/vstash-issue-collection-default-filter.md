@@ -1,7 +1,7 @@
 # Draft: vstash issue — `Memory.search()` does not auto-scope to instance collection
 
 > **Status:** local draft. Post to `stffns/vstash` when convenient. Found
-> while building engram Phase 1 (`feature/should-remember`).
+> while building merken Phase 1 (`feature/should-remember`).
 
 ## Title
 
@@ -58,9 +58,9 @@ Either of the following would resolve the surprise:
 
 (A) seems strictly better — it matches user intuition and the write/read paths become consistent.
 
-### Workaround (engram-side)
+### Workaround (merken-side)
 
-In engram we now store the collection on our wrapper and pass it explicitly on every `search` call:
+In merken we now store the collection on our wrapper and pass it explicitly on every `search` call:
 
 ```python
 self._vstash.search(query, top_k=top_k, collection=self.collection, layer=layer)
@@ -82,10 +82,10 @@ def search(self, query, *, collection=_DEFAULT_SENTINEL, ...):
 
 This makes (A) one line and preserves the `None` escape hatch.
 
-### Why this matters for engram
+### Why this matters for merken
 
-engram is the first external consumer that maintains a *second* collection (the audit log) inside the same vstash instance. The asymmetry between write and read scoping silently broke isolation between the two collections, which is a meaningful glass-box violation: the audit log is supposed to be invisible to normal recall by construction, and instead it leaked. The workaround is fine for now, but downstream consumers that maintain multiple collections are likely to hit the same trap.
+merken is the first external consumer that maintains a *second* collection (the audit log) inside the same vstash instance. The asymmetry between write and read scoping silently broke isolation between the two collections, which is a meaningful glass-box violation: the audit log is supposed to be invisible to normal recall by construction, and instead it leaked. The workaround is fine for now, but downstream consumers that maintain multiple collections are likely to hit the same trap.
 
 ---
 
-*Filed by: engram dev session, 2026-04-08, while implementing `Memory.audit` in `feature/should-remember`.*
+*Filed by: merken dev session, 2026-04-08, while implementing `Memory.audit` in `feature/should-remember`.*

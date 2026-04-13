@@ -6,11 +6,11 @@ a session that actually contains the answer?"*
 
 ## What this benchmark can and can't tell us
 
-**Can tell us:** how engram-on-vstash sits in absolute terms against a
+**Can tell us:** how merken-on-vstash sits in absolute terms against a
 standard academic benchmark. Whether the substrate (vstash) is finding
 the right chunks on chat-replay data.
 
-**Cannot tell us:** whether engram's decision loop adds value on a
+**Cannot tell us:** whether merken's decision loop adds value on a
 live agent stream. LongMemEval is offline, single-shot, and has no
 duplicates in the haystack — which means `should_remember`'s
 `dup_exact` rule never fires, `should_consolidate` has nothing to
@@ -20,14 +20,14 @@ search." For loop-quality questions, see `../../loop_quality/`.
 ## Reproduction
 
 ```bash
-# from the engram repo root, using a sample so it finishes in minutes
+# from the merken repo root, using a sample so it finishes in minutes
 python -m experiments.retrieval.longmemeval.runner \
     --subset longmemeval_s \
     --questions 10 \
     --seed 42 \
     --top-k 5 \
     --baseline vstash \
-    --baseline engram-heuristic
+    --baseline merken-heuristic
 ```
 
 First run downloads `longmemeval_s_cleaned.json` (~277 MB) from
@@ -52,5 +52,5 @@ HuggingFace into a gitignored `.cache/` directory.
 ## See also
 
 - `../README.md` — why retrieval/ is only half of the empirical bar
-- `../../loop_quality/` — the other half, where engram's loop is on trial
+- `../../loop_quality/` — the other half, where merken's loop is on trial
 - `../../../CONSTITUTION.md` §9 — the no-benchmark-no-ship rule

@@ -1,4 +1,4 @@
-"""engram CLI — the SDK seen from outside.
+"""merken CLI — the SDK seen from outside.
 
 Every command maps 1:1 to a ``Memory`` method. No business logic
 lives here; if the CLI needs behavior that isn't in ``Memory``, the
@@ -8,11 +8,11 @@ Defaults, by design:
 
 - **Project** comes from ``--project``, else ``$ENGRAM_PROJECT``,
   else ``"default"``. Same priority order as git for its config.
-- **DB** lives at ``~/.engram/<project>.db`` unless ``--db`` is
+- **DB** lives at ``~/.merken/<project>.db`` unless ``--db`` is
   passed. This is deliberately **not** your main vstash store — the
   CLI is test-friendly and non-destructive by default. Point at
   your real vstash with ``--db ~/.vstash/memory.db`` when you
-  actually want to attach engram to live memory.
+  actually want to attach merken to live memory.
 - **Output** is human-readable. Pass ``--json`` anywhere in the
   invocation to get structured output you can pipe.
 
@@ -46,7 +46,7 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
-from engram import (
+from merken import (
     ForgetConsolidated,
     Memory,
     NeverForget,
@@ -56,8 +56,8 @@ _DEFAULT_PROJECT = "default"
 
 
 def default_db_path(project: str) -> Path:
-    """``~/.engram/<project>.db`` — isolated from any other vstash store."""
-    return Path.home() / ".engram" / f"{project}.db"
+    """``~/.merken/<project>.db`` — isolated from any other vstash store."""
+    return Path.home() / ".merken" / f"{project}.db"
 
 
 def _resolve_db(args: argparse.Namespace) -> Path:
@@ -320,8 +320,8 @@ def cmd_stats(args: argparse.Namespace) -> int:
 
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
-        prog="engram",
-        description="engram — agent-loop memory, CLI surface over the Python SDK.",
+        prog="merken",
+        description="merken — agent-loop memory, CLI surface over the Python SDK.",
     )
     p.add_argument(
         "--project",
@@ -336,9 +336,9 @@ def build_parser() -> argparse.ArgumentParser:
         type=Path,
         default=None,
         help=(
-            "path to the vstash DB. Default is ~/.engram/<project>.db, "
+            "path to the vstash DB. Default is ~/.merken/<project>.db, "
             "intentionally NOT your main ~/.vstash/memory.db. Pass "
-            "~/.vstash/memory.db explicitly to attach engram to your "
+            "~/.vstash/memory.db explicitly to attach merken to your "
             "real store."
         ),
     )
@@ -408,7 +408,7 @@ def build_parser() -> argparse.ArgumentParser:
             "Default decider is NeverForget — the command is a no-op "
             "unless you pass --decider consolidated (tombstone events "
             "already in a fact) or --force (tombstone everything). "
-            "Tombstones preserve the full text in the engram_tombstones "
+            "Tombstones preserve the full text in the merken_tombstones "
             "collection; nothing is permanently destroyed."
         ),
     )

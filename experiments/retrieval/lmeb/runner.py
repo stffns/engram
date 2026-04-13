@@ -1,6 +1,6 @@
-"""LMEB R@k runner for engram.
+"""LMEB R@k runner for merken.
 
-Evaluates engram (and raw vstash) against LMEB sub-datasets in the
+Evaluates merken (and raw vstash) against LMEB sub-datasets in the
 standard IR format: corpus.jsonl, queries.jsonl, qrels.tsv, and
 candidates.jsonl.
 
@@ -29,7 +29,7 @@ from typing import Any
 
 import vstash
 
-from engram import Memory, PeriodicConsolidator
+from merken import Memory, PeriodicConsolidator
 
 
 # ----------------------------------------------------------------- data loading
@@ -152,7 +152,7 @@ class _VstashAdapter(_Adapter):
 
 
 class _EngramAdapter(_Adapter):
-    name = "engram-heuristic"
+    name = "merken-heuristic"
 
     def __init__(self, project: str, db: Path) -> None:
         self._m = Memory(project=project, db=db)
@@ -175,7 +175,7 @@ class _EngramAdapter(_Adapter):
             embedding_linkage="complete",
         )
         # Map fact paths back to source doc_ids (first source)
-        from engram.consolidation import fact_fingerprint
+        from merken.consolidation import fact_fingerprint
 
         for fact in result.facts:
             fp = f"text://fact_{fact_fingerprint(fact)}"
@@ -191,7 +191,7 @@ class _EngramAdapter(_Adapter):
 
 _ADAPTERS: dict[str, type] = {
     "vstash": _VstashAdapter,
-    "engram-heuristic": _EngramAdapter,
+    "merken-heuristic": _EngramAdapter,
 }
 
 
@@ -350,7 +350,7 @@ def format_result(result: TaskResult) -> str:
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p = argparse.ArgumentParser(
         prog="experiments.retrieval.lmeb.runner",
-        description="LMEB R@k runner for engram baselines.",
+        description="LMEB R@k runner for merken baselines.",
     )
     p.add_argument(
         "--dataset-dir",
@@ -402,7 +402,7 @@ def main(argv: list[str] | None = None) -> int:
         f"top_k={args.top_k}"
     )
 
-    with tempfile.TemporaryDirectory(prefix="engram_lmeb_") as td:
+    with tempfile.TemporaryDirectory(prefix="merken_lmeb_") as td:
         db_dir = args.db_dir or Path(td)
         db_dir.mkdir(parents=True, exist_ok=True)
 

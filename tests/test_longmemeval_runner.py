@@ -74,7 +74,7 @@ def test_bootstrap_ci_handles_empty() -> None:
 
 
 def test_all_three_baselines_registered() -> None:
-    assert set(_ADAPTERS) == {"vstash", "engram-always", "engram-heuristic"}
+    assert set(_ADAPTERS) == {"vstash", "merken-always", "merken-heuristic"}
 
 
 # --------------------------------------------------------------- end-to-end on fixture
@@ -82,7 +82,7 @@ def test_all_three_baselines_registered() -> None:
 
 @pytest.mark.parametrize(
     "baseline",
-    ["vstash", "engram-always", "engram-heuristic"],
+    ["vstash", "merken-always", "merken-heuristic"],
 )
 def test_baseline_runs_on_fixture(tmp_path: Path, baseline: str) -> None:
     convs = load_fixture(FIXTURE)
@@ -98,11 +98,11 @@ def test_baseline_runs_on_fixture(tmp_path: Path, baseline: str) -> None:
         assert q.ingest.attempted == 6
 
 
-def test_engram_heuristic_writes_at_least_as_few_as_always(tmp_path: Path) -> None:
+def test_merken_heuristic_writes_at_least_as_few_as_always(tmp_path: Path) -> None:
     """The default decider should never write *more* than AlwaysWrite."""
     convs = load_fixture(FIXTURE)
-    always = eval_baseline("engram-always", convs, top_k=5, db_dir=tmp_path / "a")
-    heur = eval_baseline("engram-heuristic", convs, top_k=5, db_dir=tmp_path / "h")
+    always = eval_baseline("merken-always", convs, top_k=5, db_dir=tmp_path / "a")
+    heur = eval_baseline("merken-heuristic", convs, top_k=5, db_dir=tmp_path / "h")
 
     written_always = sum(q.ingest.written for q in always.per_question)
     written_heur = sum(q.ingest.written for q in heur.per_question)
@@ -111,8 +111,8 @@ def test_engram_heuristic_writes_at_least_as_few_as_always(tmp_path: Path) -> No
 
 def test_format_result_is_human_readable(tmp_path: Path) -> None:
     convs = load_fixture(FIXTURE)
-    result = eval_baseline("engram-heuristic", convs, top_k=5, db_dir=tmp_path)
+    result = eval_baseline("merken-heuristic", convs, top_k=5, db_dir=tmp_path)
     line = format_result(result)
-    assert "engram-heuristic" in line
+    assert "merken-heuristic" in line
     assert "R@5=" in line
     assert "CI=" in line

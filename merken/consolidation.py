@@ -2,7 +2,7 @@
 
 Phase 2 skeleton. **No LLM.** The v1 pipeline is deliberately crude:
 
-1. Pull every ``layer="episodic"`` document in the engram collection.
+1. Pull every ``layer="episodic"`` document in the merken collection.
 2. Cluster them by Jaccard token overlap (single-link, greedy).
 3. For each cluster of size ≥ ``min_cluster``, materialize one fact
    and write it to ``layer="semantic"`` with ``derived_from`` pointing

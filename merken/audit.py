@@ -7,7 +7,7 @@ here, with inputs, the policy that fired, and the resulting write.
 Storage choice (CONSTITUTION §10 #7): the same vstash backend, but isolated
 in its own collection so audit rows can never leak into normal recall.
 
-Audit writes deliberately bypass the engram loop — they call
+Audit writes deliberately bypass the merken loop — they call
 ``vstash.Memory.remember`` directly. Routing audit through the loop would be
 recursive and would let a buggy decider silence itself.
 """
@@ -16,19 +16,19 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from engram.policies.should_consolidate import ConsolidationDecision
-from engram.policies.should_forget import ForgetDecision
-from engram.policies.should_recall import RecallPlan
-from engram.policies.types import Decision, Event
+from merken.policies.should_consolidate import ConsolidationDecision
+from merken.policies.should_forget import ForgetDecision
+from merken.policies.should_recall import RecallPlan
+from merken.policies.types import Decision, Event
 
-AUDIT_COLLECTION = "engram_audit"
+AUDIT_COLLECTION = "merken_audit"
 AUDIT_LAYER = "audit"
 
 # Tombstones live in their own collection so a user can query
 # "what did I forget?" without grepping the general audit log.
 # They preserve the full text of the forgotten event for
 # unforgetting, which the regular audit rows do not.
-TOMBSTONE_COLLECTION = "engram_tombstones"
+TOMBSTONE_COLLECTION = "merken_tombstones"
 TOMBSTONE_LAYER = "tombstone"
 
 _PREVIEW_CHARS = 160
@@ -96,7 +96,7 @@ def format_tombstone_row(
 
     The tombstone row preserves the FULL event text so a caller can
     later unforget by re-remembering it. Stored in the
-    ``engram_tombstones`` collection, not the audit log.
+    ``merken_tombstones`` collection, not the audit log.
     """
     ts = datetime.now(timezone.utc).isoformat(timespec="seconds")
     facts_str = ",".join(derived_in_facts) if derived_in_facts else "(none)"

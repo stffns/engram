@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from engram import (
+from merken import (
     ConsolidateContext,
     ConsolidationResult,
     Fact,
@@ -16,7 +16,7 @@ from engram import (
     NeverConsolidate,
     PeriodicConsolidator,
 )
-from engram.consolidation import (
+from merken.consolidation import (
     _cosine,
     cluster_by_embedding,
     cluster_by_jaccard,

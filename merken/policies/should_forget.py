@@ -10,20 +10,20 @@ space and reduces noise in recall.
 operation is reversible by design:
 
 1. Before removing from the main collection, the full text of the
-   event is written to ``engram_tombstones``, a dedicated
-   collection that mirrors ``engram_audit`` in philosophy — it is
+   event is written to ``merken_tombstones``, a dedicated
+   collection that mirrors ``merken_audit`` in philosophy — it is
    the authoritative record of what was forgotten and why.
 2. Then the event is ``vstash.remove()``'d from its original
    collection, so it no longer surfaces in recall.
 3. The semantic fact's ``derived_from`` still points at the
    original event path. The provenance chain is unbroken.
-4. To unforget, search ``engram_tombstones``, find the entry, and
+4. To unforget, search ``merken_tombstones``, find the entry, and
    re-``remember`` with the preserved text.
 
 This is deliberately lower-tech than a "soft-delete flag on the
 original row" because vstash doesn't support in-place metadata
-mutation. The two-collection split (``engram_audit`` for every
-decision, ``engram_tombstones`` for the forgotten material)
+mutation. The two-collection split (``merken_audit`` for every
+decision, ``merken_tombstones`` for the forgotten material)
 works within the vstash public API with no new verbs.
 
 Two deciders ship in v1:

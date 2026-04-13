@@ -1,4 +1,4 @@
-# engram benchmark strategy
+# merken benchmark strategy
 
 > **Working document, 2026-04-09.** Design decisions only. No results
 > here — those live in the per-benchmark `RESULTS.md` under
@@ -10,13 +10,13 @@
 
 ## 0. Why this doc exists
 
-engram lives in a small corner of an opinionated space. Every
+merken lives in a small corner of an opinionated space. Every
 month a new "AI memory" project publishes a blog post with a
 number on LongMemEval or LoCoMo, frames it as state of the art,
 and disappears into the backlog six weeks later. Without a
-standing discipline for *which* benchmarks engram measures itself
+standing discipline for *which* benchmarks merken measures itself
 against, *what* the reference claims actually mean, and *how*
-engram will report its own results, we drift into two failure
+merken will report its own results, we drift into two failure
 modes simultaneously:
 
 1. **Chasing numbers** — every time a competitor publishes a
@@ -24,13 +24,13 @@ modes simultaneously:
    thing, producing a scoreboard with zero load-bearing meaning.
 2. **Measuring in isolation** — ignoring public benchmarks
    because they're imperfect, at which point we can't answer
-   "how does engram compare to X?" when anyone asks.
+   "how does merken compare to X?" when anyone asks.
 
 The honest middle path: maintain a small set of public
 benchmarks as **absolute positioning** against published claims,
 and a separate, larger set of **scenario benchmarks** as
-engram's actual design bar. Keep them visibly separate. Never
-let a public benchmark drive engram's defaults — that's what the
+merken's actual design bar. Keep them visibly separate. Never
+let a public benchmark drive merken's defaults — that's what the
 scenarios are for. Never let a scenario result be claimed as a
 public-benchmark win — that's what the retrieval/ runners are for.
 
@@ -83,7 +83,7 @@ are marked **(unverified)**.
   Every published LoCoMo number is implicitly "X's memory system +
   Y's judge model," and the judge choice dominates the numbers.
 - **Engram status:** not implemented. Would need a judge model
-  path — first honest open question is whether engram ships with
+  path — first honest open question is whether merken ships with
   an Ollama-backed judge option or requires the user to plug in
   their own.
 
@@ -95,14 +95,14 @@ are marked **(unverified)**.
   repo-level publicity as LongMemEval or LoCoMo.
 - **Status:** **deferred pending verification** — I'd want to
   read the actual datasets and runners before deciding if either
-  is load-bearing for engram.
+  is load-bearing for merken.
 
 ### 1.4 DialSim
 - **Paper:** "DialSim" (Kim et al., 2024) **(unverified)**.
 - **Shape:** multi-character dialogue simulation, stress-tests
   whether a memory system attributes the right statement to the
   right speaker over long spans.
-- **Relevance to engram:** low for v1. engram doesn't model
+- **Relevance to merken:** low for v1. merken doesn't model
   speaker identity as a first-class dimension. Would need
   `layer="speaker:<name>"` or similar. **Defer** until we have
   a scenario that demands per-speaker recall.
@@ -121,7 +121,7 @@ are marked **(unverified)**.
   benchmarks by systems that ingest the corpus and then answer
   questions against it. This is RAG, not memory in the
   agent-loop sense.
-- **Status:** not a target. engram's audience isn't RAG-as-a-
+- **Status:** not a target. merken's audience isn't RAG-as-a-
   service.
 
 ### 1.7 Custom scenario suites (the wild)
@@ -139,13 +139,13 @@ are marked **(unverified)**.
 ## 2. Published numbers in the wild
 
 A snapshot of what "everyone knows" as of 2026-04-09. All of these
-should be treated as **claims** until engram has reproduced them
-or engram has a mechanical reason to trust them. Several blew up
+should be treated as **claims** until merken has reproduced them
+or merken has a mechanical reason to trust them. Several blew up
 in public review within weeks of being announced.
 
 | System | Benchmark | Claimed | Mode | Reproducible? | My read |
 |---|---|---|---|---|---|
-| **engram** | LongMemEval R@5 | **96.4%** [0.948, 0.980] | raw (no LLM) | ✓ runner + results in repo, commit `5a6c820` | **Our number.** vstash hybrid (BGE-small + FTS5 RRF). Full engram loop active (HeuristicWriteDecider, LayeredRecaller, audit log). n=500, seed=42, bootstrap CI. |
+| **merken** | LongMemEval R@5 | **96.4%** [0.948, 0.980] | raw (no LLM) | ✓ runner + results in repo, commit `5a6c820` | **Our number.** vstash hybrid (BGE-small + FTS5 RRF). Full merken loop active (HeuristicWriteDecider, LayeredRecaller, audit log). n=500, seed=42, bootstrap CI. |
 | mempalace "raw" | LongMemEval R@5 | **96.6%** | ~~raw (no LLM)~~ **ChromaDB only** | ✓ reproduced independently | ~~Strongest verifiable claim.~~ **Correction (2026-04-13):** Issue #214 revealed the 96.6% benchmark does NOT exercise mempalace — it only calls `collection.add()` + `collection.query()` on ChromaDB with `all-MiniLM-L6-v2`. No palace architecture, no rooms, no AAAK. When actual mempalace features are active: rooms=89.4%, AAAK=84.2%. The headline number is a ChromaDB benchmark, not a mempalace benchmark. |
 | mempalace rooms | LongMemEval R@5 | **89.4%** | with palace architecture | ✓ (issue #214 reproduction) | First number that actually tests mempalace. 7pp below the headline. |
 | mempalace AAAK | LongMemEval R@5 | **84.2%** | with compression | ✓ (issue #214 reproduction) | AAAK compression is lossy, not lossless as originally claimed. 12pp regression from raw ChromaDB. |
@@ -159,37 +159,37 @@ in public review within weeks of being announced.
 ### Pattern recognition (updated 2026-04-13)
 
 - ~~Every claim above 90% uses a hybrid mode with an LLM reranker
-  or an LLM-assisted ingest.~~ **Correction:** engram reaches 96.4%
+  or an LLM-assisted ingest.~~ **Correction:** merken reaches 96.4%
   in raw mode with no LLM. The raw-retrieval ceiling on LongMemEval
   is in the mid-to-high 90s with a good embedder + hybrid search.
 - **The mempalace 96.6% is not a memory-system benchmark.** It
   measures ChromaDB's default embedder on LongMemEval haystacks.
   When mempalace's actual features (rooms, AAAK) are active, the
   score drops 7-12pp. This reframes the competitive landscape:
-  engram at 96.4% with its full loop active **outperforms mempalace
+  merken at 96.4% with its full loop active **outperforms mempalace
   with its full system active by 7pp** (96.4% vs 89.4%).
 - **"Hybrid" hides a lot.** A hybrid number includes an LLM call
   that the user pays for at query time. Raw numbers are cheaper
   per query but often lower. Any honest comparison must label
   the mode.
 - **Confidence intervals are essentially absent** in competitors.
-  engram is (as of 2026-04-13) the only system in this table
+  merken is (as of 2026-04-13) the only system in this table
   publishing a bootstrap CI alongside its point estimate.
 - **Reproducibility varies from "run the script" to "trust us."**
-  engram publishes the runner, the commit SHA, the seed, and the
+  merken publishes the runner, the commit SHA, the seed, and the
   CI. The run is reproducible by any stranger with `pip install`.
 
 ### My honest read, distilled (updated 2026-04-13)
 
-> **engram at 96.4% R@5 [0.948, 0.980] is the strongest verified
+> **merken at 96.4% R@5 [0.948, 0.980] is the strongest verified
 > raw-mode result from a system that actually runs its own logic
 > during the benchmark.** mempalace's 96.6% headline does not
 > exercise mempalace code (issue #214). When mempalace features are
-> active, it scores 89.4% — 7pp below engram. Every other claim
+> active, it scores 89.4% — 7pp below merken. Every other claim
 > above 90% uses an LLM in the path or is unverified.
 >
-> The honest competitive position: engram's substrate (vstash) is
-> at parity with the best raw embedders in the space, and engram's
+> The honest competitive position: merken's substrate (vstash) is
+> at parity with the best raw embedders in the space, and merken's
 > loop (deciders, audit, layered recall) does not cost retrieval
 > quality — a property no other memory system in this table has
 > demonstrated.
@@ -203,7 +203,7 @@ Two directories under `experiments/`, deliberately separated.
 ### 3.1 `experiments/retrieval/` — absolute positioning
 
 **Answers:** *"Given a fixed haystack and a fixed query, does
-engram surface the right chunk relative to what other systems
+merken surface the right chunk relative to what other systems
 publish?"*
 
 **Rules:**
@@ -216,7 +216,7 @@ publish?"*
   wall-clock cost, and a notes column with anything that would
   help a reader reproduce or interpret the number.
 - Results are reported in **both raw and hybrid modes separately**
-  when both exist. If engram has only one mode, we say so.
+  when both exist. If merken has only one mode, we say so.
 - A row that turns out to be wrong is struck through and a
   corrected row is added beneath with a link to the commit that
   caused the correction. The old row is never removed.
@@ -224,17 +224,17 @@ publish?"*
   question, or reword a query to make a number go up. If a
   benchmark question is genuinely ambiguous and we think the
   benchmark is wrong, we file an upstream issue and leave
-  engram's number alone.
+  merken's number alone.
 
-**What this surface does NOT measure:** whether engram's loop
+**What this surface does NOT measure:** whether merken's loop
 adds value. A system that does 96% on LongMemEval can still be
 useless for a live agent because LongMemEval doesn't exercise
 live-stream decisions (when to write, when to forget, when to
 consolidate). For that, see `loop_quality/`.
 
-### 3.2 `experiments/loop_quality/` — engram's actual design bar
+### 3.2 `experiments/loop_quality/` — merken's actual design bar
 
-**Answers:** *"Does engram's decision loop add value over raw
+**Answers:** *"Does merken's decision loop add value over raw
 vstash on content that looks like what an agent actually lives
 through?"*
 
@@ -251,7 +251,7 @@ through?"*
      cross-topic cosines near the threshold. Tests the loop's
      robustness to imperfect consolidation.
   3. **Real organic** — snapshot from a real vstash (Jay's, for
-     now). Content nobody curated for engram. The only surface
+     now). Content nobody curated for merken. The only surface
      that catches "tests lying by construction."
 - **Every new decider is evaluated on every scenario before
   landing**, via the parametrized
@@ -265,7 +265,7 @@ through?"*
 
 **What this surface does NOT measure:** absolute positioning
 against other systems. No scenario here matches any published
-benchmark. The scenarios are for engram's own safety net, not for
+benchmark. The scenarios are for merken's own safety net, not for
 competitive claims.
 
 ### 3.3 Why two surfaces, not one
@@ -322,7 +322,7 @@ CONSTITUTION §9 ("empirical first") and the honesty discipline we
 put in writing after reading mempalace's correction note.
 
 1. **Every row has a commit SHA.** Not a tag, not a branch, the
-   SHA. That's the state of engram when the number was measured.
+   SHA. That's the state of merken when the number was measured.
 2. **Every row has a date.** UTC, not local. Makes the cross-row
    timeline readable.
 3. **Every row has an `n` and a confidence interval**, unless
@@ -343,9 +343,9 @@ put in writing after reading mempalace's correction note.
 8. **We do not report sample runs as full runs.** If n is 20 on
    a 500-question dataset, the row says `n=20 (sample)` and does
    not appear in any headline summary.
-9. **We do not compare across modes in the same cell.** If engram
+9. **We do not compare across modes in the same cell.** If merken
    raw is 85% and mempalace hybrid is 100%, those are two rows,
-   not "engram 85% vs mempalace 100%". The table structure
+   not "merken 85% vs mempalace 100%". The table structure
    enforces this.
 10. **The runner that produced the number must be in the repo at
     the same commit SHA.** No "the number came from a script I
@@ -362,7 +362,7 @@ put in writing after reading mempalace's correction note.
   the notes column, without putting it in the headline.
 - Wall-clock expected ~6h per baseline on current hardware.
 - Deliverable: one row in `experiments/retrieval/longmemeval/
-  RESULTS.md` that can be cited as "engram's current LongMemEval
+  RESULTS.md` that can be cited as "merken's current LongMemEval
   R@5 raw-mode score."
 - **Blocker:** willingness to run an overnight job. No code
   changes needed; `experiments/retrieval/longmemeval/runner.py`
@@ -376,16 +376,16 @@ put in writing after reading mempalace's correction note.
   `ENGRAM_JUDGE_MODEL`.
 - Report on the same table shape as LongMemEval: date, commit,
   n, category breakdown, accuracy with CI, judge model pinned.
-- Expected output: engram's first loop-shaped benchmark result,
+- Expected output: merken's first loop-shaped benchmark result,
   since LoCoMo stresses multi-hop temporal integration.
-- Honest expectation: engram's consolidation with embedding_v1 +
+- Honest expectation: merken's consolidation with embedding_v1 +
   complete-link will **probably underperform LLM-consolidation
   systems on LoCoMo's adversarial category**. That would be real
   evidence that the loop needs a LLM-based consolidator tier, and
   is the scenario we said we'd wait for.
 
 ### Phase C — LoopQuality expansion (parallel with B)
-- Add at least one real-content scenario outside engram's own
+- Add at least one real-content scenario outside merken's own
   design discussions. Candidates from Jay's vstash: perf
   migration notes, daily reviews, Kafka meeting threads,
   MedLocal hackathon logs. Each becomes its own `*.json` fixture
@@ -420,24 +420,24 @@ put in writing after reading mempalace's correction note.
 
 Writing this list down because the benchmark surface attracts
 focus disproportionate to its value, and the things it cannot
-answer are the things that matter most to engram's actual users.
+answer are the things that matter most to merken's actual users.
 
-1. **Does engram serve Jay day-to-day?** Answered by: using it in
+1. **Does merken serve Jay day-to-day?** Answered by: using it in
    Claude Code via the CLI or MCP, watching whether it accumulates
    facts that shortcut real work. No public benchmark touches
    this.
-2. **Is engram's audit log useful in practice?** Answered by:
-   querying `engram audit <reason>` when something goes wrong and
+2. **Is merken's audit log useful in practice?** Answered by:
+   querying `merken audit <reason>` when something goes wrong and
    seeing if the answer is there. Not a quantitative surface.
 3. **Does the tombstone design survive long-term?** Answered by:
    running a real store for months and attempting an unforget
    after 60 days. Requires calendar time, not benchmarks.
 4. **Are the defaults right for Spanish / multilingual content?**
-   All of engram's calibration so far is on English. The jay
+   All of merken's calibration so far is on English. The jay
    vstash snapshot has some Spanish (MedLocal demos in es) but
    the scenarios are English. Multilingual calibration is a
    separate empirical question that needs separate scenarios.
-5. **Does engram's write policy avoid noise?** The only honest
+5. **Does merken's write policy avoid noise?** The only honest
    way to measure this is to compare an episodic layer filtered
    by `HeuristicWriteDecider` against an unfiltered one over
    real use, and ask "is the filtered version better to search
@@ -446,7 +446,7 @@ answer are the things that matter most to engram's actual users.
 Benchmarks are one lever. They're the loudest lever, because
 they produce numbers that feel comparable. But the quiet levers
 — daily usage, audit log inspection, tombstone recovery, multilingual
-scaling, longitudinal drift — are where engram will actually
+scaling, longitudinal drift — are where merken will actually
 prove or disprove itself. The benchmark surface exists to give us
 absolute positioning against loud claims, not to replace the
 quiet evidence.
@@ -461,25 +461,25 @@ quiet evidence.
    enough to run locally and strong enough to judge open-ended
    conversational answers. The exact version gets pinned in
    `experiments/retrieval/locomo/README.md`.
-2. **Hybrid-mode support for LongMemEval.** Does engram add a
+2. **Hybrid-mode support for LongMemEval.** Does merken add a
    reranker option to compete with mempalace's "100% with Haiku"?
-   If yes, where does the reranker live — in engram, or as a
+   If yes, where does the reranker live — in merken, or as a
    configurable step in the LongMemEval runner only? My lean:
-   add `engram.rerank` as a module with pluggable strategies,
+   add `merken.rerank` as a module with pluggable strategies,
    default `NoRerank` (raw mode). Rerankers are bolt-on, not
    part of the loop proper.
 3. **Do we spend time reproducing competitor numbers ourselves?**
-   Option A: only measure engram. Option B: also run mempalace /
+   Option A: only measure merken. Option B: also run mempalace /
    Mem0 / Letta on the same hardware to produce a side-by-side.
    (B) is more honest but costs wall-clock and setup pain. My
    lean: (A) for v1, add (B) to Phase B as a one-time
-   verification if engram's numbers are surprising either up or
+   verification if merken's numbers are surprising either up or
    down.
-4. **Public leaderboard?** Does engram publish a page that shows
+4. **Public leaderboard?** Does merken publish a page that shows
    these numbers next to the competitive claims, or does it
    keep them in RESULTS.md and let users navigate the repo? My
    lean: no public leaderboard yet. A leaderboard is a
-   commitment to maintain numbers across commits, and engram is
+   commitment to maintain numbers across commits, and merken is
    pre-v0.1. RESULTS.md with SHAs is enough.
 
 ---
@@ -491,7 +491,7 @@ quiet evidence.
 - `retrieval/README.md` — what retrieval/ is and isn't.
 - `loop_quality/README.md` — what loop_quality/ is and isn't.
 - `../notes/prior-art.md` — the mempalace retrospective that
-  taught engram what a correction note looks like.
+  taught merken what a correction note looks like.
 
 ---
 

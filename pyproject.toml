@@ -3,13 +3,13 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "engram"
+name = "merken"
 version = "0.1.0"
 description = "Agent-loop layer for persistent memory, built on top of vstash."
 readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.10"
-authors = [{ name = "Jayson Steffens" }]
+authors = [{ name = "Jayson Steffens", email = "stffens@gmail.com" }]
 keywords = ["agent", "memory", "vstash", "rag", "llm"]
 classifiers = [
     "Development Status :: 2 - Pre-Alpha",
@@ -39,11 +39,11 @@ Homepage = "https://github.com/stffns/engram"
 Issues = "https://github.com/stffns/engram/issues"
 
 [project.scripts]
-engram = "engram.cli:main"
-engram-mcp = "engram.mcp_server:main"
+merken = "merken.cli:main"
+merken-mcp = "merken.mcp_server:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["engram"]
+packages = ["merken"]
 
 [tool.ruff]
 line-length = 100
@@ -55,7 +55,7 @@ select = ["E", "F", "I", "UP", "B", "SIM"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra"
-# pytest-asyncio is not used by engram but is installed in the
+# pytest-asyncio is not used by merken but is installed in the
 # developer's environment. Pin the fixture scope to silence its
 # default-unset deprecation warning.
 asyncio_default_fixture_loop_scope = "function"

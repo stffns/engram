@@ -1,7 +1,7 @@
-# Extending engram — write your own decider
+# Extending merken — write your own decider
 
-Every decision primitive in engram is a **Protocol**. Extending
-engram means implementing the Protocol and passing your
+Every decision primitive in merken is a **Protocol**. Extending
+merken means implementing the Protocol and passing your
 instance via the `Memory` constructor. You don't subclass,
 you don't touch the existing deciders, you don't modify
 `Memory.py`.
@@ -21,7 +21,7 @@ patterns.
 4. **Write unit tests** using fake contexts so the decider
    can be exercised without vstash.
 5. **Validate on a loop-quality scenario** before committing
-   it as engram's default.
+   it as merken's default.
 
 If your decider needs state (a cache, a counter, a model), the
 state lives on the instance. Each `Memory` gets its own
@@ -32,7 +32,7 @@ decider instance, so state is per-Memory-lifetime.
 ### The Protocol
 
 ```python
-# engram/policies/types.py
+# merken/policies/types.py
 class WriteDecider(Protocol):
     name: str
     def decide(self, event: Event, ctx: WriteContext) -> Decision: ...
@@ -81,8 +81,8 @@ to accept "decision"-type events aggressively but reject
 
 ```python
 # my_deciders.py
-from engram.policies.types import Decision, Event, WriteContext
-from engram.policies.should_remember import HeuristicWriteDecider
+from merken.policies.types import Decision, Event, WriteContext
+from merken.policies.should_remember import HeuristicWriteDecider
 
 
 class ContentTypePriorDecider:
@@ -150,7 +150,7 @@ class ContentTypePriorDecider:
 ### Using it
 
 ```python
-from engram import Memory
+from merken import Memory
 from my_deciders import ContentTypePriorDecider
 
 with Memory(
@@ -185,7 +185,7 @@ mem = Memory(
 
 ```python
 # tests/test_my_deciders.py
-from engram.policies.types import Event, WriteContext
+from merken.policies.types import Event, WriteContext
 from my_deciders import ContentTypePriorDecider
 
 
@@ -251,7 +251,7 @@ pytest tests/test_my_deciders.py -v
 
 ### Validating on a loop-quality scenario
 
-Before committing your decider as the default for engram,
+Before committing your decider as the default for merken,
 verify it doesn't regress the scenarios:
 
 ```bash
@@ -263,7 +263,7 @@ python -m experiments.loop_quality.runner \
 If the scenario's pass_rate or purity drops, the decider isn't
 strictly better — it's a trade-off, and the trade-off has to
 be documented in the commit message. See
-[`primitives.md`](primitives.md) for the rules engram's own
+[`primitives.md`](primitives.md) for the rules merken's own
 deciders were held to.
 
 ## 2. Custom `should_recall`
@@ -299,7 +299,7 @@ class RecallPlan:
 ### Example: query-type-aware router
 
 ```python
-from engram.policies.should_recall import (
+from merken.policies.should_recall import (
     LayerRequest,
     RecallContext,
     RecallPlan,
@@ -354,7 +354,7 @@ class QueryTypeRouter:
 ### Using it
 
 ```python
-from engram import Memory
+from merken import Memory
 from my_deciders import QueryTypeRouter
 
 with Memory(
@@ -409,7 +409,7 @@ class ConsolidateDecider(Protocol):
 
 ```python
 import time
-from engram.policies.should_consolidate import (
+from merken.policies.should_consolidate import (
     ConsolidateContext,
     ConsolidationDecision,
 )
@@ -496,7 +496,7 @@ either noise or near-empty, and either way don't deserve the
 same forgetting threshold as substantive events.
 
 ```python
-from engram.policies.should_forget import ForgetContext, ForgetDecision
+from merken.policies.should_forget import ForgetContext, ForgetDecision
 
 
 class StrictConsolidationForget:
@@ -567,7 +567,7 @@ decide based on the event's age, access count, source tags,
 or any other metadata, you have three options, each with a
 real trade-off:
 
-1. **Contribute an extension to engram core.** Add the field
+1. **Contribute an extension to merken core.** Add the field
    to `ForgetContext` in a PR, with a loop-quality scenario
    that demonstrates why it's needed. This is the clean move
    but has a high bar (scenario + no regression + docs).
@@ -628,7 +628,7 @@ class AgeAwareForgetWrapper:
 
 This reaches into `Memory._forget_decider` which is private —
 a real contribution would add a `forget(decider=...)` override
-param to `Memory.forget` in engram core instead. But as a
+param to `Memory.forget` in merken core instead. But as a
 workaround for a specific user's decider, the pattern works
 and keeps the core `ForgetContext` model clean.
 
@@ -655,10 +655,10 @@ the options are:
    from inside your decider if you hold a reference to the
    Memory.
 3. **Hold Memory via context** — extend the context dataclass
-   (in your own code, not in engram core) to include a
+   (in your own code, not in merken core) to include a
    callable that opens the parent Memory, and use it to query.
 
-For v1 all four primitives in engram core are either stateless
+For v1 all four primitives in merken core are either stateless
 or use `should_remember`'s `hydrate_fn` pattern. Custom
 extensions are welcome to do more.
 
@@ -679,7 +679,7 @@ and assert on behavior. Slower but catches wiring bugs.
 
 ```python
 from pathlib import Path
-from engram import Memory
+from merken import Memory
 from my_deciders import ContentTypePriorDecider
 
 
@@ -707,14 +707,14 @@ def test_content_type_prior_integrated(tmp_path: Path) -> None:
 
 The strictest bar. Run your decider against a real-content
 scenario and compare pass_rate / purity / coverage to the
-baseline (engram's default decider).
+baseline (merken's default decider).
 
 **Programmatic API** (since 2026-04-09) — `run_scenario` now
 accepts decider overrides:
 
 ```python
 from pathlib import Path
-from engram import NeverConsolidate
+from merken import NeverConsolidate
 from experiments.loop_quality.runner import run_scenario
 from experiments.loop_quality.scenario import load_scenario
 from my_package import MyCustomConsolidator
@@ -723,7 +723,7 @@ scenario = load_scenario(
     Path("experiments/loop_quality/scenarios/jay_vstash_2026_04_09_snapshot.json")
 )
 
-# Baseline: engram defaults
+# Baseline: merken defaults
 baseline = run_scenario(scenario, db=Path("/tmp/baseline.db"))
 
 # With your custom consolidator
@@ -766,7 +766,7 @@ deciders, subclass and hard-code the params:
 
 ```python
 # my_package.py
-from engram import PeriodicConsolidator
+from merken import PeriodicConsolidator
 
 class AggressiveConsolidator(PeriodicConsolidator):
     def __init__(self):
@@ -801,7 +801,7 @@ the limitation. A decider that is O(1) in the hot path is
 almost always better than one that is O(log N) by consulting
 vstash.
 
-The reason is cost-at-scale. An engram `Memory.remember` call
+The reason is cost-at-scale. An merken `Memory.remember` call
 runs the write decider once. A `forget` call runs the forget
 decider N times (once per episodic event). If `decide()` calls
 `vstash.search` internally, the forget run becomes O(N log N)
@@ -827,7 +827,7 @@ good `reason` string is:
 - **Uniquely grep-able** — e.g. `low_prior:ambient_chat:0.20`,
   not just "skipped"
 - **Informative without the source** — a reader of
-  `engram audit low_prior` should understand what happened
+  `merken audit low_prior` should understand what happened
   without reading the decider code
 
 ### Fail open, unless it's a safety-critical write
@@ -858,16 +858,16 @@ The audit log preserves the `policy` field — in a year's time,
 you'll be able to see which version of your decider made which
 decisions and correlate with behavior changes.
 
-## Extending engram core vs extending in your own code
+## Extending merken core vs extending in your own code
 
 **Extend in your own code** if:
 
 - The custom decider is specific to your agent / project
-- It depends on state or context outside of engram's general
+- It depends on state or context outside of merken's general
   model
 - You want to experiment before upstreaming
 
-**Contribute to engram core** if:
+**Contribute to merken core** if:
 
 - The decider represents a general-interest improvement (e.g.
   ContentTypePrior, TemporalRecaller, EbbinghausDecayForget
@@ -880,7 +880,7 @@ decisions and correlate with behavior changes.
 **How to check "doesn't regress any existing scenario":**
 
 ```bash
-# Record the baseline (engram defaults)
+# Record the baseline (merken defaults)
 python -m experiments.loop_quality.runner > /tmp/baseline.txt
 
 # Run your decider
@@ -900,7 +900,7 @@ name the trade-off, and ideally add a new scenario that
 makes the trade-off visible (the failing case on the default
 decider and the passing case on yours).
 
-The general-interest bar is high on purpose — engram aims for
+The general-interest bar is high on purpose — merken aims for
 a small, stable default set of deciders, with extensions
 living in user code until empirically justified. But the bar
 is now achievable with one command, not "requires modifying
@@ -916,6 +916,6 @@ the runner" as an earlier version of this doc said.
   — 6 papers with concrete extension ideas (ContentTypePrior
   from A-MAC, TemporalRecaller from CMA, EbbinghausDecay from
   SuperLocalMemory)
-- `engram/policies/*.py` — the Protocol definitions and
+- `merken/policies/*.py` — the Protocol definitions and
   reference implementations
 - `tests/test_should_*.py` — reference test patterns

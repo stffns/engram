@@ -1,4 +1,4 @@
-"""The Memory class — engram's only public surface for now.
+"""The Memory class — merken's only public surface for now.
 
 Phase 1 wiring (CONSTITUTION §11 + ultra-plan):
 
@@ -7,7 +7,7 @@ Phase 1 wiring (CONSTITUTION §11 + ultra-plan):
   ``vstash.Memory.remember`` if the decision says so.
 - ``recall`` is still a thin pass-through over ``vstash.Memory.search``. It
   is naturally isolated from the audit log because audit lives in its own
-  vstash collection (``engram_audit``).
+  vstash collection (``merken_audit``).
 - ``audit`` lets you query the decision log directly.
 
 The boundary with vstash is sacred (CONSTITUTION §6): every storage call
@@ -22,7 +22,7 @@ from typing import TYPE_CHECKING, Any
 
 import vstash
 
-from engram.audit import (
+from merken.audit import (
     AUDIT_COLLECTION,
     AUDIT_LAYER,
     TOMBSTONE_COLLECTION,
@@ -33,7 +33,7 @@ from engram.audit import (
     format_recall_audit_row,
     format_tombstone_row,
 )
-from engram.consolidation import (
+from merken.consolidation import (
     ConsolidationResult,
     cluster_by_embedding,
     cluster_by_jaccard,
@@ -41,26 +41,26 @@ from engram.consolidation import (
     fact_fingerprint,
     materialize_fact,
 )
-from engram.policies.should_consolidate import (
+from merken.policies.should_consolidate import (
     ConsolidateContext,
     ConsolidateDecider,
     ConsolidationDecision,
     PeriodicConsolidator,
 )
-from engram.policies.should_forget import (
+from merken.policies.should_forget import (
     ForgetContext,
     ForgetDecider,
     ForgetDecision,
     NeverForget,
 )
-from engram.policies.should_recall import (
+from merken.policies.should_recall import (
     LayeredRecaller,
     RecallContext,
     RecallDecider,
     RecallPlan,
 )
-from engram.policies.should_remember import HeuristicWriteDecider
-from engram.policies.types import Decision, Event, WriteContext, WriteDecider
+from merken.policies.should_remember import HeuristicWriteDecider
+from merken.policies.types import Decision, Event, WriteContext, WriteDecider
 
 if TYPE_CHECKING:
     from vstash import IngestResult, SearchResult
@@ -78,7 +78,7 @@ def _resolve_vstash_embed_model(vstash_memory: vstash.Memory) -> str:
        authoritative for an existing store because it records the model
        vstash used to *ingest* the chunks that are now sitting in the
        vector index. Reading any other model at clustering time creates
-       a silent vector-space mismatch between "how engram groups" and
+       a silent vector-space mismatch between "how merken groups" and
        "how vstash retrieves."
     2. ``vstash.config.EmbeddingsConfig().model`` — vstash's current
        factory default. Used when the store is fresh (no ingests yet,
@@ -88,12 +88,12 @@ def _resolve_vstash_embed_model(vstash_memory: vstash.Memory) -> str:
     The earlier implementation hardcoded ``BAAI/bge-small-en-v1.5`` as
     ``DEFAULT_EMBED_MODEL``, which was wrong for any user who had
     configured vstash with a different model. On Jay's live vstash
-    (which uses ``paraphrase-multilingual-MiniLM-L12-v2``), engram
+    (which uses ``paraphrase-multilingual-MiniLM-L12-v2``), merken
     consolidation was re-embedding chunks with bge-small and then
     writing facts that vstash indexed back with multilingual. Clusters
     were internally coherent but misaligned with the actual retrieval
     vector space. Caught 2026-04-09 while verifying the store wasn't
-    mixed (it wasn't — but engram was pretending it was bge-small).
+    mixed (it wasn't — but merken was pretending it was bge-small).
     """
     import sqlite3
 
@@ -302,8 +302,8 @@ class Memory:
         layer. This is the escape hatch for benchmarks and for callers
         that already know exactly which layer they want.
 
-        Either way, recall is scoped to the engram collection and
-        never returns rows from the ``engram_audit`` collection.
+        Either way, recall is scoped to the merken collection and
+        never returns rows from the ``merken_audit`` collection.
         """
         if layer is not None:
             return self._vstash.search(
@@ -387,7 +387,7 @@ class Memory:
     ) -> ConsolidationResult:
         """Cluster episodic events into semantic facts. Phase 2, no LLM.
 
-        Pulls every ``layer="episodic"`` document in this engram
+        Pulls every ``layer="episodic"`` document in this merken
         collection, reassembles the text from its chunks, clusters
         them, and writes one ``layer="semantic"`` fact per cluster of
         size ≥ ``min_cluster``. Singletons are skipped (they're
@@ -544,11 +544,11 @@ class Memory:
         each episodic event. When the decider says yes (or ``force``
         is set), the event is:
 
-        1. Copied to ``engram_tombstones`` with full text + metadata
+        1. Copied to ``merken_tombstones`` with full text + metadata
            + provenance to the facts that preserve it. This is the
            authoritative forgetting record — reversible via
            ``unforget`` (not implemented yet; future slice).
-        2. Removed from the engram collection via ``vstash.remove``
+        2. Removed from the merken collection via ``vstash.remove``
            so it no longer surfaces in recall.
 
         Every decision (tombstone or skip) writes a ``should_forget``
@@ -786,7 +786,7 @@ class Memory:
 
         Unlike the audit row (which is a decision log), this stores
         everything needed to reconstruct the event: full text, title,
-        layer, tags. Lives in ``engram_tombstones`` collection so a
+        layer, tags. Lives in ``merken_tombstones`` collection so a
         user can query "what did I forget?" without touching audit.
 
         NOT fail-open. If the tombstone write fails, we raise — we

@@ -1,19 +1,19 @@
-# CLAUDE.md — engram
+# CLAUDE.md — merken
 
 This file is the entry point for any Claude session opened in the
-engram repo. It should be cheap to read and keep a current Claude
+merken repo. It should be cheap to read and keep a current Claude
 session aligned with the state of the repo.
 
 ## Read these first, in order
 
-1. [`CONSTITUTION.md`](CONSTITUTION.md) — what engram is, what it
+1. [`CONSTITUTION.md`](CONSTITUTION.md) — what merken is, what it
    isn't, and the principles. Disagreements get edits to that file
    *before* any code.
-2. The vstash repo's `CLAUDE.md` — engram is a strict consumer of
+2. The vstash repo's `CLAUDE.md` — merken is a strict consumer of
    vstash's public API. Understand the substrate before touching
    the loop.
 3. [`experiments/BENCHMARK_STRATEGY.md`](experiments/BENCHMARK_STRATEGY.md)
-   — how engram measures itself, which benchmarks are load-bearing
+   — how merken measures itself, which benchmarks are load-bearing
    and which are noise.
 4. [`notes/silt.md`](notes/silt.md) — working notes on the patterns
    Silt caught that became hard rules.
@@ -36,24 +36,24 @@ All four decision primitives from CONSTITUTION §5.1 are implemented:
   dedup-by-path.
 - **`should_forget`** — `NeverForget` (default, safe) and
   `ForgetConsolidated`. Tombstone-not-delete: full text preserved
-  in `engram_tombstones`, reversible.
+  in `merken_tombstones`, reversible.
 
 Deployed surfaces:
 
-- **Python SDK** — `from engram import Memory`. Four primitives
+- **Python SDK** — `from merken import Memory`. Four primitives
   accessible as `Memory` methods.
-- **CLI** — `engram` on `$PATH` after `pip install -e .`.
+- **CLI** — `merken` on `$PATH` after `pip install -e .`.
   Eight subcommands map 1:1 to `Memory` methods:
   `remember | recall | consolidate | forget | audit | tombstones | status | stats`.
-  See `engram --help`.
-- **MCP server** — `engram-mcp` on `$PATH`, `python -m engram.mcp_server`,
-  or `claude mcp add engram -- python -m engram.mcp_server`. Eight
-  tools, one per CLI subcommand. Default DB is `~/.engram/<project>.db`,
+  See `merken --help`.
+- **MCP server** — `merken-mcp` on `$PATH`, `python -m merken.mcp_server`,
+  or `claude mcp add merken -- python -m merken.mcp_server`. Eight
+  tools, one per CLI subcommand. Default DB is `~/.merken/<project>.db`,
   deliberately isolated from `~/.vstash/memory.db`.
 - **Claude Code hooks** — live in `~/.claude/settings.json`.
   Three hooks: `SessionStart` (recall context), `PreCompact`
   (save to memory), `UserPromptSubmit` (search memory).
-  Scripts at `~/.claude/hooks/engram-*.sh`.
+  Scripts at `~/.claude/hooks/merken-*.sh`.
 
 Safety net (`experiments/loop_quality/`):
 
@@ -76,9 +76,9 @@ explicit case in the PR description.
   If the public API is missing something, the fix is a vstash PR.
   (CONSTITUTION §4.4, §6.)
 - **Glass box.** Every decision the loop makes writes an audit row
-  to the `engram_audit` collection. No exceptions — even skipped
+  to the `merken_audit` collection. No exceptions — even skipped
   writes and never-forgotten events produce audit trails. Tombstoned
-  events additionally write to `engram_tombstones` so they're
+  events additionally write to `merken_tombstones` so they're
   recoverable.
 - **No new vector storage.** No ChromaDB, no second store, no FTS
   reimplementation. (CONSTITUTION §3, §8.)

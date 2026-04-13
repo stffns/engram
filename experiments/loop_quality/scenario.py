@@ -10,7 +10,7 @@ Schema (intentionally minimal):
 ```json
 {
     "name": "session_2026_04_09",
-    "description": "12 snippets from engram's design session — 6 topics, 2 events each",
+    "description": "12 snippets from merken's design session — 6 topics, 2 events each",
     "events": [
         {"id": "e01", "text": "...", "topic": "mempalace"},
         ...

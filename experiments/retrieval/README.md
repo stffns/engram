@@ -8,9 +8,9 @@ because by the time a benchmark question is asked, everything has
 already been ingested and the decision primitives (`should_remember`,
 `should_consolidate`, etc.) have nothing more to do. That makes this
 category useful for absolute positioning — *"we are in the same
-ballpark as X"* — but a poor test of whether engram's loop adds value.
+ballpark as X"* — but a poor test of whether merken's loop adds value.
 
-For the benchmark engram actually exists for, see
+For the benchmark merken actually exists for, see
 `../loop_quality/`.
 
 ## Subdirectories

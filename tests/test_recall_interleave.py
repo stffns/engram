@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from engram import Memory
+from merken import Memory
 
 
 def test_recall_interleaves_semantic_and_episodic(tmp_path: Path) -> None:

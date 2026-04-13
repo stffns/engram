@@ -1,8 +1,8 @@
-"""Real-content smoke test — engram digests the user's own vstash.
+"""Real-content smoke test — merken digests the user's own vstash.
 
 This is NOT a scenario-runner benchmark. It has no ground-truth
 topic labels because the content was not curated for measurement.
-It is a stomach test: does engram's loop behave sensibly on
+It is a stomach test: does merken's loop behave sensibly on
 content the user produced organically, outside the two fixture
 scenarios?
 
@@ -11,8 +11,8 @@ What it does:
      collection).
   2. Pulls the N most recent documents, reads their text.
   3. Writes each one as an episodic event into a *separate*
-     throwaway engram Memory so we never touch the user's real DB.
-  4. Runs ``consolidate()`` with the current engram defaults.
+     throwaway merken Memory so we never touch the user's real DB.
+  4. Runs ``consolidate()`` with the current merken defaults.
   5. Reports how many facts came out, shows a summary of each
      cluster with its source document titles so a human can judge
      coherence.
@@ -32,7 +32,7 @@ from pathlib import Path
 
 import vstash
 
-from engram import Memory
+from merken import Memory
 
 
 def _pull_real_docs(n: int) -> list[tuple[str, str, str]]:
@@ -55,7 +55,7 @@ def _pull_real_docs(n: int) -> list[tuple[str, str, str]]:
 
 
 def _run_smoke(n_docs: int, queries: list[str]) -> int:
-    print(f"=== engram real-vstash smoke test — n_docs={n_docs} ===\n")
+    print(f"=== merken real-vstash smoke test — n_docs={n_docs} ===\n")
 
     docs = _pull_real_docs(n_docs)
     print(f"pulled {len(docs)} docs from vstash. titles:")
@@ -64,12 +64,12 @@ def _run_smoke(n_docs: int, queries: list[str]) -> int:
         print(f"  • {title[:60]:60}  ({len(text)} chars)")
     print()
 
-    with tempfile.TemporaryDirectory(prefix="engram_smoke_real_") as td:
+    with tempfile.TemporaryDirectory(prefix="merken_smoke_real_") as td:
         db = Path(td) / "smoke.db"
         with Memory(project="smoke_real_vstash", db=db) as mem:
             # --- ingest -----------------------------------------------
             # Build path→title map from the ACTUAL vstash paths that
-            # engram assigns, not from prefix-matching on the title.
+            # merken assigns, not from prefix-matching on the title.
             path_to_title: dict[str, str] = {}
             ingested = 0
             for _, title, text in docs:
@@ -162,7 +162,7 @@ def _best_title_for_path(path: str, docs: list[tuple[str, str, str]]) -> str:
 
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p = argparse.ArgumentParser(
-        description="engram smoke test against real vstash content",
+        description="merken smoke test against real vstash content",
     )
     p.add_argument("--n-docs", type=int, default=20,
                    help="how many recent vstash docs to pull")
@@ -174,7 +174,7 @@ def main(argv: list[str] | None = None) -> int:
     queries = [
         "what did the MedLocal benchmark achieve?",
         "what vstash bugs or improvements were found?",
-        "what are the engram architecture decisions?",
+        "what are the merken architecture decisions?",
         "what happened in the Kafka merchant pipeline meeting?",
     ]
     return _run_smoke(args.n_docs, queries)

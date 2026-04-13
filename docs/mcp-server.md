@@ -1,43 +1,43 @@
-# engram MCP server reference
+# merken MCP server reference
 
-The MCP server (`engram-mcp`) exposes engram's eight decision
+The MCP server (`merken-mcp`) exposes merken's eight decision
 primitives as Model Context Protocol tools. With it attached to
-Claude Code (or any MCP client), Claude can call engram during a
+Claude Code (or any MCP client), Claude can call merken during a
 conversation — you never have to manually type
-`engram remember` or `engram recall`.
+`merken remember` or `merken recall`.
 
 ## Install
 
-The MCP server ships with engram. After `pip install -e .`:
+The MCP server ships with merken. After `pip install -e .`:
 
 ```bash
-which engram-mcp
-# /Users/you/.pyenv/shims/engram-mcp
+which merken-mcp
+# /Users/you/.pyenv/shims/merken-mcp
 
-engram-mcp --help
+merken-mcp --help
 # FastMCP entry point — takes no args, speaks MCP over stdio
 ```
 
 Alternate invocation without the entry point:
 
 ```bash
-python -m engram.mcp_server
+python -m merken.mcp_server
 ```
 
 ## Attach to Claude Code
 
 ```bash
-claude mcp add engram -- engram-mcp
+claude mcp add merken -- merken-mcp
 ```
 
 Verify:
 
 ```bash
 claude mcp list
-# engram  enabled  stdio  engram-mcp
+# merken  enabled  stdio  merken-mcp
 ```
 
-Then **in a Claude Code session**, Claude can call engram tools
+Then **in a Claude Code session**, Claude can call merken tools
 whenever it thinks it should. You don't have to name them — you
 just talk naturally:
 
@@ -45,46 +45,46 @@ just talk naturally:
 > for the analytics warehouse on 2026-04-08 because of write
 > concurrency."
 >
-> **Claude:** *calls `engram_remember(text="we decided to use
+> **Claude:** *calls `merken_remember(text="we decided to use
 > Postgres 16...", layer="episodic")`*
 >
 > **You:** "What did we decide about the analytics warehouse
 > database?"
 >
-> **Claude:** *calls `engram_recall(query="analytics warehouse
+> **Claude:** *calls `merken_recall(query="analytics warehouse
 > database decision")`, formats the hits in context*
 
 ## Configuration
 
-engram-mcp has no command-line flags. Configuration is via
+merken-mcp has no command-line flags. Configuration is via
 **environment variables** set before the process starts:
 
 | Variable | Default | Meaning |
 |---|---|---|
 | `ENGRAM_PROJECT` | `default` | Default project name for every tool call that doesn't pass `project` explicitly. |
-| `ENGRAM_DB` | `~/.engram/<project>.db` | Default DB path. Same isolation rule as the CLI — deliberately separate from `~/.vstash/memory.db`. |
+| `ENGRAM_DB` | `~/.merken/<project>.db` | Default DB path. Same isolation rule as the CLI — deliberately separate from `~/.vstash/memory.db`. |
 
 Every tool also accepts `project` and `db` as optional
 per-call parameters. The priority is **per-call > env > default**.
 
 ### Attaching to your real vstash
 
-By default engram-mcp writes to a project-isolated DB. To
-attach engram to your live vstash instead:
+By default merken-mcp writes to a project-isolated DB. To
+attach merken to your live vstash instead:
 
 ```bash
 export ENGRAM_DB=~/.vstash/memory.db
-claude mcp add engram -- engram-mcp
+claude mcp add merken -- merken-mcp
 ```
 
-Or set it in Claude Code's settings.json under the engram
+Or set it in Claude Code's settings.json under the merken
 server's env block:
 
 ```json
 {
   "mcpServers": {
-    "engram": {
-      "command": "engram-mcp",
+    "merken": {
+      "command": "merken-mcp",
       "env": {
         "ENGRAM_DB": "/Users/you/.vstash/memory.db",
         "ENGRAM_PROJECT": "main"
@@ -94,18 +94,18 @@ server's env block:
 }
 ```
 
-**Be careful with this.** engram creates its own collections
-(`engram_audit`, `engram_tombstones`) in any DB it opens. That's
+**Be careful with this.** merken creates its own collections
+(`merken_audit`, `merken_tombstones`) in any DB it opens. That's
 safe, but if you share a DB with other consumers, they'll see
-those collections. engram never touches vstash internals or
+those collections. merken never touches vstash internals or
 writes to collections it doesn't own.
 
 ## Tools
 
-Eight tools total, one per engram primitive. Every tool returns
+Eight tools total, one per merken primitive. Every tool returns
 a JSON-serializable dict or list.
 
-### `engram_remember`
+### `merken_remember`
 
 Write an event to memory.
 
@@ -138,11 +138,11 @@ tags     (string, optional)  Comma-separated tags
 "note that", "save this", or when Claude wants to preserve a
 decision or finding for later sessions.
 
-**What the user feels:** nothing directly — engram's write is
+**What the user feels:** nothing directly — merken's write is
 silent unless Claude surfaces the result. The value shows up
-later when `engram_recall` surfaces the memory.
+later when `merken_recall` surfaces the memory.
 
-### `engram_recall`
+### `merken_recall`
 
 Query memory through the should_recall decider (or an explicit
 layer).
@@ -183,7 +183,7 @@ layer    (string, optional)  Restrict to one layer; bypasses
 about previous sessions or decisions, whenever the user
 references something said earlier, whenever context might help.
 
-### `engram_consolidate`
+### `merken_consolidate`
 
 Cluster episodic events into semantic facts.
 
@@ -224,9 +224,9 @@ when the user says "summarize what we discussed", or when
 recall starts returning stale / scattered results. `force=true`
 is the right choice for explicit summarization requests.
 
-### `engram_forget`
+### `merken_forget`
 
-Tombstone episodic events. Reversible via `engram_tombstones`.
+Tombstone episodic events. Reversible via `merken_tombstones`.
 
 **Parameters:**
 
@@ -257,10 +257,10 @@ Default `decider="never"` means this tool is a no-op unless
 Claude explicitly opts in.
 
 **Safety:** tombstones preserve the full text. Claude can
-recover a forgotten event via `engram_tombstones` and
-`engram_remember` if the user asks.
+recover a forgotten event via `merken_tombstones` and
+`merken_remember` if the user asks.
 
-### `engram_audit`
+### `merken_audit`
 
 Query the decision audit log.
 
@@ -287,10 +287,10 @@ top_k    (int, default 20)
 ```
 
 **When Claude should call it:** when the user asks "why did
-engram keep / drop / skip X?" or when debugging unexpected
+merken keep / drop / skip X?" or when debugging unexpected
 recall behavior.
 
-### `engram_tombstones`
+### `merken_tombstones`
 
 Query forgotten events.
 
@@ -303,14 +303,14 @@ db       (string, optional)
 top_k    (int, default 20)
 ```
 
-**Returns:** same shape as `engram_audit` — each row has a
+**Returns:** same shape as `merken_audit` — each row has a
 title + full preserved text body.
 
 **When Claude should call it:** when the user asks "what did I
 forget?" or "recover the X from yesterday that I told you to
 forget."
 
-### `engram_status`
+### `merken_status`
 
 Project summary: DB path, total event count, layer breakdown.
 
@@ -326,7 +326,7 @@ db       (string, optional)
 ```json
 {
   "project": "default",
-  "db": "/Users/you/.engram/default.db",
+  "db": "/Users/you/.merken/default.db",
   "collection": "default",
   "total_events": 47,
   "layers": {
@@ -340,7 +340,7 @@ db       (string, optional)
 (to show what's in store), or when the user asks "what do we
 have saved?"
 
-### `engram_stats`
+### `merken_stats`
 
 Pass-through to `vstash.Memory.stats()`. Reports document,
 chunk, and collection counts across the whole DB.
@@ -360,7 +360,7 @@ db       (string, optional)
   "chunks": 134,
   "collections": 3,
   "db_size_mb": 2.04,
-  "db_path": "/Users/you/.engram/default.db"
+  "db_path": "/Users/you/.merken/default.db"
 }
 ```
 
@@ -370,19 +370,19 @@ memory?"
 
 ## A typical Claude Code flow
 
-What the loop looks like when engram is attached:
+What the loop looks like when merken is attached:
 
 ```
 session start
     │
     ▼
-Claude calls engram_status ───► knows what's in memory
+Claude calls merken_status ───► knows what's in memory
     │
     ▼
 user asks a question
     │
     ▼
-Claude calls engram_recall ────► gets relevant facts + events
+Claude calls merken_recall ────► gets relevant facts + events
     │
     ▼
 Claude integrates the hits into its answer
@@ -391,7 +391,7 @@ Claude integrates the hits into its answer
 user mentions a new decision
     │
     ▼
-Claude calls engram_remember ──► audit row, layer=episodic
+Claude calls merken_remember ──► audit row, layer=episodic
     │
     ▼
 ... many turns ...
@@ -400,16 +400,16 @@ Claude calls engram_remember ──► audit row, layer=episodic
 end of session / before context compaction
     │
     ▼
-Claude calls engram_consolidate ─► episodic → semantic facts
+Claude calls merken_consolidate ─► episodic → semantic facts
     │
     ▼
-(optional) Claude calls engram_forget with decider="consolidated"
+(optional) Claude calls merken_forget with decider="consolidated"
     │
     ▼
 next session
     │
     ▼
-Claude calls engram_recall — now sees consolidated facts first
+Claude calls merken_recall — now sees consolidated facts first
 ```
 
 This loop is what CLAUDE.md's "what IS next" section refers to
@@ -420,15 +420,15 @@ Hooks aren't implemented yet but the MCP tools they'd call are.
 
 ## MCP tool naming convention
 
-All eight tools are prefixed with `engram_`. This is
+All eight tools are prefixed with `merken_`. This is
 deliberate: if you attach multiple MCP servers to Claude Code,
 each server's tools are namespaced so they coexist. Claude sees
-`engram_remember` vs `other_server_remember` as distinct tools.
+`merken_remember` vs `other_server_remember` as distinct tools.
 
 ## Testing the server
 
 The MCP stdio transport is tested by FastMCP itself, not by
-engram. engram's test suite imports each tool function directly
+merken. merken's test suite imports each tool function directly
 and exercises it against a tmp_path DB — see
 `tests/test_mcp_server.py` for 22 tests that cover every tool,
 the config resolution chain, and the dedup/guardrail invariants.
@@ -436,18 +436,18 @@ the config resolution chain, and the dedup/guardrail invariants.
 Smoke test (start and signal):
 
 ```bash
-(engram-mcp </dev/null & PID=$!; sleep 2; kill -INT $PID; wait $PID)
+(merken-mcp </dev/null & PID=$!; sleep 2; kill -INT $PID; wait $PID)
 # should exit 0
 ```
 
 If that doesn't work, check that:
-1. `pip install -e .` was run in the engram repo
-2. `which engram-mcp` returns a path under your pyenv shims
+1. `pip install -e .` was run in the merken repo
+2. `which merken-mcp` returns a path under your pyenv shims
 3. The `mcp` Python package is installed (`pip show mcp`)
 
 ## Config resolution in detail
 
-When a tool call comes in, engram resolves project and DB path
+When a tool call comes in, merken resolves project and DB path
 in this order:
 
 ```
@@ -459,7 +459,7 @@ _resolve_project(project):
 _resolve_db(db, project):
     1. If `db` argument passed to the tool, expand ~ and use it
     2. Else if $ENGRAM_DB env var set, expand ~ and use it
-    3. Else use ~/.engram/<project>.db
+    3. Else use ~/.merken/<project>.db
        (mkdir -p the parent directory if needed)
 ```
 
@@ -475,7 +475,7 @@ per call.
 ## Troubleshooting
 
 **Claude Code doesn't see the server.** Run `claude mcp list`.
-If `engram` isn't there, re-run `claude mcp add engram -- engram-mcp`.
+If `merken` isn't there, re-run `claude mcp add merken -- merken-mcp`.
 If it *is* there but Claude can't call tools, check Claude
 Code's MCP logs (usually in `~/.claude/logs/` or similar).
 
@@ -483,22 +483,22 @@ Code's MCP logs (usually in `~/.claude/logs/` or similar).
 server is actually running when Claude Code opens the session:
 
 ```bash
-ps aux | grep engram-mcp
+ps aux | grep merken-mcp
 ```
 
 If nothing shows up, Claude Code may have failed to spawn the
 server. Check stderr in Claude Code's MCP log.
 
-**Tool calls return errors.** Check the engram audit log — even
+**Tool calls return errors.** Check the merken audit log — even
 failed operations write audit rows:
 
 ```bash
-engram audit
-engram audit error
+merken audit
+merken audit error
 ```
 
 If audit is empty, the server never got the call or the DB
-path is wrong. Use `engram_status` as the first test — it
+path is wrong. Use `merken_status` as the first test — it
 should always succeed and tell you the resolved DB path.
 
 **Engram is using the wrong project.** Check `$ENGRAM_PROJECT`
@@ -513,6 +513,6 @@ not just in your shell.
   under the hood
 - [`architecture.md`](architecture.md) — the memory model
   every tool shares
-- `engram/mcp_server.py` — the source of truth
+- `merken/mcp_server.py` — the source of truth
 - `tests/test_mcp_server.py` — how to call tools directly in
   tests

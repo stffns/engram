@@ -1,6 +1,6 @@
 {
   "name": "session_2026_04_09",
-  "description": "Twelve snippets from engram's own design session on 2026-04-08/09. Six topics, two events each. Deliberately includes two borderline pairs (loop_philosophy, consolidation_design) whose embedding cosine sits right around the 0.65 default threshold — a known weakness we're tracking, not a bug to hide.",
+  "description": "Twelve snippets from merken's own design session on 2026-04-08/09. Six topics, two events each. Deliberately includes two borderline pairs (loop_philosophy, consolidation_design) whose embedding cosine sits right around the 0.65 default threshold — a known weakness we're tracking, not a bug to hide.",
   "events": [
     {
       "id": "mempalace_a",
@@ -19,7 +19,7 @@
     },
     {
       "id": "loop_philosophy_b",
-      "text": "User wants engram to be useful for their own loop first and then compare it with existing systems afterward.",
+      "text": "User wants merken to be useful for their own loop first and then compare it with existing systems afterward.",
       "topic": "loop_philosophy"
     },
     {
@@ -29,7 +29,7 @@
     },
     {
       "id": "longmemeval_b",
-      "text": "The LongMemEval benchmark cannot validate engram's filtering logic; a different scenario-driven benchmark is needed.",
+      "text": "The LongMemEval benchmark cannot validate merken's filtering logic; a different scenario-driven benchmark is needed.",
       "topic": "longmemeval"
     },
     {
@@ -80,7 +80,7 @@
       "expect_contains": ["dedup"]
     },
     {
-      "question": "what did we learn about LongMemEval as a benchmark for engram?",
+      "question": "what did we learn about LongMemEval as a benchmark for merken?",
       "expect_topic": "longmemeval",
       "expect_contains": ["LongMemEval"]
     }

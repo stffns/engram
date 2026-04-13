@@ -1,4 +1,4 @@
-"""Shared types for engram decision policies.
+"""Shared types for merken decision policies.
 
 Plain dataclasses + a ``Protocol`` for the decider interface. No Pydantic at
 this layer (CONSTITUTION §10 #6 — plain Python functions until a real reuse
@@ -31,7 +31,7 @@ class Event:
 class Decision:
     """The output of a decision policy.
 
-    ``write`` is the only field engram acts on. The other fields exist for
+    ``write`` is the only field merken acts on. The other fields exist for
     the audit log: future-you needs to know *why* an event was kept or
     dropped, not just whether it was. CONSTITUTION §4.2 — glass box.
     """

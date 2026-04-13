@@ -11,7 +11,7 @@ experiments/
 ├── README.md             ← you are here
 ├── retrieval/            ← does the substrate find what's there?
 │   └── longmemeval/      ← public retrieval benchmark, one of several
-└── loop_quality/         ← does engram's loop add value over the substrate?
+└── loop_quality/         ← does merken's loop add value over the substrate?
                             (the benchmark we actually care about)
 ```
 
@@ -20,18 +20,18 @@ The split exists because they answer different questions.
 **`retrieval/`** asks: *given a fixed haystack and a fixed query, does
 the system surface the right chunk?* Public benchmarks like LongMemEval
 live here. The answer mostly depends on vstash's chunker, embedder, and
-hybrid weights — engram's loop barely participates.
+hybrid weights — merken's loop barely participates.
 
 **`loop_quality/`** asks: *given a stream of agent events over days,
-does engram's decision loop produce a memory that is more useful than
+does merken's decision loop produce a memory that is more useful than
 raw vstash for the next thing the agent has to do?* This is the
-benchmark engram actually exists for. It is a live, scenario-driven
+benchmark merken actually exists for. It is a live, scenario-driven
 test, not chat-replay.
 
-If a row in `loop_quality/` shows engram beating raw vstash on a
+If a row in `loop_quality/` shows merken beating raw vstash on a
 scenario you'd actually live with, the loop is earning its keep. If a
 row in `loop_quality/` shows them tied, the policy that was on trial
-moves to `engram.policies.experimental` until a different scenario
+moves to `merken.policies.experimental` until a different scenario
 revives it.
 
 ## Discipline (same as vstash's `experiments/`)
@@ -55,7 +55,7 @@ revives it.
 | 1 (now) | `retrieval/longmemeval` (sample) | does the runner work end-to-end on real data? |
 | 2 | `loop_quality/scenario_basic` | does `should_remember` filter useful events on a real-shaped agent stream? |
 | 3 | `loop_quality/scenario_consolidation` | does `consolidate` produce facts that are findable later? |
-| 4 | `retrieval/longmemeval` (full) | how does engram-on-vstash sit on a public bench, in absolute terms? *Optional, gated on hardware allowing it.* |
+| 4 | `retrieval/longmemeval` (full) | how does merken-on-vstash sit on a public bench, in absolute terms? *Optional, gated on hardware allowing it.* |
 
 The `retrieval/longmemeval` full run is *optional* on purpose. If we
 publish it, we publish it honestly. If our hardware can't run it in a

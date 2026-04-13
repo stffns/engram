@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from engram import Memory, __version__
+from merken import Memory, __version__
 
 
 def test_version_exposed() -> None:
@@ -18,9 +18,9 @@ def test_version_exposed() -> None:
 
 
 def test_smoke_remember_then_recall(tmp_path: Path) -> None:
-    db = tmp_path / "engram.db"
+    db = tmp_path / "merken.db"
 
-    with Memory(project="engram_smoke", db=db) as mem:
+    with Memory(project="merken_smoke", db=db) as mem:
         result = mem.remember(
             "The smoke test ingested this sentence about purple elephants on 2026-04-08.",
             title="smoke-canary",
@@ -36,9 +36,9 @@ def test_smoke_remember_then_recall(tmp_path: Path) -> None:
 
 
 def test_layer_tag_round_trip(tmp_path: Path) -> None:
-    db = tmp_path / "engram.db"
+    db = tmp_path / "merken.db"
 
-    with Memory(project="engram_smoke_layer", db=db) as mem:
+    with Memory(project="merken_smoke_layer", db=db) as mem:
         mem.remember("episodic event about a teal giraffe", layer="episodic")
         mem.remember("semantic fact: the user prefers teal", layer="semantic")
 

@@ -2,10 +2,10 @@
 
 ## Scope
 
-This file records scenario-level metrics for engram's decision loop.
-Every row is a run of the scenario runner against a pinned engram
+This file records scenario-level metrics for merken's decision loop.
+Every row is a run of the scenario runner against a pinned merken
 commit. Unlike `experiments/retrieval/`, these numbers *are* about
-whether engram's loop is adding value — there is no "absolute
+whether merken's loop is adding value — there is no "absolute
 positioning" disclaimer to hide behind.
 
 ## Metrics per scenario
@@ -29,7 +29,7 @@ positioning" disclaimer to hide behind.
 | 2026-04-09 | `8ff6953` | `analytics_project` | `embedding_v1` | 0.65 | complete | 12 | 6 | **100.00%** (4/4) | 100.00% | 100.00% | **Control scenario.** Six lexically distinct topics (auth/database/deploy/frontend/monitoring/billing). Pre-measured pairwise cosines: same-topic pairs [0.778, 0.937] median 0.915; cross-topic pairs [0.320, 0.617] median 0.465. Clean 0.162 gap — any threshold in (0.617, 0.778) gives 100%. This is the "loop works when the embedder cooperates" reference point. Future consolidator changes must not drop this below 100% without naming the trade-off. Recall path: explicit `layer="semantic"`. |
 | 2026-04-09 | `HEAD` | `session_2026_04_09` | `embedding_v1` | 0.65 | complete | 12 | 4 | **100.00%** (4/4) | 75.00% | 50.00% | **`should_recall` enabled.** Same consolidation as row 2 (purity/coverage unchanged). The lift to 100% comes from `LayeredRecaller` falling back to the episodic layer when semantic doesn't have a topic-pure fact. `dedup_fix` and `longmemeval` queries now match their raw episodic events directly instead of failing for lack of a pure fact. The loop is now robust to imperfect consolidation — an impure cluster no longer takes down the query. |
 | 2026-04-09 | `7e85566` | `analytics_project` | `embedding_v1` | 0.65 | complete | 12 | 6 | **100.00%** (4/4) | 100.00% | 100.00% | `should_recall` enabled. No regression: the scenario that was already at 100% stays at 100%. This is the "did we break anything" check; it passed. |
-| 2026-04-09 | `5240f72` | `jay_vstash_2026_04_09_snapshot` | `embedding_v1` | 0.65 | complete | **20** | 4 | **75.00%** (3/4) | 75.00% | 60.00% | **First real-content row.** 20 organic docs from Jay's vstash frozen as a fixture, topic labels assigned by honest reading of titles (6 topics). Three queries pass. `vstash_notes` fails because Fact 4 mixes 3 vstash_notes events with 1 engram_design event; the fact's anchor literally contains "vstash Upstream Improvement Ideas" but the strict purity check rejects an impure cluster. |
+| 2026-04-09 | `5240f72` | `jay_vstash_2026_04_09_snapshot` | `embedding_v1` | 0.65 | complete | **20** | 4 | **75.00%** (3/4) | 75.00% | 60.00% | **First real-content row.** 20 organic docs from Jay's vstash frozen as a fixture, topic labels assigned by honest reading of titles (6 topics). Three queries pass. `vstash_notes` fails because Fact 4 mixes 3 vstash_notes events with 1 merken_design event; the fact's anchor literally contains "vstash Upstream Improvement Ideas" but the strict purity check rejects an impure cluster. |
 | 2026-04-09 | `HEAD` | `analytics_project` | `embedding_v1` | **0.70** | complete | 12 | 6 | **100.00%** (4/4) | 100.00% | 100.00% | Post-grid-search baseline. Unchanged from threshold=0.65 — this scenario's same-topic pairs all live at 0.78–0.94 so any threshold in that gap gives 100%. |
 | 2026-04-09 | `HEAD` | `session_2026_04_09` | `embedding_v1` | **0.70** | complete | 12 | 2 | **100.00%** (4/4) | **100.00%** | 33.33% | **Purity jumped 75% → 100%.** Higher threshold drops the two cross-topic edges that were crossing (0.663, 0.652) and also drops the borderline `consolidation_design` pair (0.661). Only 2 pure facts remain (mempalace, vstash_bug), coverage drops 50% → 33%. But `query_pass_rate` stays at 100% because the interleave fallback in `Memory.recall` catches dedup_fix, longmemeval, and consolidation_design queries episodically. Coverage is a means, not an end — pass_rate is what users feel. |
 | 2026-04-09 | `HEAD` | `jay_vstash_2026_04_09_snapshot` | `embedding_v1` | **0.70** | complete | 20 | 4 | **100.00%** (4/4) | **100.00%** | 80.00% | **Pass rate jumped 75% → 100%, purity 75% → 100%.** Raising the threshold broke up Fact 4 — the agent-memory-use-cases doc no longer clusters with the vstash_notes group, so the vstash cluster becomes pure. `vstash_notes` query now passes. The full three-scenario picture at 0.70: all three at 100% pass_rate and 100% purity. |
@@ -74,7 +74,7 @@ jay_vstash_snapshot     75    75   100   100        75    75    75   100
   possibly reach the 100%/100% plateau, and complete is the
   only linkage that actually gets there.
 
-**Verdict:** keep `complete` as the engram default. Document
+**Verdict:** keep `complete` as the merken default. Document
 `average` as a supported alternative accessible via
 `Memory.consolidate(embedding_linkage="average")`. A user whose
 content looks different from the three scenarios (denser
@@ -149,7 +149,7 @@ The three scenarios stress the loop from three angles:
 - **jay_vstash_2026_04_09_snapshot** — the real thing. Content
   the user produced organically, topic labels assigned by honest
   title-reading. The 75% is the first number that measures
-  engram's loop on content nobody tuned for it.
+  merken's loop on content nobody tuned for it.
 
 The gap between "curated scenarios pass rate" (100%) and
 "real-content pass rate" (75%) is the number to watch over time.
@@ -161,7 +161,7 @@ need new siblings.
 
 After the scenario runner hit 100% on both curated fixtures, we ran
 a **qualitative** smoke test against the user's real vstash — 20
-recent docs that neither I nor the user curated for engram. Output
+recent docs that neither I nor the user curated for merken. Output
 in `experiments/loop_quality/smoke_real_vstash.py`; this is not a
 scenario runner because we have no ground-truth topic labels for
 organic content.
@@ -179,7 +179,7 @@ Fact 3 (n=3):  Daily Reviews (Teams×2 + Mail) — pure cluster
 Fact 4 (n=4):  vstash meta notes (Non-Obvious, Upstream, Debug,
                agent-memory use cases) — mostly pure, agent-memory
                is arguable
-Singletons:    engram v0.1 decisions, Kafka Merchant Pipeline meeting
+Singletons:    merken v0.1 decisions, Kafka Merchant Pipeline meeting
                — both honestly unique in this slice
 ```
 
@@ -196,14 +196,14 @@ now shows both strengths and limits:**
   EOD number at rank 2 — real episodic evidence that was previously
   invisible.
 - BUT broad thematic queries ("what vstash bugs were found?", "what
-  are the engram architecture decisions?") still rank a big
+  are the merken architecture decisions?") still rank a big
   MedLocal cluster at the top because the fact's anchor text
   contains vstash vocabulary and everything in the MedLocal cluster
-  mentions vstash or engram in passing. The semantic layer is
+  mentions vstash or merken in passing. The semantic layer is
   dense enough that broad queries flood toward large clusters
   regardless of topic specificity.
 
-**What the smoke says about engram as of this commit:**
+**What the smoke says about merken as of this commit:**
 
 - Consolidation works on real content. No fixture-lying by
   construction.
@@ -272,7 +272,7 @@ As of row 3 the repo has two scenarios and they say very different things:
 
 |                    | session_2026_04_09 | analytics_project |
 |---|---|---|
-| Content            | meta-discussion about engram itself | realistic agent stream, six distinct topics |
+| Content            | meta-discussion about merken itself | realistic agent stream, six distinct topics |
 | Same-topic cosine (median) | 0.649                | 0.915                |
 | Cross-topic cosine (max)   | 0.663                | 0.617                |
 | Gap                | **-0.014** (overlap) | **+0.162** (clean)   |
@@ -280,7 +280,7 @@ As of row 3 the repo has two scenarios and they say very different things:
 
 **What this rules in:**
 
-- The engram consolidation pipeline is *not* broken. On content where
+- The merken consolidation pipeline is *not* broken. On content where
   the embedder can separate topics, it hits 100% on every metric.
 - Complete-link clustering is the right default. It does not cost the
   control scenario anything (still 100%) and it fixes the session
@@ -288,7 +288,7 @@ As of row 3 the repo has two scenarios and they say very different things:
 
 **What this rules out:**
 
-- The 50% on `session_2026_04_09` is not an indictment of engram. It
+- The 50% on `session_2026_04_09` is not an indictment of merken. It
   is a statement about `bge-small-en-v1.5` on meta-discussion
   content. Any change to the consolidator that "fixes" the 50%
   without also holding `analytics_project` at 100% is tuning to
@@ -332,7 +332,7 @@ visible in the pairwise cosine distribution around 0.65:
 
 Same-topic and cross-topic edges are interleaved through the band
 `0.55 – 0.70`. `bge-small-en-v1.5` at 384 dimensions cannot
-distinguish "engram internals about dedup" from "engram internals
+distinguish "merken internals about dedup" from "merken internals
 about longmemeval benchmark" by cosine alone, because both land in
 roughly the same region of the vector space.
 
@@ -360,26 +360,26 @@ embedder."
 
 ## What the first row said (pre-complete-link)
 
-**The engram loop at commit `be33c51` is not good enough yet.** On a
-12-event scenario derived from engram's own design session, only
+**The merken loop at commit `be33c51` is not good enough yet.** On a
+12-event scenario derived from merken's own design session, only
 25% of queries route correctly to a topic-pure fact. Two failure
 modes were diagnosed:
 
 1. **Cross-topic false positives cascade via single-link**. Two
    pairs crossed the 0.65 threshold on genuine semantic similarity
-   ("both are about engram internals") despite having different
+   ("both are about merken internals") despite having different
    ground-truth topics. Single-link union-find cascades the
    contamination: `vstash_bug_a + dedup_fix_a + longmemeval_a`
    ended up in one 4-event cluster because each edge individually
    exceeded the threshold.
 2. **Borderline same-topic pairs sit just under 0.65**. On this
-   content domain (meta-discussion about engram itself),
+   content domain (meta-discussion about merken itself),
    paraphrases of the same topic frequently land at cosine
    0.55–0.65 — below the v1 default. Coverage is penalized.
 
 **What this rules out (or shouldn't yet):**
 
-- It does NOT yet say engram is worse than raw vstash on this
+- It does NOT yet say merken is worse than raw vstash on this
   scenario — we haven't run the raw-vstash baseline for
   loop_quality yet. Scheduled as a follow-up.
 - It does NOT say embedding_v1 is wrong. It says embedding_v1 with
@@ -434,7 +434,7 @@ below threshold 0.70 (embedder limit, not decider limit).
 
 ### Auto-classification without explicit tags
 
-The auto-classifier (`engram/classification.py`) uses regex + keyword
+The auto-classifier (`merken/classification.py`) uses regex + keyword
 patterns to detect noise from text alone, no LLM:
 
 | Type | Precision | Pattern |
@@ -492,7 +492,7 @@ recall quality.
    same information as the semantic layer plus more.
 
 2. **SemanticOnly fails hard on singleton topics.** `kafka_meeting` (1
-   event) and `engram_design` (2 events below threshold) never produce
+   event) and `merken_design` (2 events below threshold) never produce
    a semantic fact, so semantic-only recall can't find them.
 
 3. **The hypothesis of smart routing doesn't apply at this scale.**
@@ -569,7 +569,7 @@ None of these conditions exist in the current 4-scenario safety net.
 Building a runner against a real dataset is the prerequisite for this
 hypothesis to be actionable.
 
-### Implication for engram defaults
+### Implication for merken defaults
 
 `LayeredRecaller` (semantic-first + episodic fallback) remains the
 right default. It is never worse than either layer alone, and the
@@ -583,7 +583,7 @@ Same as the rest of the repo:
 - No silent edits. Corrections add a new row and strike through the
   old one with a link.
 - Scenario text is frozen on commit. Changing event text or query
-  wording to make numbers go up is cheating — tune the *engram*
+  wording to make numbers go up is cheating — tune the *merken*
   code, not the benchmark.
 - A result worse than the previous one is not embarrassing, it is
   information. We keep both rows and figure out what regressed.

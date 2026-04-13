@@ -5,14 +5,14 @@ math is tested in isolation from the real embedder. The real
 ``session_2026_04_09`` scenario is exercised as an end-to-end smoke
 test that just checks the runner finishes and produces sensible
 bounds — the actual numbers are recorded in ``RESULTS.md`` and can
-shift as engram's consolidation improves.
+shift as merken's consolidation improves.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
 
-from engram.consolidation import Fact, fact_fingerprint
+from merken.consolidation import Fact, fact_fingerprint
 from experiments.loop_quality.runner import (
     _compute_cluster_purity,
     _compute_topic_coverage,
@@ -211,7 +211,7 @@ def test_runner_completes_on_every_scenario(
     # At least one query must pass — if the loop can't answer *any*
     # question on a scenario, that's a regression worth alarming on.
     assert result.queries_passing >= 1, (
-        f"no queries passed on {scenario.name} — engram regressed? "
+        f"no queries passed on {scenario.name} — merken regressed? "
         f"outcomes: {result.query_outcomes}"
     )
 
@@ -231,7 +231,7 @@ def test_run_scenario_accepts_custom_consolidate_decider(tmp_path: Path) -> None
     validate them against a scenario without writing a driver
     script. This is the mechanism behind docs/extending.md's
     'validate before landing' workflow."""
-    from engram import NeverConsolidate
+    from merken import NeverConsolidate
 
     scenario = load_scenario(FIXTURE_DIR / "analytics_project.json")
     result = run_scenario(
@@ -271,12 +271,12 @@ def test_run_scenario_custom_linkage(tmp_path: Path) -> None:
 def test_import_decider_from_dotted_path() -> None:
     """The CLI's --consolidate-decider flag resolves dotted paths
     to default-constructed instances. Test the resolver in
-    isolation so future changes to engram's class surface don't
+    isolation so future changes to merken's class surface don't
     silently break the CLI."""
     from experiments.loop_quality.runner import _import_decider
 
-    instance = _import_decider("engram.NeverConsolidate")
-    from engram import NeverConsolidate
+    instance = _import_decider("merken.NeverConsolidate")
+    from merken import NeverConsolidate
 
     assert isinstance(instance, NeverConsolidate)
 
@@ -296,4 +296,4 @@ def test_import_decider_rejects_unknown_class() -> None:
     from experiments.loop_quality.runner import _import_decider
 
     with pytest.raises(ValueError, match="no attribute"):
-        _import_decider("engram.NonexistentDeciderXYZ")
+        _import_decider("merken.NonexistentDeciderXYZ")

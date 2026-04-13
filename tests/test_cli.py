@@ -1,6 +1,6 @@
-"""Tests for the engram CLI.
+"""Tests for the merken CLI.
 
-Every test exercises ``engram.cli.main(argv)`` end-to-end on a
+Every test exercises ``merken.cli.main(argv)`` end-to-end on a
 throwaway DB under ``tmp_path``. No mocking; the CLI is thin
 enough that mocking it is more work than calling it.
 """
@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from engram.cli import default_db_path, main
+from merken.cli import default_db_path, main
 
 
 def _base(tmp_path: Path, *extra: str) -> list[str]:
@@ -25,9 +25,9 @@ def _base(tmp_path: Path, *extra: str) -> list[str]:
 
 
 def test_default_db_path_isolated_from_vstash() -> None:
-    """Default DB must live under ~/.engram/, not ~/.vstash/."""
+    """Default DB must live under ~/.merken/, not ~/.vstash/."""
     p = default_db_path("my_project")
-    assert str(p).endswith("/.engram/my_project.db")
+    assert str(p).endswith("/.merken/my_project.db")
     assert ".vstash" not in str(p)
 
 

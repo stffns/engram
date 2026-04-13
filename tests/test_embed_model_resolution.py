@@ -1,9 +1,9 @@
-"""Tests for engram's embed-model resolution.
+"""Tests for merken's embed-model resolution.
 
-The bug (2026-04-09): engram hardcoded ``BAAI/bge-small-en-v1.5`` as
+The bug (2026-04-09): merken hardcoded ``BAAI/bge-small-en-v1.5`` as
 the consolidation embedder even though vstash might be using a
 different model to ingest. That created a silent vector-space
-mismatch between "how engram clusters events" and "how vstash
+mismatch between "how merken clusters events" and "how vstash
 retrieves them." The fix is to read the model from the vstash
 store_meta at runtime, falling back to vstash.config only if the
 store is fresh.
@@ -18,8 +18,8 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 
-from engram import Memory
-from engram.memory import _resolve_vstash_embed_model
+from merken import Memory
+from merken.memory import _resolve_vstash_embed_model
 
 
 def test_resolver_falls_back_to_config_on_fresh_store(tmp_path: Path) -> None:
@@ -44,7 +44,7 @@ def test_resolver_falls_back_when_store_meta_lacks_embedding_model(
     and fall back to the config default. (Jay's legacy store has
     the row because it was created by an older vstash that used
     to write it — worth tracking as a vstash upstream regression
-    in observability, not something engram should paper over.)
+    in observability, not something merken should paper over.)
     """
     from vstash.config import EmbeddingsConfig
 

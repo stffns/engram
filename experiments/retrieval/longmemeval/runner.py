@@ -6,12 +6,12 @@ any of the top-k hits come from a session in ``answer_session_ids``.
 
 Three baselines are wired in:
 
-- ``vstash`` — bypass engram entirely; ingest straight into
-  ``vstash.Memory``. Tells us how much engram's loop costs vs the bare
+- ``vstash`` — bypass merken entirely; ingest straight into
+  ``vstash.Memory``. Tells us how much merken's loop costs vs the bare
   substrate.
-- ``engram-always`` — engram with ``AlwaysWrite``. The "store-everything"
+- ``merken-always`` — merken with ``AlwaysWrite``. The "store-everything"
   control: every event lands, no filtering.
-- ``engram-heuristic`` — engram with the default ``HeuristicWriteDecider``
+- ``merken-heuristic`` — merken with the default ``HeuristicWriteDecider``
   (Phase 1). The thing we actually ship.
 
 Each baseline reports R@k with a 95% bootstrap confidence interval. The
@@ -34,7 +34,7 @@ from typing import Any
 
 import vstash
 
-from engram import AlwaysWrite, HeuristicWriteDecider, Memory
+from merken import AlwaysWrite, HeuristicWriteDecider, Memory
 from experiments.retrieval.longmemeval.dataset import (
     Conversation,
     Turn,
@@ -179,14 +179,14 @@ class _EngramAdapter(_Adapter):
 
 
 class _EngramAlwaysAdapter(_EngramAdapter):
-    name = "engram-always"
+    name = "merken-always"
 
     def __init__(self, project: str, db: Path) -> None:
         super().__init__(project, db, AlwaysWrite())
 
 
 class _EngramHeuristicAdapter(_EngramAdapter):
-    name = "engram-heuristic"
+    name = "merken-heuristic"
 
     def __init__(self, project: str, db: Path) -> None:
         super().__init__(project, db, HeuristicWriteDecider())
@@ -194,8 +194,8 @@ class _EngramHeuristicAdapter(_EngramAdapter):
 
 _ADAPTERS: dict[str, Callable[[str, Path], _Adapter]] = {
     "vstash": _VstashAdapter,
-    "engram-always": _EngramAlwaysAdapter,
-    "engram-heuristic": _EngramHeuristicAdapter,
+    "merken-always": _EngramAlwaysAdapter,
+    "merken-heuristic": _EngramHeuristicAdapter,
 }
 
 
@@ -331,7 +331,7 @@ def format_result(result: BaselineResult) -> str:
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p = argparse.ArgumentParser(
         prog="experiments.retrieval.longmemeval.runner",
-        description="LongMemEval R@k runner for engram baselines.",
+        description="LongMemEval R@k runner for merken baselines.",
     )
     p.add_argument(
         "--baseline",
@@ -408,7 +408,7 @@ def main(argv: list[str] | None = None) -> int:
         f"{source}, seed={args.seed}"
     )
 
-    with tempfile.TemporaryDirectory(prefix="engram_lme_") as td:
+    with tempfile.TemporaryDirectory(prefix="merken_lme_") as td:
         db_dir = args.db_dir or Path(td)
         db_dir.mkdir(parents=True, exist_ok=True)
         for baseline in baselines:

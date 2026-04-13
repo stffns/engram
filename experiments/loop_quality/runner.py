@@ -29,8 +29,8 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from engram import Memory, PeriodicConsolidator
-from engram.consolidation import Fact, fact_fingerprint
+from merken import Memory, PeriodicConsolidator
+from merken.consolidation import Fact, fact_fingerprint
 from experiments.loop_quality.scenario import (
     Scenario,
     ScenarioEvent,
@@ -97,7 +97,7 @@ def _fact_path_to_topic(
     The fact's path is reconstructed from ``fact_fingerprint`` — the
     same function ``Memory.consolidate`` uses to name the semantic
     doc. This couples the runner to the naming scheme, which is
-    acceptable: the runner's whole job is to probe a specific engram
+    acceptable: the runner's whole job is to probe a specific merken
     build.
     """
     result: dict[str, str] = {}
@@ -158,7 +158,7 @@ def _evaluate_query(
     *,
     top_k: int,
 ) -> QueryOutcome:
-    """Evaluate one query through the full engram recall path.
+    """Evaluate one query through the full merken recall path.
 
     ``path_to_topic`` is a *unified* lookup that includes both
     ingested episodic events and materialized semantic facts: a hit
@@ -222,7 +222,7 @@ def run_scenario(
     The four ``*_decider`` kwargs let a caller plug in custom
     deciders to validate them against a real scenario without
     writing their own driver script. ``None`` means "use the
-    engram default for this primitive" (except
+    merken default for this primitive" (except
     ``consolidate_decider``, which defaults to
     ``PeriodicConsolidator(min_events=2)`` to match the
     scenario sizes — 2 is low enough to fire on every
@@ -362,7 +362,7 @@ def _import_decider(dotted_path: str) -> Any:
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p = argparse.ArgumentParser(
         prog="experiments.loop_quality.runner",
-        description="Run loop-quality scenarios against current engram.",
+        description="Run loop-quality scenarios against current merken.",
     )
     p.add_argument(
         "--scenario",
@@ -387,7 +387,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help=(
             "dotted import path to a WriteDecider class (e.g. "
             "my_pkg.MyDecider). Must be default-constructible. "
-            "Falls back to engram default when omitted."
+            "Falls back to merken default when omitted."
         ),
     )
     p.add_argument(
@@ -428,7 +428,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     forget_dec = _import_decider(args.forget_decider) if args.forget_decider else None
 
-    with tempfile.TemporaryDirectory(prefix="engram_loop_quality_") as td:
+    with tempfile.TemporaryDirectory(prefix="merken_loop_quality_") as td:
         db_dir = Path(td)
         for path in scenario_paths:
             scenario = load_scenario(path)

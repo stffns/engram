@@ -1,4 +1,4 @@
-"""engram MCP server — wraps the CLI commands as MCP tools.
+"""merken MCP server — wraps the CLI commands as MCP tools.
 
 Every tool maps 1:1 to a ``Memory`` method. No business logic
 lives here; if a tool needs behavior the SDK doesn't have, the
@@ -6,21 +6,21 @@ method goes in ``Memory`` first.
 
 Run with::
 
-    python -m engram.mcp_server
+    python -m merken.mcp_server
 
 or attach to Claude Code::
 
-    claude mcp add engram -- python -m engram.mcp_server
+    claude mcp add merken -- python -m merken.mcp_server
 
 Config, in priority order:
 
 1. Per-tool-call argument (``project`` / ``db`` passed to the tool).
 2. Environment variable (``ENGRAM_PROJECT`` / ``ENGRAM_DB``).
-3. Built-in defaults (``"default"`` and ``~/.engram/default.db``).
+3. Built-in defaults (``"default"`` and ``~/.merken/default.db``).
 
 **Note on the default DB path:** it is NOT ``~/.vstash/memory.db``
-on purpose. The MCP server opens its own isolated engram store so
-a buggy decider can't corrupt your main vstash. To attach engram
+on purpose. The MCP server opens its own isolated merken store so
+a buggy decider can't corrupt your main vstash. To attach merken
 to your real vstash from Claude Code, pass
 ``db=~/.vstash/memory.db`` on the first tool call or set
 ``ENGRAM_DB=~/.vstash/memory.db`` before starting the server.
@@ -29,7 +29,7 @@ Silt's rule, carried across tools: *"before proposing an
 algorithm, look at the distribution of the data."* This server
 is the thinnest possible wrapper — no algorithms, no heuristics,
 no hidden defaults. Every decision a tool call makes is
-implemented in the engram SDK and audit-logged there.
+implemented in the merken SDK and audit-logged there.
 """
 
 from __future__ import annotations
@@ -40,7 +40,7 @@ from typing import Any
 
 from mcp.server.fastmcp import FastMCP
 
-from engram import (
+from merken import (
     ForgetConsolidated,
     Memory,
     NeverForget,
@@ -49,9 +49,9 @@ from engram import (
 _DEFAULT_PROJECT = "default"
 
 mcp = FastMCP(
-    "engram",
+    "merken",
     instructions=(
-        "engram is a decision-loop layer over vstash. Four primitives: "
+        "merken is a decision-loop layer over vstash. Four primitives: "
         "remember (write), recall (read), consolidate (distill episodic "
         "into semantic facts), forget (tombstone consolidated events). "
         "Every decision is audit-logged. Use these tools the way you'd "
@@ -64,7 +64,7 @@ mcp = FastMCP(
 
 
 def _default_db_path(project: str) -> Path:
-    return Path.home() / ".engram" / f"{project}.db"
+    return Path.home() / ".merken" / f"{project}.db"
 
 
 def _resolve_project(project: str | None) -> str:
@@ -114,7 +114,7 @@ def _open_memory(
 
 
 @mcp.tool(
-    name="engram_remember",
+    name="merken_remember",
     description=(
         "Write an event to memory. The configured should_remember decider "
         "may skip the write (empty, too short, too long, exact duplicate, "
@@ -123,7 +123,7 @@ def _open_memory(
         "vector index."
     ),
 )
-def engram_remember(
+def merken_remember(
     text: str,
     project: str | None = None,
     db: str | None = None,
@@ -145,7 +145,7 @@ def engram_remember(
 
 
 @mcp.tool(
-    name="engram_recall",
+    name="merken_recall",
     description=(
         "Query memory through the should_recall decider. Default routing "
         "is semantic-first with episodic fallback via round-robin "
@@ -153,7 +153,7 @@ def engram_remember(
         "query one layer only."
     ),
 )
-def engram_recall(
+def merken_recall(
     query: str,
     project: str | None = None,
     db: str | None = None,
@@ -175,7 +175,7 @@ def engram_recall(
 
 
 @mcp.tool(
-    name="engram_consolidate",
+    name="merken_consolidate",
     description=(
         "Cluster episodic events into semantic facts. Default method is "
         "embedding_v1 with complete linkage at cosine threshold 0.70, "
@@ -183,7 +183,7 @@ def engram_recall(
         "Pass force=True to bypass the should_consolidate decider."
     ),
 )
-def engram_consolidate(
+def merken_consolidate(
     project: str | None = None,
     db: str | None = None,
     method: str = "embedding_v1",
@@ -218,16 +218,16 @@ def engram_consolidate(
 
 
 @mcp.tool(
-    name="engram_forget",
+    name="merken_forget",
     description=(
         "Tombstone episodic events. Reversible: the full text is preserved "
-        "in the engram_tombstones collection. Deciders: 'never' (safe "
+        "in the merken_tombstones collection. Deciders: 'never' (safe "
         "default, no-op unless force), 'consolidated' (tombstone events "
         "already in a fact). Pass force=True to tombstone everything "
         "regardless of decider."
     ),
 )
-def engram_forget(
+def merken_forget(
     project: str | None = None,
     db: str | None = None,
     decider: str = "never",
@@ -250,7 +250,7 @@ def engram_forget(
 
 
 @mcp.tool(
-    name="engram_audit",
+    name="merken_audit",
     description=(
         "Query the decision audit log. Every should_remember / "
         "should_recall / should_consolidate / should_forget call writes "
@@ -258,7 +258,7 @@ def engram_forget(
         "'why was this event kept or dropped?'."
     ),
 )
-def engram_audit(
+def merken_audit(
     query: str = "should_",
     project: str | None = None,
     db: str | None = None,
@@ -278,7 +278,7 @@ def engram_audit(
 
 
 @mcp.tool(
-    name="engram_tombstones",
+    name="merken_tombstones",
     description=(
         "Query tombstoned (forgotten) events. Each row contains the full "
         "original text, title, layer, tags, and the semantic facts that "
@@ -286,7 +286,7 @@ def engram_audit(
         "forget?' or to manually restore a specific event."
     ),
 )
-def engram_tombstones(
+def merken_tombstones(
     query: str = "tombstone",
     project: str | None = None,
     db: str | None = None,
@@ -306,14 +306,14 @@ def engram_tombstones(
 
 
 @mcp.tool(
-    name="engram_status",
+    name="merken_status",
     description=(
         "Project summary: project name, DB path, collection, total event "
         "count, and per-layer breakdown. Cheap — just a list() on the "
         "default collection. Call this first to see what's in the store."
     ),
 )
-def engram_status(
+def merken_status(
     project: str | None = None,
     db: str | None = None,
 ) -> dict[str, Any]:
@@ -335,14 +335,14 @@ def engram_status(
 
 
 @mcp.tool(
-    name="engram_stats",
+    name="merken_stats",
     description=(
         "Pass-through to vstash.Memory.stats. Reports total document "
         "count across ALL collections, chunk count, collection count, "
         "DB size in MB, and DB path. Useful for monitoring store growth."
     ),
 )
-def engram_stats(
+def merken_stats(
     project: str | None = None,
     db: str | None = None,
 ) -> dict[str, Any]:
@@ -360,7 +360,7 @@ def engram_stats(
 
 
 def main() -> None:
-    """Entry point for ``python -m engram.mcp_server``."""
+    """Entry point for ``python -m merken.mcp_server``."""
     mcp.run()
 
 

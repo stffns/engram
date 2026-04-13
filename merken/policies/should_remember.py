@@ -3,9 +3,9 @@
 Two implementations land in Phase 1:
 
 - ``AlwaysWrite`` — the "store-everything" baseline. Useful as a control
-  in ``experiments/`` runs: it tells us whether engram's filtering is
+  in ``experiments/`` runs: it tells us whether merken's filtering is
   helping or hurting on a given dataset.
-- ``HeuristicWriteDecider`` — engram's default. No LLM. Skips empty,
+- ``HeuristicWriteDecider`` — merken's default. No LLM. Skips empty,
   too-short, too-long, and exact-duplicate writes. The minimum policy that
   is honestly better than ``AlwaysWrite`` for a real loop.
 
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterable
 
-from engram.policies.types import Decision, Event, WriteContext
+from merken.policies.types import Decision, Event, WriteContext
 
 
 def _normalize(text: str) -> str:
@@ -28,8 +28,8 @@ def _normalize(text: str) -> str:
 class AlwaysWrite:
     """Baseline: every event gets written.
 
-    Exists so that experiments can isolate the cost/benefit of engram's
-    filtering against a "store everything" control. Not the engram default.
+    Exists so that experiments can isolate the cost/benefit of merken's
+    filtering against a "store everything" control. Not the merken default.
     """
 
     name = "AlwaysWrite"
@@ -236,7 +236,7 @@ class ContentTypePriorDecider:
         if explicit != "unknown":
             return explicit
         if self._auto_classify:
-            from engram.classification import classify_content_type
+            from merken.classification import classify_content_type
 
             return classify_content_type(event.text)
         return "unknown"

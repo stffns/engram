@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # Overnight run of LongMemEval full split (n=500) for both
-# engram-heuristic and raw vstash baselines. Phase A of the
+# merken-heuristic and raw vstash baselines. Phase A of the
 # benchmark roadmap.
 #
 # Expected wall-clock: ~6 hours per baseline on current hardware
@@ -11,7 +11,7 @@
 #
 # Usage:
 #
-#     cd ~/Desktop/Personal/Projects/engram
+#     cd ~/Desktop/Personal/Projects/merken
 #     experiments/retrieval/longmemeval/run_overnight.sh
 #
 # Then check progress with:
@@ -19,11 +19,11 @@
 #     tail -f experiments/retrieval/longmemeval/.cache/overnight_*.log
 #
 # After it finishes, copy the final lines into RESULTS.md with:
-#   - the engram commit SHA (`git rev-parse HEAD`)
+#   - the merken commit SHA (`git rev-parse HEAD`)
 #   - the date of the run
 #   - n=500
 #   - R@5 with the bootstrap CI the runner prints
-#   - API calls per query: 0 (engram is local-first)
+#   - API calls per query: 0 (merken is local-first)
 #   - wall-clock elapsed
 #
 # NEVER paste sample results as full-run results. If the run dies
@@ -39,7 +39,7 @@ LOG_DIR="experiments/retrieval/longmemeval/.cache"
 mkdir -p "$LOG_DIR"
 LOG="$LOG_DIR/overnight_${TS}.log"
 
-echo "=== engram longmemeval overnight run — ${TS} ===" | tee "$LOG"
+echo "=== merken longmemeval overnight run — ${TS} ===" | tee "$LOG"
 echo "commit: $(git rev-parse HEAD)" | tee -a "$LOG"
 echo "branch: $(git rev-parse --abbrev-ref HEAD)" | tee -a "$LOG"
 echo "cwd:    $(pwd)" | tee -a "$LOG"
@@ -52,7 +52,7 @@ nohup python3 -m experiments.retrieval.longmemeval.runner \
     --seed 42 \
     --top-k 5 \
     --baseline vstash \
-    --baseline engram-heuristic \
+    --baseline merken-heuristic \
     >> "$LOG" 2>&1 &
 
 PID=$!
