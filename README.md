@@ -163,7 +163,7 @@ Deeper: [`docs/architecture.md`](docs/architecture.md).
 
 ```bash
 # Clone and install
-git clone https://github.com/stffns/engram && cd merken
+git clone https://github.com/stffns/merken && cd merken
 pip install -e .
 
 # Run the full test suite (~10s)

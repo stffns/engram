@@ -35,8 +35,8 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/stffns/engram"
-Issues = "https://github.com/stffns/engram/issues"
+Homepage = "https://github.com/stffns/merken"
+Issues = "https://github.com/stffns/merken/issues"
 
 [project.scripts]
 merken = "merken.cli:main"
