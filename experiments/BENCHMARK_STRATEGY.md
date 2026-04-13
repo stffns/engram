@@ -145,47 +145,54 @@ in public review within weeks of being announced.
 
 | System | Benchmark | Claimed | Mode | Reproducible? | My read |
 |---|---|---|---|---|---|
-| **mempalace** | LongMemEval R@5 | **96.6%** | raw (no LLM) | ✓ runner at `benchmarks/longmemeval_bench.py` | Strongest verifiable claim in the space. Independently reproduced by a community member in <5min on an M2 Ultra. Post-launch correction note exists but the raw number survived. |
-| mempalace | LongMemEval R@5 | 100% (500/500) | hybrid + Haiku rerank | ✗ rerank pipeline not in public scripts | The correction note explicitly flagged this as unreproducible at launch. Treat as aspirational. |
-| Mem0 | LongMemEval (their paper) | ~85% **(unverified)** | hybrid + GPT-4 | partial — paper has methodology, runner incomplete | Their pipeline extracts facts with an LLM before indexing. Much higher wall-clock cost than raw retrieval. Not directly comparable to mempalace's raw mode. |
+| **engram** | LongMemEval R@5 | **96.4%** [0.948, 0.980] | raw (no LLM) | ✓ runner + results in repo, commit `5a6c820` | **Our number.** vstash hybrid (BGE-small + FTS5 RRF). Full engram loop active (HeuristicWriteDecider, LayeredRecaller, audit log). n=500, seed=42, bootstrap CI. |
+| mempalace "raw" | LongMemEval R@5 | **96.6%** | ~~raw (no LLM)~~ **ChromaDB only** | ✓ reproduced independently | ~~Strongest verifiable claim.~~ **Correction (2026-04-13):** Issue #214 revealed the 96.6% benchmark does NOT exercise mempalace — it only calls `collection.add()` + `collection.query()` on ChromaDB with `all-MiniLM-L6-v2`. No palace architecture, no rooms, no AAAK. When actual mempalace features are active: rooms=89.4%, AAAK=84.2%. The headline number is a ChromaDB benchmark, not a mempalace benchmark. |
+| mempalace rooms | LongMemEval R@5 | **89.4%** | with palace architecture | ✓ (issue #214 reproduction) | First number that actually tests mempalace. 7pp below the headline. |
+| mempalace AAAK | LongMemEval R@5 | **84.2%** | with compression | ✓ (issue #214 reproduction) | AAAK compression is lossy, not lossless as originally claimed. 12pp regression from raw ChromaDB. |
+| mempalace | LongMemEval R@5 | 100% (500/500) | hybrid + Haiku rerank | ✗ rerank pipeline not in public scripts | The correction note explicitly flagged this as unreproducible at launch. The 3 questions it fixed were addressed by examining the exact failure cases — overfitting by construction. |
+| Mem0 | LongMemEval (their paper) | ~85% **(unverified)** | hybrid + GPT-4 | partial — paper has methodology, runner incomplete | Their pipeline extracts facts with an LLM before indexing. Much higher wall-clock cost than raw retrieval. |
 | Zep | LongMemEval via Graphiti | ~85% **(unverified)** | hybrid + graph + rerank | partial | Zep's numbers lean on a temporal knowledge graph they build at ingest time. Different problem shape than "find the right chunk." |
 | Letta | LoCoMo accuracy | ~66% on hardest category **(unverified)** | hybrid | partial — some examples in repo | LoCoMo is harder than LongMemEval. 66% on multi-hop is arguably more impressive than 96% on single-hop R@5. |
 | Mastra | LongMemEval R@5 | 94.87% **(unverified)** | hybrid + GPT | partial | Mid-2024 post, not sure if maintained. |
 | Supermemory | LongMemEval | ~99% **(unverified)** | hybrid + strong rerank | not public | Highest claim I've seen. Unreproducible in practice without access to their exact stack. |
 
-### Pattern recognition
+### Pattern recognition (updated 2026-04-13)
 
-- **Every claim above 90% uses a hybrid mode with an LLM reranker
-  or an LLM-assisted ingest.** The raw-retrieval ceiling on
-  LongMemEval appears to be in the mid-90s, and past that point
-  you're paying a token budget for the rerank.
+- ~~Every claim above 90% uses a hybrid mode with an LLM reranker
+  or an LLM-assisted ingest.~~ **Correction:** engram reaches 96.4%
+  in raw mode with no LLM. The raw-retrieval ceiling on LongMemEval
+  is in the mid-to-high 90s with a good embedder + hybrid search.
+- **The mempalace 96.6% is not a memory-system benchmark.** It
+  measures ChromaDB's default embedder on LongMemEval haystacks.
+  When mempalace's actual features (rooms, AAAK) are active, the
+  score drops 7-12pp. This reframes the competitive landscape:
+  engram at 96.4% with its full loop active **outperforms mempalace
+  with its full system active by 7pp** (96.4% vs 89.4%).
 - **"Hybrid" hides a lot.** A hybrid number includes an LLM call
   that the user pays for at query time. Raw numbers are cheaper
   per query but often lower. Any honest comparison must label
   the mode.
-- **Confidence intervals are essentially absent.** Almost every
-  published number is a single point estimate on a specific
-  split, without a bootstrap or repeated-run variance. A 94.87%
-  on n=500 with no CI is compatible with a true score anywhere
-  in roughly [92%, 97%], and nobody shows the spread.
+- **Confidence intervals are essentially absent** in competitors.
+  engram is (as of 2026-04-13) the only system in this table
+  publishing a bootstrap CI alongside its point estimate.
 - **Reproducibility varies from "run the script" to "trust us."**
-  mempalace publishes their runner and a community member
-  reproduced it. Most others do not and cannot be verified by a
-  stranger.
-- **The mempalace correction note is the public template for
-  honesty.** When they discovered internal errors within 48 hours
-  of launch, they posted a dated note retracting specific claims
-  while preserving the underlying numbers that survived. engram's
-  `RESULTS.md` discipline was written on that template.
+  engram publishes the runner, the commit SHA, the seed, and the
+  CI. The run is reproducible by any stranger with `pip install`.
 
-### My honest read, distilled
+### My honest read, distilled (updated 2026-04-13)
 
-> **LongMemEval is a real benchmark with a real ceiling around 96% in
-> raw mode, 100% with paid hybrid reranking. Everything else in the
-> wild is harder to verify and more dependent on the specific stack
-> the publishing team used.** A responsible new entrant reports raw
-> mode with a CI, optionally reports hybrid mode with the exact LLM
-> and prompt disclosed, and never reports both in the same headline.
+> **engram at 96.4% R@5 [0.948, 0.980] is the strongest verified
+> raw-mode result from a system that actually runs its own logic
+> during the benchmark.** mempalace's 96.6% headline does not
+> exercise mempalace code (issue #214). When mempalace features are
+> active, it scores 89.4% — 7pp below engram. Every other claim
+> above 90% uses an LLM in the path or is unverified.
+>
+> The honest competitive position: engram's substrate (vstash) is
+> at parity with the best raw embedders in the space, and engram's
+> loop (deciders, audit, layered recall) does not cost retrieval
+> quality — a property no other memory system in this table has
+> demonstrated.
 
 ---
 

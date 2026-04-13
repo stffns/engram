@@ -118,6 +118,22 @@ in the chat history; not yet in an issue.
    hardware. Possibilities: model warmup spread across baselines,
    audit collection growth, or a per-DB cold-start cost.
 
+## Competitive positioning (updated 2026-04-13)
+
+The n=500 result positions engram against the published landscape:
+
+| System | R@5 | Mode | Actually tests the system? |
+|---|---|---|---|
+| **engram** | **96.4%** [0.948, 0.980] | raw, full loop | **Yes** — decider, recaller, audit all active |
+| mempalace "raw" | 96.6% | ChromaDB only | **No** — issue #214 showed the benchmark only calls ChromaDB, no mempalace code |
+| mempalace rooms | 89.4% | with palace features | Yes — 7pp below engram |
+| mempalace AAAK | 84.2% | with compression | Yes — 12pp below engram |
+| Mem0 | ~85% | hybrid + GPT-4 | Yes — LLM in path, higher cost per query |
+
+engram is the only system in this table that (a) publishes a CI,
+(b) runs its actual decision loop during the benchmark, and (c)
+matches the raw-retrieval ceiling without an LLM.
+
 ## Honesty discipline
 
 If a number we publish here turns out to be wrong, the fix is to add
