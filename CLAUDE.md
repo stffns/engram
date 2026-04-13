@@ -50,7 +50,10 @@ Deployed surfaces:
   or `claude mcp add engram -- python -m engram.mcp_server`. Eight
   tools, one per CLI subcommand. Default DB is `~/.engram/<project>.db`,
   deliberately isolated from `~/.vstash/memory.db`.
-- **Claude Code hooks** — NOT YET. Future slice.
+- **Claude Code hooks** — live in `~/.claude/settings.json`.
+  Three hooks: `SessionStart` (recall context), `PreCompact`
+  (save to memory), `UserPromptSubmit` (search memory).
+  Scripts at `~/.claude/hooks/engram-*.sh`.
 
 Safety net (`experiments/loop_quality/`):
 
@@ -120,8 +123,8 @@ explicit case in the PR description.
 - Phase A of `experiments/BENCHMARK_STRATEGY.md` — the overnight
   LongMemEval full n=500 run, script at
   `experiments/retrieval/longmemeval/run_overnight.sh`.
-- Claude Code hooks. Depends on MCP server being stable (it is)
-  and on the user's `settings.json` design preference.
+- Claude Code hooks hardening: error handling, threshold tuning,
+  integration tests for the hook scripts.
 - Additional `loop_quality/` scenarios from Jay's real work:
   perf migration notes, MedLocal hackathon logs, Kafka meeting
   threads, daily reviews.
