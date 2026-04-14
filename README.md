@@ -3,9 +3,9 @@
 > Agent-loop layer for persistent memory, built on top of
 > [vstash](https://github.com/stffns/vstash).
 
-**Status:** pre-v0.1, local-first, 154 tests green.
-Four decision primitives, three deployment surfaces, three loop-quality
-scenarios all at 100% pass rate and 100% cluster purity.
+**Status:** v0.1.0 on [PyPI](https://pypi.org/project/merken/), local-first,
+171 tests green. Four decision primitives, four deployment surfaces
+(SDK, CLI, MCP server, Claude Code hooks), five loop-quality scenarios.
 
 ## In one paragraph
 
@@ -227,6 +227,7 @@ merken/
 │   ├── memory.py                ← Memory class, the glue
 │   ├── consolidation.py         ← Fact, clustering, consolidate pipeline
 │   ├── audit.py                 ← audit + tombstone row formats
+│   ├── reranking.py             ← temporal reranking (post-retrieval)
 │   ├── cli.py                   ← merken CLI entry point
 │   ├── mcp_server.py            ← merken-mcp MCP server entry point
 │   └── policies/
@@ -276,6 +277,7 @@ merken/
 | `should_recall` decider | `LayeredRecaller()` (sem 5, epi 3) | `Memory(recall_decider=...)` |
 | `should_consolidate` decider | `PeriodicConsolidator(min_events=10)` | `Memory(consolidate_decider=...)` |
 | `should_forget` decider | `NeverForget()` (safe) | `Memory(forget_decider=...)` |
+| Temporal reranking | `0.0` (off) | `Memory(temporal_weight=...)` or `mem.recall(temporal_weight=...)` |
 
 **Deliberately isolated by default:** merken's default DB is NOT your
 `~/.vstash/memory.db`. It lives under `~/.merken/<project>.db` so a
@@ -300,11 +302,10 @@ From [`CONSTITUTION.md`](CONSTITUTION.md), enforced in
 
 ## Development status
 
-merken is pre-v0.1. The four decision primitives are implemented and
-tested, the three deployment surfaces are working, and the loop-quality
-safety net is in place. What's next is **use** — putting merken in
-front of real agent workflows and watching what the loop does with
-organic content.
+merken 0.1.0 is on PyPI. The four decision primitives are implemented
+and tested, four deployment surfaces are working (SDK, CLI, MCP server,
+Claude Code hooks), and the loop-quality safety net covers five
+scenarios. LongMemEval Phase A is complete (R@5 = 0.964 on n=500).
 
 ### What's deliberately not here
 
@@ -319,12 +320,14 @@ organic content.
 
 ### What's coming
 
-- Claude Code hooks (auto-save + precompact) — depends on the MCP
-  server being stable, which it is.
-- A second and third real-content scenario in `loop_quality/`.
+- Claude Code hooks hardening: error handling, threshold tuning,
+  integration tests for the hook scripts.
+- Additional `loop_quality/` scenarios from real work: perf migration
+  notes, MedLocal hackathon logs, Kafka meeting threads, daily reviews.
 - LoCoMo runner under `experiments/retrieval/locomo/` (Phase B of
   [`experiments/BENCHMARK_STRATEGY.md`](experiments/BENCHMARK_STRATEGY.md)).
-- Overnight full n=500 LongMemEval run (Phase A).
+- LMEB episodic/semantic/procedural evaluation (20 sub-datasets).
+- Multilingual calibration (Spanish/English mixed content).
 
 ## License
 
