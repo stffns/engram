@@ -28,12 +28,16 @@ htmlcov/
 *.swp
 .DS_Store
 
-# vstash / engram local data
+# vstash / merken local data
 *.db
 *.db-journal
 *.db-wal
 *.db-shm
+.merken/
 .engram/
+
+# Old package name (pip install -e . can regenerate it)
+engram/
 
 # Benchmark dataset cache
 experiments/**/.cache/
