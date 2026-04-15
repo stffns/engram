@@ -284,6 +284,37 @@ merken/
 buggy decider can't corrupt your main vstash store. To attach merken
 to a live vstash, point at it explicitly via `--db` / `$ENGRAM_DB`.
 
+### Multilingual corpora
+
+If your content is bilingual or multilingual (e.g. mixed Spanish/
+English), configure vstash to use a multilingual embedder before
+ingesting:
+
+```toml
+# vstash.toml
+[embeddings]
+model = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+```
+
+This is **validated as safe**, not speculative. On a Spanish/English
+probe scenario (2026-04-14), the multilingual model produced a
+clean signal/noise gap — same-topic cross-lingual pairs clustered
+at `[0.754, 0.832]` while cross-topic noise capped at `0.501`. The
+default `BAAI/bge-small-en-v1.5` left signal and noise overlapping
+on that same data.
+
+We also ran a LongMemEval no-regression check (2026-04-14, n=100,
+Colab CPU): `paraphrase-multilingual` hit R@5=0.980 [0.950, 1.000],
+with the CI overlapping the bge baseline R@5=0.964 [0.948, 0.980]
+from the n=500 full run. No regression on English-only workloads.
+
+If you swap the embedder, consider lowering `embedding_threshold`
+to `0.55–0.60` to exploit the wider gap. See
+[`experiments/loop_quality/RESULTS_multilingual.md`](experiments/loop_quality/RESULTS_multilingual.md)
+for the full distribution and reasoning, and
+[`experiments/retrieval/longmemeval/RESULTS.md`](experiments/retrieval/longmemeval/RESULTS.md)
+for the LongMemEval row.
+
 ## Design non-negotiables
 
 From [`CONSTITUTION.md`](CONSTITUTION.md), enforced in

@@ -35,6 +35,7 @@ Every row records:
 | 2026-04-08 | `e18d7d4` | `vstash` | `longmemeval_s` | 10 | **0.900** [0.700, 1.000] | 0 | Identical hit set to merken-heuristic — confirms the heuristic decider is a no-op on this dataset. seed=42. |
 | 2026-04-13 | `5a6c820` | `vstash` | `longmemeval_s` | **500** | **0.964** [0.948, 0.978] | 0 | **Phase A complete.** Full n=500 run, seed=42. Positions merken's substrate at parity with mempalace's claimed 96.6% raw (CIs overlap). |
 | 2026-04-13 | `5a6c820` | `merken-heuristic` | `longmemeval_s` | **500** | **0.964** [0.948, 0.980] | 0 | Identical R@5 to vstash raw. Budget redistribution fix (commit `42d40ef`) closed the gap that existed at n=10. Heuristic decider is a no-op on this dataset (no duplicates). |
+| 2026-04-14 | `482025e` | `merken-heuristic` | `longmemeval_s` | 100 | **0.980** [0.950, 1.000] | 0 | **Embedder swap probe.** `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2` instead of the default `BAAI/bge-small-en-v1.5`. n=100 (not 500) because the question is "does multilingual regress on English" — a no-worse check that tolerates a wider CI. CI [0.950, 1.000] overlaps the bge row's [0.948, 0.980] → no regression. Colab CPU, 40 min. Combined with the bilingual scenario in `../../loop_quality/RESULTS_multilingual.md`, this clears multilingual as the recommended embedder for bilingual users. |
 
 ### Wall-clock cost (informational, not part of the metric)
 

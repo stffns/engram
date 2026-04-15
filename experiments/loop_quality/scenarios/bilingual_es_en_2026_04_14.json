@@ -1,0 +1,98 @@
+{
+  "name": "bilingual_es_en_2026_04_14",
+  "description": "Cross-lingual recall test. Twelve events across six topics; each topic has one event written in Spanish and one in English describing the same underlying fact from a slightly different angle. Queries are deliberately asked in the OPPOSITE language of the event most likely to be relevant, so a system that only clusters intra-language will miss. Built 2026-04-14 to expose the multilingual calibration gap: merken's benchmarking is English-only but Jay's real daily content is mixed es/en. A pass here means the embedder + loop survive cross-lingual queries; a fail means the embedder (not the loop) is the bottleneck and the fix lives outside merken.",
+  "events": [
+    {
+      "id": "perf_kafka_es",
+      "text": "Detectamos que el consumer de Kafka en las pruebas de perf acumula lag cuando el throughput pasa de 3k msg/s porque el batch size quedo en 500 y el poll interval sigue en 100ms.",
+      "topic": "perf_kafka_lag"
+    },
+    {
+      "id": "perf_kafka_en",
+      "text": "The perf Kafka consumer is falling behind because the default batch size of 500 plus a 100ms poll interval caps effective throughput well below the 3k msg/s producer rate.",
+      "topic": "perf_kafka_lag"
+    },
+    {
+      "id": "merken_multiling_es",
+      "text": "El benchmarking de merken es solo en ingles, pero el contenido real de Jay es mezcla es/en, entonces el R@5 de 0.964 en LongMemEval puede no reflejar el comportamiento en produccion.",
+      "topic": "merken_multilingual_gap"
+    },
+    {
+      "id": "merken_multiling_en",
+      "text": "All external benchmarks for merken currently run in English only, which leaves cross-lingual retrieval quality uncalibrated despite the embedder being paraphrase-multilingual-capable.",
+      "topic": "merken_multilingual_gap"
+    },
+    {
+      "id": "code_review_es",
+      "text": "El skill code-review postea comentarios en hilos separados en Azure DevOps y al final deja un resumen en el ticket de Jira enlazado al PR.",
+      "topic": "code_review_skill"
+    },
+    {
+      "id": "code_review_en",
+      "text": "The code-review skill fetches the PR diff, runs a structured review via the code-reviewer subagent, threads comments back to Azure DevOps, and records a summary on the linked Jira ticket.",
+      "topic": "code_review_skill"
+    },
+    {
+      "id": "jira_link_es",
+      "text": "Cada PR de Pluxee se enlaza al ticket de Jira por el prefijo del branch (feature/ABC-123-...) y el skill usa ese patron para encontrar el ticket automaticamente.",
+      "topic": "jira_pr_link"
+    },
+    {
+      "id": "jira_link_en",
+      "text": "Pluxee PR-to-Jira linking relies on branch name prefixes like feature/ABC-123; the skill parses the branch to find the ticket without needing an explicit argument.",
+      "topic": "jira_pr_link"
+    },
+    {
+      "id": "vstash_api_es",
+      "text": "vstash.SearchResult no expone tags ni layer directamente, asi que merken los mete en el campo title como workaround mientras esperamos el fix upstream.",
+      "topic": "vstash_api_gap"
+    },
+    {
+      "id": "vstash_api_en",
+      "text": "The vstash public SearchResult object lacks tag and layer accessors, so merken encodes that metadata inside the title field until vstash ships a proper fix.",
+      "topic": "vstash_api_gap"
+    },
+    {
+      "id": "rename_es",
+      "text": "El proyecto se llamaba engram pero lo renombramos a merken y publicamos la 0.1.0 en PyPI el 2026-04-13.",
+      "topic": "engram_rename"
+    },
+    {
+      "id": "rename_en",
+      "text": "Engram was renamed to merken before the first public release; merken 0.1.0 shipped to PyPI on 2026-04-13 under github.com/stffns/merken.",
+      "topic": "engram_rename"
+    }
+  ],
+  "queries": [
+    {
+      "question": "why is the Kafka consumer slower than the producer in the perf tests?",
+      "expect_topic": "perf_kafka_lag",
+      "expect_contains": ["Kafka"]
+    },
+    {
+      "question": "cual es el gap principal del benchmarking actual de merken?",
+      "expect_topic": "merken_multilingual_gap",
+      "expect_contains": ["merken"]
+    },
+    {
+      "question": "how does the code review automation post feedback back to the team?",
+      "expect_topic": "code_review_skill",
+      "expect_contains": ["review"]
+    },
+    {
+      "question": "como enlaza el skill un PR con su ticket de Jira?",
+      "expect_topic": "jira_pr_link",
+      "expect_contains": ["Jira"]
+    },
+    {
+      "question": "what workaround does merken use for missing vstash metadata accessors?",
+      "expect_topic": "vstash_api_gap",
+      "expect_contains": ["vstash"]
+    },
+    {
+      "question": "cuando se publico la primera version de merken en PyPI?",
+      "expect_topic": "engram_rename",
+      "expect_contains": ["merken"]
+    }
+  ]
+}
