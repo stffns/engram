@@ -55,10 +55,18 @@ class SceneSpec:
     candidate_doc_ids: list[str]
 
 
-def _scene_from_query_id(qid: str) -> str:
-    """Extract scene_id from query id like 'scene_0_q_82'."""
-    parts = qid.split("_q_")
-    return parts[0] if len(parts) == 2 else qid.rsplit("_", 1)[0]
+def _scene_from_query_id(qid: str, scene_ids: set[str] | None = None) -> str:
+    """Extract scene_id from query id.
+
+    Handles two formats:
+    - LoCoMo-style: `scene_0_q_82` → `scene_0`
+    - DeepPlanning-style: `case_1` where query.id == scene_id
+    """
+    if "_q_" in qid:
+        return qid.split("_q_")[0]
+    if scene_ids is not None and qid in scene_ids:
+        return qid
+    return qid.rsplit("_", 1)[0]
 
 
 def load_corpus(path: Path) -> dict[str, CorpusDoc]:
@@ -74,7 +82,7 @@ def load_corpus(path: Path) -> dict[str, CorpusDoc]:
     return docs
 
 
-def load_queries(path: Path) -> list[Query]:
+def load_queries(path: Path, scene_ids: set[str] | None = None) -> list[Query]:
     queries = []
     with open(path, encoding="utf-8") as f:
         for line in f:
@@ -82,7 +90,7 @@ def load_queries(path: Path) -> list[Query]:
             queries.append(Query(
                 id=row["id"],
                 text=row["text"],
-                scene_id=_scene_from_query_id(row["id"]),
+                scene_id=_scene_from_query_id(row["id"], scene_ids),
             ))
     return queries
 
@@ -291,7 +299,7 @@ def eval_task(
     max_scenes: int | None = None,
     consolidate: bool = False,
 ) -> TaskResult:
-    queries = load_queries(task_dir / "queries.jsonl")
+    queries = load_queries(task_dir / "queries.jsonl", set(candidates.keys()))
     qrels = load_qrels(task_dir / "qrels.tsv")
 
     scenes = sorted(candidates.values(), key=lambda s: s.scene_id)

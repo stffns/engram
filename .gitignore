@@ -41,3 +41,6 @@ engram/
 
 # Benchmark dataset cache
 experiments/**/.cache/
+
+# Benchmark run logs (raw output; curated results go in RESULTS.md)
+experiments/**/runs/
