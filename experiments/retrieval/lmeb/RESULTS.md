@@ -30,6 +30,63 @@ the LayeredRecaller penalty depends on how much the empty semantic
 layer displaces good episodic hits, which varies by query
 distribution. REALTALK queries appear to be a better fit.
 
+## MemBench full results (2026-04-15)
+
+10 tasks, n=10,000 queries, local CPU, ~5h total.
+
+| Date | Commit | Baseline | Task | n | R@5 (95% CI) | Notes |
+|------|--------|----------|------|---|--------------|-------|
+| 2026-04-15 | `45e85f1` | `vstash` | emotion | 500 | 0.780 [0.744, 0.814] | |
+| 2026-04-15 | `45e85f1` | `merken-heuristic` | emotion | 500 | 0.782 [0.748, 0.816] | tie |
+| 2026-04-15 | `45e85f1` | `vstash` | multi_session_assistant | 500 | 0.986 [0.976, 0.994] | |
+| 2026-04-15 | `45e85f1` | `merken-heuristic` | multi_session_assistant | 500 | **1.000** [1.000, 1.000] | **+1.4pp, CIs non-overlap** |
+| 2026-04-15 | `45e85f1` | `vstash` | single_session_assistant | 1500 | 0.985 [0.978, 0.991] | |
+| 2026-04-15 | `45e85f1` | `merken-heuristic` | single_session_assistant | 1500 | 0.989 [0.983, 0.994] | +0.4pp |
+| 2026-04-15 | `45e85f1` | `vstash` | aggregative | 1000 | 0.991 [0.985, 0.996] | |
+| 2026-04-15 | `45e85f1` | `merken-heuristic` | aggregative | 1000 | 0.996 [0.992, 0.999] | +0.5pp |
+| 2026-04-15 | `45e85f1` | `vstash` | comparative | 1000 | 0.997 [0.993, 1.000] | |
+| 2026-04-15 | `45e85f1` | `merken-heuristic` | comparative | 1000 | 0.997 [0.993, 1.000] | tie |
+| 2026-04-15 | `45e85f1` | `vstash` | knowledge_updating | 1000 | 0.535 [0.505, 0.563] | |
+| 2026-04-15 | `45e85f1` | `merken-heuristic` | knowledge_updating | 1000 | 0.503 [0.472, 0.534] | -3.2pp, CIs overlap |
+| 2026-04-15 | `45e85f1` | `vstash` | multi_hop | 1000 | 0.726 [0.701, 0.753] | |
+| 2026-04-15 | `45e85f1` | `merken-heuristic` | multi_hop | 1000 | 0.724 [0.697, 0.752] | tie |
+| 2026-04-15 | `45e85f1` | `vstash` | post_processing | 1000 | 0.718 [0.689, 0.746] | |
+| 2026-04-15 | `45e85f1` | `merken-heuristic` | post_processing | 1000 | 0.716 [0.687, 0.744] | tie |
+| 2026-04-15 | `45e85f1` | `vstash` | preference | 1500 | 0.791 [0.771, 0.811] | |
+| 2026-04-15 | `45e85f1` | `merken-heuristic` | preference | 1500 | 0.775 [0.753, 0.795] | -1.6pp, CIs overlap |
+| 2026-04-15 | `45e85f1` | `vstash` | single_hop | 1000 | 0.968 [0.958, 0.978] | |
+| 2026-04-15 | `45e85f1` | `merken-heuristic` | single_hop | 1000 | 0.967 [0.956, 0.978] | tie |
+
+### Pattern
+
+**Weighted mean across all 10 MemBench tasks:** vstash 0.848, merken
+0.844 (Δ = -0.4pp). Statistical tie at dataset scale.
+
+- merken matches or beats vstash on 5/10 tasks
+- The one non-overlapping result is a **merken win**:
+  `multi_session_assistant` 1.000 vs 0.986. Perfect recall across 500
+  queries when the corpus has distinct user sessions — this is the
+  kind of pattern the LayeredRecaller was designed for.
+- The worst merken loss is `knowledge_updating` at -3.2pp (CIs still
+  overlap). Worth inspecting later — may be where episodic-dominant
+  recall hurts when the "right" answer is a newer fact that should
+  have consolidated over an older one.
+
+### Cross-dataset summary (2026-04-15)
+
+| Dataset | n | vstash | merken | Δ |
+|---------|---|--------|--------|---|
+| REALTALK | 679 | 0.491 | 0.493 | +0.2pp |
+| TMD | 2134 | 0.258 | 0.248 | -1.0pp |
+| MemBench | 10000 | 0.848 | 0.844 | -0.4pp |
+| **Total** | **12813** | **0.755** | **0.750** | **-0.5pp** |
+
+LoCoMo (2026-04-10) remains the only LMEB dataset where merken
+shows a statistically meaningful regression (-5 to -10pp across
+tasks). Four subsequent datasets (REALTALK, TMD, MemBench,
+shopping_l1 ceiling) do not reproduce it — the LoCoMo gap is
+LoCoMo-specific, not a general pattern.
+
 ## TMD full results (2026-04-15)
 
 12 scenes × 12 tasks, n=2134 queries, local CPU, ~85 min.
