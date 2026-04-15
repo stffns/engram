@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "merken"
-version = "0.1.0"
+version = "0.2.0"
 description = "Agent-loop layer for persistent memory, built on top of vstash."
 readme = "README.md"
 license = { text = "MIT" }
