@@ -126,7 +126,8 @@ Step    Train    Val      Gap     Note
 200     1.16     1.18     0.02    faster than v1/v2
 300     0.44     0.52     0.08    
 400     0.20     0.34     0.14    already at v2's BEST val
-500     0.11     0.29     0.18    NEW RECORD val loss
+500     0.11     0.29     0.18    <-- BEST val loss (new record)
+600     0.08     0.29     0.21    val plateaued, overfitting
 ```
 
 ### Comparison at matched steps
@@ -218,3 +219,194 @@ signal to focus on.
 - Recall: >99% (no false negatives on real decisions)
 - Precision: >90% (some false positives acceptable)
 - Model size: <10MB checkpoint (current: ~10MB, could quantize to ~3MB)
+
+---
+
+## Mistakes, dead ends, and lessons (the important part)
+
+### Mistake 1: Celebrating 100/100 before testing properly
+
+The v1 model showed 100% precision and 100% recall on the val set.
+We almost shipped it as a write filter. Then Jay asked three questions:
+1. Are train/test separated at the topic level? NO -- all val topics
+   appear in train.
+2. Does it generalize to unseen topics? YES for signal/noise, NO for
+   topic prediction.
+3. Does it survive subtle noise? NO -- 19% accuracy.
+
+**Lesson:** A clean val split by example is not the same as a clean split
+by concept. The model memorized "Sprint planning = NOISE" and "cache_v3 =
+DECISION" as lookup entries, not as generalizable patterns. Always test
+on held-out concepts, not just held-out examples.
+
+**How to avoid:** Before celebrating a metric, ask "what distribution shift
+would break this?" and test it. In our case: same-vocabulary-different-role
+was the distribution shift that broke the 100/100.
+
+### Mistake 2: Assuming LLM synthesis fixes bad clustering
+
+In the consolidation experiments, the hypothesis was: "embedding clustering
+produces bad facts, but if we use an LLM to synthesize instead of
+concatenate, the LLM will produce better facts."
+
+Result: LLM synthesis and concatenation produce identical accuracy (75%)
+because both consume the same contaminated cluster. The LLM cannot
+distinguish signal from noise if the cluster already mixed them.
+
+**Lesson:** Garbage in, garbage out applies to LLMs too. The synthesis
+quality is bounded by the input quality. If the clustering step fails,
+no downstream processing can fix it.
+
+**How to avoid:** Before optimizing a downstream step, verify the upstream
+step is producing clean input. We should have measured cluster purity
+BEFORE trying different materialization functions.
+
+### Mistake 3: Embedding consolidation tested without checking the data first
+
+We ran consolidation experiments (LoCoMo, knowledge_update) and got
+negative results. Only AFTER the experiments did we measure the embedding
+distribution and discover that intra-topic and cross-topic similarities
+overlap at [0.700, 0.770].
+
+Silt's rule says: "before proposing an algorithm, look at the distribution
+of the data." We violated this by running experiments first and analyzing
+the data second.
+
+**Lesson:** If we had measured the embedding distribution first, we would
+have predicted the failure without running the experiments. The overlap
+zone makes clean clustering impossible at any single threshold.
+
+**How to avoid:** Start every experiment with a distribution probe.
+5 minutes of numpy > 2 hours of running a doomed experiment.
+
+### Mistake 4: Overfitting to the easy test
+
+v1's 88.6% overall accuracy looks good until you realize it's 100% on
+noise (88% of the val set) and 0% on signal (12% of the val set).
+The overall number is dominated by the easy class.
+
+**Lesson:** Class-imbalanced evaluation hides failures on the minority
+class. Always report per-class accuracy, not just overall.
+
+**How to avoid:** Report accuracy per class. If the classes are imbalanced,
+use the minority class accuracy as the headline number. "0% signal
+accuracy" is the real number, not "88.6% overall."
+
+### Mistake 5: ForgetConsolidated without coverage verification
+
+We tested ForgetConsolidated and it tombstoned ALL original events after
+consolidation, leaving only 1 consolidated fact for retrieval. Accuracy
+collapsed from 23% to 0.7% (LoCoMo) and from 100% to 25%
+(knowledge_update).
+
+**Lesson:** Forgetting is irreversible damage if the consolidated artifact
+doesn't fully capture the original content. The current implementation
+tombstones based on "was consolidated" (binary), not "is fully covered
+by the consolidated artifact" (verified).
+
+**How to avoid:** Never tombstone without verifying coverage. The brief-aware
+forgetting model (Layer 2 in three-layers-of-forgetting.md) addresses this
+by checking content coverage before tombstoning.
+
+### Mistake 6: MPS segfaults during mixed PyTorch + vstash workloads
+
+Running nanoGPT inference (PyTorch MPS) in the same process as vstash
+embedding (fastembed/ONNX) caused segfaults. We lost 20 minutes debugging
+before discovering the issue and separating the workloads.
+
+**Lesson:** MPS and other GPU backends don't play well with multiprocessing
+libraries that also use GPU/accelerator resources.
+
+**How to avoid:** When mixing PyTorch MPS with other ML libraries, either:
+(a) force CPU for one of them, (b) run in separate processes, or
+(c) free the model before loading the other library (del model).
+
+### Mistake 7: nanoGPT training output lost due to shell buffering
+
+Three training runs produced no visible output because Python's stdout
+buffering + shell pipe filtering ate the log lines. We restarted training
+multiple times before figuring out the buffering issue.
+
+**Lesson:** Python buffers stdout when piped. nanoGPT's print() calls
+don't reach the log file until the buffer flushes.
+
+**How to avoid:** Always use `python3 -u` (unbuffered) when capturing
+training output, and redirect to a file (`> log.txt 2>&1`) instead of
+piping through grep.
+
+### Mistake 8: brief_v1 fingerprint bug -- all briefs got same hash
+
+All briefs in a consolidation cycle share the same `derived_from` (all
+event paths). `fact_fingerprint()` hashes `derived_from`, so all briefs
+got the same hash. In vstash, title is the key, so each brief overwrote
+the previous one. Only 1 of 4 briefs survived.
+
+Result: merken-brief showed 45% accuracy (same as baseline) instead of
+the expected 86-96%. We spent 30 minutes debugging retrieval quality
+before discovering the storage bug.
+
+**Lesson:** When multiple artifacts share the same provenance, the
+fingerprint must include content-specific information, not just provenance.
+
+**How to avoid:** Use content hash (sha1 of brief text) for per-brief
+identity. Use provenance hash (sha1 of event paths) for idempotency
+checks across consolidation cycles. Two different hashes for two
+different purposes.
+
+### Mistake 9: Comparing configs that use different amounts of context
+
+In the first LoCoMo run, vstash-raw used session-level ingestion (large
+chunks, ~5800 tokens fed per query) while the initial attempt used
+turn-level ingestion (tiny chunks, ~354 tokens per query). Turn-level
+retrieval gave 0% accuracy because individual turns were too short for
+meaningful embedding.
+
+**Lesson:** Chunk size is a fundamental parameter that must be held
+constant across configurations for fair comparison. Changing chunk size
+changes what retrieval CAN find, not just how well it finds it.
+
+**How to avoid:** Fix chunk strategy as the first design decision,
+before any experiments. Document it as an experimental parameter.
+
+### Non-mistake: Things that worked on first try
+
+Worth documenting to avoid second-guessing correct decisions:
+
+- **AlwaysWrite for experimental configs:** Isolates the effect being
+  measured (consolidation, forgetting) from the write filter's behavior.
+- **Gemini 2.0 Flash as judge:** Stable, fast, cheap. Never disagreed
+  with manual spot-checks on answer correctness.
+- **Typed schemas for briefs (DECISION/ENTITY/EVENT/FREE):** The LLM
+  consistently picks the right schema. No iteration needed.
+- **Character-level tokenization for v1:** The simplest possible choice.
+  Good for learning, good for signal/noise. Only fails on tasks that
+  require word-level understanding (topic prediction).
+- **Separating brief retrieval from episodic retrieval:** The
+  architectural insight was correct on first implementation. 86% vs 38%
+  when briefs compete in episodic pool validates the dual-channel design.
+
+---
+
+## Open questions for future sessions
+
+1. Does v3 (verb markers) improve borderline accuracy over v2 (69%)?
+   Val loss suggests yes (0.287 vs 0.335) but val loss and task accuracy
+   are not perfectly correlated.
+
+2. Would combining v2's data volume (1922 examples) with v3's verb markers
+   give the best of both? v3 has better features but fewer examples.
+
+3. Can BPE tokenization enable topic prediction? Character-level gives 0%
+   on topics. Word-level tokens ("Redis", "Caffeine") would be directly
+   matchable.
+
+4. What's the minimum model size for signal/noise? 800K params is probably
+   overkill for binary classification. A 2-layer, 64-dim model (~50K params)
+   might suffice and would be 16x cheaper to run.
+
+5. Can the same model architecture handle the 4-way Hindsight classification
+   (world/experience/opinion/entity)? Or does that require more capacity?
+
+6. Does the vitality scoring approach (continuous score instead of binary
+   classification) require a different training objective (regression instead
+   of next-token prediction)?
