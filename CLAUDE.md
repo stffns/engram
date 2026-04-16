@@ -112,26 +112,43 @@ explicit case in the PR description.
   See `tests/test_mcp_server.py::test_consolidate_force_builds_fact`
   for the pattern.
 
+## Consolidation findings (2026-04-16)
+
+**Embedding-based consolidation (embedding_v1) is structurally limited.**
+Cosine(q, e(Ti)) >= cosine(q, e(T_consolidated)) for specific queries.
+Geometric limit, confirmed across LoCoMo E2E + 3 knowledge_update
+scenarios. LLM synthesis on top of embedding clustering does not help --
+the bottleneck is clustering, not materialization.
+
+**brief_v1 works.** LLM-generated temporal briefs with typed schemas
+(DECISION/ENTITY/EVENT/FREE) and dedicated brief-layer search:
+- 50 topics, 1100 events: 86% vs 40% retrieval-only (+46pp)
+- 20 topics, 440 events: 100% vs 45% (direct inject, +55pp)
+- Cost: ~300 tokens prepended per query (brief_k=3)
+
+Architecture: `Memory.consolidate(method="brief_v1", synthesize_fn=fn)`
+generates briefs. `Memory.recall_with_briefs()` searches brief layer
+separately from episodic, prepends matched briefs to context.
+
+See `experiments/consolidation/RESULTS.md` for full analysis.
+
 ## What's NOT next
 
 - A fifth decision primitive. Four are enough.
-- LLM-based consolidation in the hot path. Gated on a scenario
-  where the non-LLM loop leaves real value on the table.
-- A knowledge graph (CONSTITUTION §6, optional, gated).
+- Embedding-based consolidation as a retrieval improvement -- proven
+  structurally limited (see consolidation findings above).
+- A knowledge graph (CONSTITUTION $6, optional, gated).
 - Shell completion, colors, a web UI. All noise for the scope.
 
 ## What IS next (approximately)
 
-- Phase A of `experiments/BENCHMARK_STRATEGY.md` — the overnight
-  LongMemEval full n=500 run, script at
-  `experiments/retrieval/longmemeval/run_overnight.sh`.
-- Claude Code hooks hardening: error handling, threshold tuning,
-  integration tests for the hook scripts.
-- Additional `loop_quality/` scenarios from Jay's real work:
-  perf migration notes, MedLocal hackathon logs, Kafka meeting
-  threads, daily reviews.
-- LoCoMo runner under `experiments/retrieval/locomo/`. Needs a
-  judge model choice first (open question in BENCHMARK_STRATEGY.md).
+- **brief_v1 integration into Claude Code hooks.** Generate briefs
+  on PreCompact, prepend on SessionStart alongside recall results.
+- **nanoGPT-as-connector.** Small model trained on vstash+merken
+  data structure for topic identification and brief selection.
+- Scale brief_v1 to 100+ topics, diverse domains for paper.
+- Additional `loop_quality/` scenarios from Jay's real work.
+- vstash 0.29.0 validation (snapvec integration).
 
 ## Branching
 
