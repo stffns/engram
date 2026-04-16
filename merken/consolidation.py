@@ -488,6 +488,101 @@ def materialize_fact(cluster: list[tuple[str, str]]) -> Fact:
     )
 
 
+#: Optional LLM callable for materialize_fact_llm and generate_briefs.
+#: Takes a list of texts and returns a single synthesized string.
+SynthesizeFn = Callable[[list[str]], str]
+
+_BRIEF_PROMPT = (
+    "You are analyzing a stream of notes. Many are noise (standups, tickets,\n"
+    "planning). Some contain significant evolving information.\n\n"
+    "Identify significant topics and produce a TEMPORAL BRIEF for each.\n"
+    "Choose the schema that fits each topic:\n\n"
+    "DECISION (architecture, tooling, providers):\n"
+    "## [Topic Name]\n"
+    "- [v1]: [what was decided and why]\n"
+    "- [v2]: [what changed and why]\n"
+    "- **Current state:** [what is in place RIGHT NOW]\n\n"
+    "ENTITY (people, services, systems):\n"
+    "## [Entity Name]\n"
+    "- **Identity:** [what/who it is]\n"
+    "- **Key facts:** [known attributes]\n"
+    "- **Last update:** [most recent information]\n\n"
+    "EVENT (incidents, migrations, launches):\n"
+    "## [Event Name]\n"
+    "- **What happened:** [description]\n"
+    "- **Impact:** [consequences]\n"
+    "- **Resolution:** [how it was resolved]\n"
+    "- **Follow-ups:** [pending actions]\n\n"
+    "FREE (anything that doesn't fit the above):\n"
+    "## [Topic Name]\n"
+    "[Concise narrative summary with current state clearly marked]\n\n"
+    "Rules:\n"
+    "- Only include topics with real informational content.\n"
+    "- Ignore noise (standups, ticket updates, planning boilerplate).\n"
+    "- Each brief starts with ## on its own line.\n"
+    "- Separate briefs with a blank line.\n\n"
+    "## Event stream\n"
+)
+
+
+def generate_briefs(
+    events: list[tuple[str, str]],
+    synthesize_fn: SynthesizeFn,
+) -> list[str]:
+    """Use an LLM to produce per-topic temporal briefs from episodic events.
+
+    Returns a list of brief strings, one per identified topic.
+    The LLM handles topic identification and temporal resolution --
+    no embedding-based clustering needed.
+    """
+    event_texts = [text for _, text in events]
+    prompt_body = "\n".join(f"- {t}" for t in event_texts)
+    full_prompt = _BRIEF_PROMPT + prompt_body
+
+    raw_output = synthesize_fn([full_prompt])
+    # Parse into separate briefs by ## headers
+    briefs = []
+    current = []
+    for line in raw_output.split("\n"):
+        if line.startswith("## ") and current:
+            briefs.append("\n".join(current).strip())
+            current = [line]
+        else:
+            current.append(line)
+    if current:
+        briefs.append("\n".join(current).strip())
+
+    return [b for b in briefs if b]
+
+
+def materialize_fact_llm(
+    cluster: list[tuple[str, str]],
+    synthesize_fn: SynthesizeFn,
+) -> Fact:
+    """Turn a cluster into a Fact using an LLM to synthesize the summary."""
+    if not cluster:
+        raise ValueError("cannot materialize an empty cluster")
+
+    ids = [id_ for id_, _ in cluster]
+
+    if len(cluster) == 1:
+        return Fact(
+            text=cluster[0][1],
+            derived_from=ids,
+            cluster_size=1,
+            method="passthrough",
+        )
+
+    texts = [text for _, text in cluster]
+    summary = synthesize_fn(texts)
+    return Fact(
+        text=summary,
+        derived_from=ids,
+        cluster_size=len(cluster),
+        method="llm_v1",
+    )
+
+
 def fact_fingerprint(fact: Fact) -> str:
     """Stable short id for a fact, based on its ``derived_from`` set.
 

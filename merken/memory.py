@@ -35,10 +35,12 @@ from merken.audit import (
 )
 from merken.consolidation import (
     ConsolidationResult,
+    Fact,
     cluster_by_embedding,
     cluster_by_jaccard,
     cluster_by_recall,
     fact_fingerprint,
+    generate_briefs,
     materialize_fact,
 )
 from merken.policies.should_consolidate import (
@@ -386,6 +388,53 @@ class Memory:
 
         return merged[:top_k]
 
+    def recall_with_briefs(
+        self,
+        query: str,
+        *,
+        top_k: int = 5,
+        brief_k: int = 3,
+        max_brief_tokens: int = 8000,
+    ) -> tuple[list[Any], list[str]]:
+        """Recall with separate brief-layer search.
+
+        Returns ``(episodic_hits, brief_texts)`` where:
+        - ``episodic_hits`` are the normal recall results (top_k)
+        - ``brief_texts`` are the top brief_k briefs from the semantic
+          layer filtered to method:brief_v1, ordered by relevance
+
+        The caller should prepend brief_texts to the LLM context before
+        the episodic hits. This avoids briefs competing with episodic
+        docs in the same retrieval pool.
+        """
+        # 1. Search briefs in semantic layer
+        brief_hits = self._vstash.search(
+            query,
+            top_k=brief_k * 2,  # over-fetch, then filter
+            collection=self.collection,
+            layer="semantic",
+        )
+        brief_texts = []
+        token_budget = max_brief_tokens
+        for h in brief_hits:
+            tags = getattr(h, "tags", "") or ""
+            if "method:brief_v1" not in tags:
+                continue
+            text = h.text
+            # Rough token estimate: chars / 4
+            est_tokens = len(text) // 4
+            if token_budget - est_tokens < 0:
+                break
+            brief_texts.append(text)
+            token_budget -= est_tokens
+            if len(brief_texts) >= brief_k:
+                break
+
+        # 2. Normal episodic recall
+        episodic_hits = self.recall(query, top_k=top_k)
+
+        return episodic_hits, brief_texts
+
     # ----------------------------------------------------------- consolidate
 
     def consolidate(
@@ -398,6 +447,7 @@ class Memory:
         recall_top_k: int = 5,
         jaccard_threshold: float = 0.5,
         force: bool = False,
+        synthesize_fn: Any | None = None,
     ) -> ConsolidationResult:
         """Cluster episodic events into semantic facts. Phase 2, no LLM.
 
@@ -516,17 +566,89 @@ class Memory:
                 top_k=recall_top_k,
             )
             reason = f"clustered_recall_topk={recall_top_k}_mincluster={min_cluster}"
+        elif method == "brief_v1":
+            if synthesize_fn is None:
+                raise ValueError(
+                    "brief_v1 requires synthesize_fn -- pass an LLM callable"
+                )
+            # Fingerprint check: skip LLM if episodic set unchanged
+            import hashlib as _hl
+            all_paths = sorted(path for path, _ in events)
+            events_fingerprint = _hl.sha1(
+                ",".join(all_paths).encode("utf-8")
+            ).hexdigest()[:16]
+
+            existing_briefs = self._vstash.list(
+                collection=self.collection,
+                layer="semantic",
+            )
+            existing_brief_titles = {
+                getattr(d, "title", "") for d in existing_briefs
+            }
+            fp_tag = f"events_fp:{events_fingerprint}"
+
+            # Check if any existing brief has this fingerprint
+            already_generated = any(
+                fp_tag in (getattr(d, "tags", "") or "")
+                for d in existing_briefs
+            )
+            if already_generated:
+                return ConsolidationResult(
+                    events_examined=len(events),
+                    facts_written=0,
+                    facts=[],
+                    skipped=True,
+                    reason=f"brief_v1_skipped_fingerprint={events_fingerprint}",
+                    decider=decision.policy,
+                    method=method,
+                )
+
+            from merken.consolidation import generate_briefs
+            briefs = generate_briefs(events, synthesize_fn)
+            facts_written = []
+            for i, brief in enumerate(briefs):
+                # Each brief needs a unique fingerprint. Include brief
+                # content hash since all briefs share the same derived_from.
+                brief_hash = _hl.sha1(brief.encode("utf-8")).hexdigest()[:12]
+                fact = Fact(
+                    text=brief,
+                    derived_from=all_paths,
+                    cluster_size=len(events),
+                    method="brief_v1",
+                )
+                self._vstash.remember(
+                    fact.text,
+                    title=f"brief_{brief_hash}",
+                    collection=self.collection,
+                    layer="semantic",
+                    tags=f"method:brief_v1,{fp_tag}",
+                )
+                facts_written.append(fact)
+
+            return ConsolidationResult(
+                events_examined=len(events),
+                facts_written=len(facts_written),
+                facts=facts_written,
+                skipped=False,
+                reason=f"brief_v1_generated_fp={events_fingerprint}",
+                decider=decision.policy,
+                method=method,
+            )
         else:
             raise ValueError(
                 f"unknown consolidation method {method!r}; "
-                f"expected 'embedding_v1', 'recall_v1', or 'jaccard_v1'"
+                f"expected 'embedding_v1', 'recall_v1', 'jaccard_v1', or 'brief_v1'"
             )
 
         facts_written = []
         for cluster in clusters:
             if len(cluster) < min_cluster:
                 continue
-            fact = materialize_fact(cluster)
+            if synthesize_fn is not None:
+                from merken.consolidation import materialize_fact_llm
+                fact = materialize_fact_llm(cluster, synthesize_fn)
+            else:
+                fact = materialize_fact(cluster)
             fp = fact_fingerprint(fact)
             self._vstash.remember(
                 fact.text,

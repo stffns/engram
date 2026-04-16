@@ -179,7 +179,7 @@ class _EngramAdapter(_Adapter):
     def consolidate(self) -> None:
         result = self._m.consolidate(
             method="embedding_v1",
-            embedding_threshold=0.70,
+            embedding_threshold=_CONSOLIDATE_THRESHOLD,
             embedding_linkage="complete",
         )
         # Map fact paths back to source doc_ids (first source)
@@ -201,6 +201,8 @@ _ADAPTERS: dict[str, type] = {
     "vstash": _VstashAdapter,
     "merken-heuristic": _EngramAdapter,
 }
+
+_CONSOLIDATE_THRESHOLD: float = 0.70
 
 
 # ----------------------------------------------------------------- eval core
@@ -381,6 +383,12 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument("--top-k", type=int, default=5)
     p.add_argument("--max-scenes", type=int, default=None)
     p.add_argument("--consolidate", action="store_true", default=False)
+    p.add_argument(
+        "--consolidate-threshold",
+        type=float,
+        default=0.70,
+        help="Embedding similarity threshold for consolidation (default 0.70)",
+    )
     p.add_argument("--db-dir", type=Path, default=None)
     return p.parse_args(argv)
 
@@ -388,6 +396,9 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 def main(argv: list[str] | None = None) -> int:
     args = _parse_args(argv)
     ds_dir = args.dataset_dir
+
+    global _CONSOLIDATE_THRESHOLD
+    _CONSOLIDATE_THRESHOLD = args.consolidate_threshold
 
     corpus = load_corpus(ds_dir / "corpus.jsonl")
     candidates = load_candidates(ds_dir / "candidates.jsonl")

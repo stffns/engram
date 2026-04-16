@@ -1,0 +1,577 @@
+{
+  "name": "knowledge_update_hard",
+  "description": "Scaled knowledge_update: 12 signal events + 96 noise = 108 total. Tests whether consolidation adds value when retrieval is harder.",
+  "events": [
+    {
+      "id": "noise_gen_054",
+      "text": "Ticket: SRE team escalated test coverage report. Follow-up scheduled for next week.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_gen_048",
+      "text": "Incident: devops team discussed capacity planning. Follow-up scheduled for next week.",
+      "topic": "noise"
+    },
+    {
+      "id": "cache_v1",
+      "text": "We decided to use Redis as our caching layer because the in-process LRU cache was causing stale reads across 12 pods due to cache invalidation failures.",
+      "topic": "cache_decision"
+    },
+    {
+      "id": "noise_gen_011",
+      "text": "Ticket: SRE team merged monitoring dashboard. Follow-up scheduled for next week.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_gen_087",
+      "text": "Code review: infra team reviewed SLO review. Follow-up scheduled for next week.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_gen_008",
+      "text": "Standup: platform team escalated rate limiter settings. Follow-up scheduled for next week.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_gen_021",
+      "text": "Retro: SRE team discussed rate limiter settings. Follow-up scheduled for next week.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_gen_059",
+      "text": "Retro: infra team merged queue depth threshold. Follow-up scheduled for next week.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_gen_053",
+      "text": "Meeting: devops team resolved capacity planning. Follow-up scheduled for next week.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_gen_045",
+      "text": "Meeting: SRE team escalated load balancer tuning. Follow-up scheduled for next week.",
+      "topic": "noise"
+    },
+    {
+      "id": "cache_v2",
+      "text": "Updated the Redis cache configuration: TTL changed from 5 minutes to 60 seconds after observing that product prices were stale for too long during flash sales.",
+      "topic": "cache_decision"
+    },
+    {
+      "id": "noise_gen_017",
+      "text": "Incident: platform team escalated schema migration. Follow-up scheduled for next week.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_gen_077",
+      "text": "Incident: backend team closed performance regression. Follow-up scheduled for next week.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_gen_020",
+      "text": "Meeting: platform team escalated rate limiter settings. Follow-up scheduled for next week.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_gen_076",
+      "text": "Oncall: devops team deployed capacity planning. Follow-up scheduled for next week.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_gen_063",
+      "text": "Code review: SRE team escalated dependency upgrade. Follow-up scheduled for next week.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_gen_003",
+      "text": "Sprint planning: infra team reviewed performance regression. Follow-up scheduled for next week.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_gen_043",
+      "text": "Ticket: backend team merged dependency upgrade. Follow-up scheduled for next week.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_gen_055",
+      "text": "Retro: SRE team reviewed monitoring dashboard. Follow-up scheduled for next week.",
+      "topic": "noise"
+    },
+    {
+      "id": "cache_v3",
+      "text": "Reverted from Redis back to in-process caching with Caffeine. Redis added 3ms p99 latency per request and the flash sale staleness was solved by pub/sub invalidation instead of short TTLs.",
+      "topic": "cache_decision"
+    },
+    {
+      "id": "noise_gen_086",
+      "text": "Demo: backend team reviewed CI/CD workflow. Follow-up scheduled for next week.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_gen_033",
+      "text": "Incident: SRE team reviewed load balancer tuning. Follow-up scheduled for next week.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_gen_064",
+      "text": "Ticket: SRE team assigned performance regression. Follow-up scheduled for next week.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_gen_018",
+      "text": "Slack thread: infra team resolved SLO review. Follow-up scheduled for next week.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_gen_024",
+      "text": "Ticket: infra team resolved schema migration. Follow-up scheduled for next week.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_gen_068",
+      "text": "Retro: platform team closed performance regression. Follow-up scheduled for next week.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_gen_075",
+      "text": "Slack thread: platform team discussed cost optimization review. Follow-up scheduled for next week.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_gen_007",
+      "text": "Standup: backend team updated rate limiter settings. Follow-up scheduled for next week.",
+      "topic": "noise"
+    },
+    {
+      "id": "db_v1",
+      "text": "Chose PostgreSQL 16 for the analytics warehouse because we need write concurrency above 200 connections per second and SQLite cannot handle that.",
+      "topic": "db_decision"
+    },
+    {
+      "id": "noise_gen_005",
+      "text": "Retro: infra team merged service mesh config. Follow-up scheduled for next week.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_gen_041",
+      "text": "Slack thread: SRE team reviewed feature flag rollout. Follow-up scheduled for next week.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_gen_031",
+      "text": "Ticket: devops team merged schema migration. Follow-up scheduled for next week.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_gen_037",
+      "text": "Standup: devops team created dependency upgrade. Follow-up scheduled for next week.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_gen_009",
+      "text": "Code review: backend team updated monitoring dashboard. Follow-up scheduled for next week.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_standup_01",
+      "text": "Daily standup: cache team reports Redis migration on track, no blockers. Database team finalizing TimescaleDB benchmarks.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_gen_085",
+      "text": "Slack thread: devops team merged API gateway configuration. Follow-up scheduled for next week.",
+      "topic": "noise"
+    },
+    {
+      "id": "db_v2",
+      "text": "Added TimescaleDB extension on top of PostgreSQL for the analytics warehouse. Hypertable partitioning reduced query times from 12 seconds to 400ms on the daily aggregation dashboard.",
+      "topic": "db_decision"
+    },
+    {
+      "id": "noise_gen_010",
+      "text": "Incident: platform team deployed schema migration. Follow-up scheduled for next week.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_gen_004",
+      "text": "Meeting: devops team deployed API gateway configuration. Follow-up scheduled for next week.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_gen_038",
+      "text": "Meeting: backend team discussed cost optimization review. Follow-up scheduled for next week.",
+      "topic": "noise"
+    },
+    {
+      "id": "db_v3",
+      "text": "Migrated the analytics warehouse from PostgreSQL with TimescaleDB to ClickHouse. The write throughput at 500K events per second exceeded what TimescaleDB could handle even with hypertables.",
+      "topic": "db_decision"
+    },
+    {
+      "id": "noise_gen_062",
+      "text": "Code review: platform team discussed SLO review. Follow-up scheduled for next week.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_ticket_02",
+      "text": "Ticket AUTH-1523 resolved: OAuth token refresh endpoint returning 500 intermittently due to connection pool exhaustion.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_gen_030",
+      "text": "Code review: devops team updated DNS failover setup. Follow-up scheduled for next week.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_gen_039",
+      "text": "Ticket: backend team discussed monitoring dashboard. Follow-up scheduled for next week.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_gen_032",
+      "text": "Sprint planning: backend team reviewed SLO review. Follow-up scheduled for next week.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_gen_001",
+      "text": "Retro: devops team resolved monitoring dashboard. Follow-up scheduled for next week.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_gen_028",
+      "text": "Ticket: platform team reviewed logging pipeline. Follow-up scheduled for next week.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_gen_058",
+      "text": "Incident: infra team reviewed security patch. Follow-up scheduled for next week.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_gen_060",
+      "text": "Oncall: SRE team resolved schema migration. Follow-up scheduled for next week.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_gen_073",
+      "text": "Slack thread: SRE team reviewed security patch. Follow-up scheduled for next week.",
+      "topic": "noise"
+    },
+    {
+      "id": "auth_v1",
+      "text": "Implemented OAuth 2.0 with PKCE for mobile clients after API keys were found leaking in client-side JavaScript bundles.",
+      "topic": "auth_decision"
+    },
+    {
+      "id": "noise_gen_040",
+      "text": "Demo: infra team escalated logging pipeline. Follow-up scheduled for next week.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_gen_056",
+      "text": "Incident: SRE team updated service mesh config. Follow-up scheduled for next week.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_gen_052",
+      "text": "Retro: infra team closed test coverage report. Follow-up scheduled for next week.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_gen_046",
+      "text": "Incident: SRE team assigned error budget consumption. Follow-up scheduled for next week.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_gen_081",
+      "text": "Code review: infra team reviewed SLO review. Follow-up scheduled for next week.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_gen_070",
+      "text": "Sprint planning: SRE team discussed capacity planning. Follow-up scheduled for next week.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_gen_029",
+      "text": "Standup: devops team resolved service mesh config. Follow-up scheduled for next week.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_gen_002",
+      "text": "Code review: platform team deployed service mesh config. Follow-up scheduled for next week.",
+      "topic": "noise"
+    },
+    {
+      "id": "auth_v2",
+      "text": "Added device fingerprinting to the OAuth flow. Tokens are now bound to device_id and refresh tokens are rejected if the device fingerprint changes.",
+      "topic": "auth_decision"
+    },
+    {
+      "id": "noise_gen_074",
+      "text": "Code review: devops team deployed security patch. Follow-up scheduled for next week.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_gen_080",
+      "text": "Sprint planning: devops team assigned cost optimization review. Follow-up scheduled for next week.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_standup_04",
+      "text": "Planning session: next sprint focuses on cache layer optimization and database migration tooling.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_gen_082",
+      "text": "Meeting: backend team closed CI/CD workflow. Follow-up scheduled for next week.",
+      "topic": "noise"
+    },
+    {
+      "id": "auth_v3",
+      "text": "Replaced OAuth 2.0 PKCE with passkey-based authentication using WebAuthn. The OAuth refresh token rotation was causing session drops on iOS when the app was backgrounded for more than 15 minutes.",
+      "topic": "auth_decision"
+    },
+    {
+      "id": "noise_standup_02",
+      "text": "Sprint review: auth flow redesign approved by security team. Deploy pipeline improvements merged to main.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_gen_025",
+      "text": "Retro: backend team merged SLO review. Follow-up scheduled for next week.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_gen_047",
+      "text": "Code review: platform team escalated security patch. Follow-up scheduled for next week.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_gen_026",
+      "text": "Slack thread: SRE team updated capacity planning. Follow-up scheduled for next week.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_gen_019",
+      "text": "Standup: backend team assigned DNS failover setup. Follow-up scheduled for next week.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_gen_069",
+      "text": "Slack thread: backend team merged logging pipeline. Follow-up scheduled for next week.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_gen_066",
+      "text": "Oncall: backend team closed queue depth threshold. Follow-up scheduled for next week.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_gen_035",
+      "text": "Meeting: platform team resolved error budget consumption. Follow-up scheduled for next week.",
+      "topic": "noise"
+    },
+    {
+      "id": "deploy_v1",
+      "text": "Set up canary deployments with ArgoCD. Each release rolls out to 5 percent of traffic first and auto-reverts if error rate exceeds 1 percent during a 10-minute bake window.",
+      "topic": "deploy_decision"
+    },
+    {
+      "id": "noise_ticket_03",
+      "text": "Ticket DB-892 in progress: TimescaleDB continuous aggregate refresh failing on large partitions.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_gen_065",
+      "text": "Sprint planning: platform team resolved DNS failover setup. Follow-up scheduled for next week.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_gen_027",
+      "text": "Incident: devops team escalated CI/CD workflow. Follow-up scheduled for next week.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_gen_049",
+      "text": "Retro: platform team deployed security patch. Follow-up scheduled for next week.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_ticket_04",
+      "text": "Ticket DEPLOY-456 closed: ArgoCD sync timeout increased from 5 to 15 minutes for large Helm charts.",
+      "topic": "noise"
+    },
+    {
+      "id": "deploy_v2",
+      "text": "Extended the canary bake window from 10 to 30 minutes after a latent memory leak only manifested after 20 minutes of traffic. Also added memory usage as a canary gate metric.",
+      "topic": "deploy_decision"
+    },
+    {
+      "id": "noise_standup_03",
+      "text": "Retrospective action item: improve canary deployment documentation for on-call engineers.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_gen_051",
+      "text": "Sprint planning: devops team created feature flag rollout. Follow-up scheduled for next week.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_gen_083",
+      "text": "Code review: backend team escalated backup strategy. Follow-up scheduled for next week.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_gen_050",
+      "text": "Code review: platform team discussed security patch. Follow-up scheduled for next week.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_gen_036",
+      "text": "Demo: infra team merged cost optimization review. Follow-up scheduled for next week.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_gen_000",
+      "text": "Code review: infra team discussed schema migration. Follow-up scheduled for next week.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_gen_078",
+      "text": "Retro: infra team closed DNS failover setup. Follow-up scheduled for next week.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_gen_072",
+      "text": "Meeting: platform team reviewed dependency upgrade. Follow-up scheduled for next week.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_ticket_01",
+      "text": "Ticket INFRA-2847 created: investigate Redis memory usage spike on production cluster node 3.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_gen_022",
+      "text": "Demo: devops team reviewed performance regression. Follow-up scheduled for next week.",
+      "topic": "noise"
+    },
+    {
+      "id": "deploy_v3",
+      "text": "Switched from percentage-based canary to header-based routing. Internal team gets the canary via X-Canary header for 24 hours before any customer traffic is shifted. This caught the Stripe webhook regression that the 30-minute bake missed.",
+      "topic": "deploy_decision"
+    },
+    {
+      "id": "noise_gen_015",
+      "text": "Retro: backend team reviewed DNS failover setup. Follow-up scheduled for next week.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_gen_034",
+      "text": "Standup: backend team assigned API gateway configuration. Follow-up scheduled for next week.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_gen_079",
+      "text": "Demo: platform team assigned rate limiter settings. Follow-up scheduled for next week.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_gen_012",
+      "text": "Code review: devops team merged load balancer tuning. Follow-up scheduled for next week.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_gen_042",
+      "text": "Code review: infra team merged CI/CD workflow. Follow-up scheduled for next week.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_gen_044",
+      "text": "Meeting: infra team deployed service mesh config. Follow-up scheduled for next week.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_gen_013",
+      "text": "Incident: platform team deployed performance regression. Follow-up scheduled for next week.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_gen_061",
+      "text": "Retro: devops team reviewed queue depth threshold. Follow-up scheduled for next week.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_gen_067",
+      "text": "Oncall: infra team merged test coverage report. Follow-up scheduled for next week.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_gen_084",
+      "text": "Standup: backend team assigned SLO review. Follow-up scheduled for next week.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_gen_023",
+      "text": "Incident: SRE team escalated test coverage report. Follow-up scheduled for next week.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_gen_071",
+      "text": "Meeting: platform team merged dependency upgrade. Follow-up scheduled for next week.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_gen_006",
+      "text": "Ticket: platform team deployed schema migration. Follow-up scheduled for next week.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_gen_057",
+      "text": "Sprint planning: SRE team reviewed logging pipeline. Follow-up scheduled for next week.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_gen_016",
+      "text": "Ticket: backend team created dependency upgrade. Follow-up scheduled for next week.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_gen_014",
+      "text": "Sprint planning: platform team escalated load balancer tuning. Follow-up scheduled for next week.",
+      "topic": "noise"
+    }
+  ],
+  "queries": [
+    {
+      "question": "what caching solution are we currently using?",
+      "expect_topic": "cache_decision",
+      "expect_contains": [
+        "Caffeine"
+      ]
+    },
+    {
+      "question": "what database runs the analytics warehouse right now?",
+      "expect_topic": "db_decision",
+      "expect_contains": [
+        "ClickHouse"
+      ]
+    },
+    {
+      "question": "how do users authenticate on mobile currently?",
+      "expect_topic": "auth_decision",
+      "expect_contains": [
+        "passkey",
+        "WebAuthn"
+      ]
+    },
+    {
+      "question": "how does the canary deployment process work today?",
+      "expect_topic": "deploy_decision",
+      "expect_contains": [
+        "header"
+      ]
+    }
+  ]
+}

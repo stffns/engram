@@ -1,0 +1,5867 @@
+{
+  "name": "knowledge_update_50topics",
+  "description": "50 topics x 3 versions + 950 noise = 1100 events.",
+  "events": [
+    {
+      "id": "cache_v1",
+      "text": "We decided to use Redis as our caching layer because the in-process LRU cache was causing stale reads across 12 pods.",
+      "topic": "cache"
+    },
+    {
+      "id": "noise_0242",
+      "text": "Dep update: bumped model registry. No breakage.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0444",
+      "text": "Demo: mobile showed model registry improvements.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0077",
+      "text": "Demo: mobile showed monitoring alerts improvements.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0209",
+      "text": "frontend standup: discussed runbook. No blockers.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0781",
+      "text": "Budget: queue depth costs 10% over forecast.",
+      "topic": "noise"
+    },
+    {
+      "id": "cache_v2",
+      "text": "Updated Redis cache TTL from 5 minutes to 60 seconds after flash sale staleness issues.",
+      "topic": "cache"
+    },
+    {
+      "id": "noise_0373",
+      "text": "Slack: infra debated Airflow DAGs, no consensus.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0816",
+      "text": "Sync: cross-team on DNS settings timeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0008",
+      "text": "Retro: improve sidecar injection docs for oncall.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0179",
+      "text": "Incident: storage quota degraded. RCA: race condition.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0072",
+      "text": "Sprint planning: infra prioritized monitoring alerts.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0896",
+      "text": "Sprint planning: QA prioritized Elasticsearch indices.",
+      "topic": "noise"
+    },
+    {
+      "id": "cache_v3",
+      "text": "Reverted from Redis to in-process caching with Caffeine. Redis added 3ms p99 latency; staleness solved by pub/sub invalidation.",
+      "topic": "cache"
+    },
+    {
+      "id": "noise_0498",
+      "text": "Demo: devops showed gRPC proto improvements.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0735",
+      "text": "Perf review: Airflow DAGs latency down 15%.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0796",
+      "text": "Slack: data debated rate limiter, no consensus.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0573",
+      "text": "Demo: frontend showed Airflow DAGs improvements.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0026",
+      "text": "Dep update: bumped DNS settings. No breakage.",
+      "topic": "noise"
+    },
+    {
+      "id": "database_v1",
+      "text": "Chose PostgreSQL 16 for the analytics warehouse because SQLite cannot handle 200+ concurrent write connections.",
+      "topic": "database"
+    },
+    {
+      "id": "noise_0390",
+      "text": "Slack: mobile debated rate limiter, no consensus.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0488",
+      "text": "Dep update: bumped webhook retry. No breakage.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0725",
+      "text": "Retro: improve ML pipeline docs for oncall.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0362",
+      "text": "Slack: mobile debated Sentry alerts, no consensus.",
+      "topic": "noise"
+    },
+    {
+      "id": "database_v2",
+      "text": "Added TimescaleDB extension on PostgreSQL. Hypertable partitioning reduced query times from 12s to 400ms.",
+      "topic": "database"
+    },
+    {
+      "id": "noise_0613",
+      "text": "Incident: error budget degraded. RCA: race condition.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0890",
+      "text": "Sync: cross-team on error budget timeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0273",
+      "text": "Security scan: OAuth tokens flagged. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0775",
+      "text": "Slack: data debated load balancer, no consensus.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0152",
+      "text": "Incident: log retention degraded. RCA: config drift.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0246",
+      "text": "Ticket OPS-5040: data resolved Airflow DAGs.",
+      "topic": "noise"
+    },
+    {
+      "id": "database_v3",
+      "text": "Migrated analytics warehouse from PostgreSQL/TimescaleDB to ClickHouse. Write throughput at 500K events/s exceeded TimescaleDB limits.",
+      "topic": "database"
+    },
+    {
+      "id": "noise_0320",
+      "text": "Perf review: model registry latency down 15%.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0584",
+      "text": "Dep update: bumped capacity plan. No breakage.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0769",
+      "text": "Perf review: feature flags latency down 15%.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0106",
+      "text": "Incident: Grafana dashboards degraded. RCA: timeout.",
+      "topic": "noise"
+    },
+    {
+      "id": "auth_v1",
+      "text": "Implemented OAuth 2.0 with PKCE for mobile after API keys leaked in client-side JavaScript bundles.",
+      "topic": "auth"
+    },
+    {
+      "id": "noise_0827",
+      "text": "Sync: cross-team on Vault policy timeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0947",
+      "text": "Incident: sidecar injection degraded. RCA: memory leak.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0457",
+      "text": "devops standup: discussed CDN cache. No blockers.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0369",
+      "text": "Ticket PLAT-8632: mobile escalated webhook retry.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0937",
+      "text": "Retro: improve connection pooling docs for oncall.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0468",
+      "text": "Slack: data debated access audit, no consensus.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0916",
+      "text": "Budget: Elasticsearch indices costs 10% over forecast.",
+      "topic": "noise"
+    },
+    {
+      "id": "auth_v2",
+      "text": "Added device fingerprinting to OAuth flow. Tokens bound to device_id, refresh rejected on fingerprint change.",
+      "topic": "auth"
+    },
+    {
+      "id": "noise_0870",
+      "text": "Sprint planning: infra prioritized backup verify.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0765",
+      "text": "Sync: cross-team on log retention timeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0522",
+      "text": "Slack: infra debated load balancer, no consensus.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0272",
+      "text": "Workshop: QA trained on connection pooling.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0467",
+      "text": "Ticket BE-7419: security updated Vault policy.",
+      "topic": "noise"
+    },
+    {
+      "id": "auth_v3",
+      "text": "Replaced OAuth 2.0 PKCE with passkey-based WebAuthn. OAuth refresh rotation caused iOS session drops when backgrounded >15min.",
+      "topic": "auth"
+    },
+    {
+      "id": "noise_0035",
+      "text": "Code review: mobile approved DNS settings PR.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0279",
+      "text": "Oncall: infra noted feature flags needs attention.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0262",
+      "text": "Sync: cross-team on Datadog monitors timeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0290",
+      "text": "devops standup: discussed load balancer. No blockers.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0720",
+      "text": "Security scan: SLO dashboard flagged. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "deploy_v1",
+      "text": "Set up canary deployments with ArgoCD. 5% traffic, auto-revert if error rate >1% during 10-minute bake.",
+      "topic": "deploy"
+    },
+    {
+      "id": "noise_0132",
+      "text": "Demo: devops showed model registry improvements.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0400",
+      "text": "Ticket FE-2130: security updated rollback procedure.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0933",
+      "text": "Oncall: frontend noted Vault policy needs attention.",
+      "topic": "noise"
+    },
+    {
+      "id": "deploy_v2",
+      "text": "Extended canary bake from 10 to 30 minutes after latent memory leak only showed after 20 minutes. Added memory as gate metric.",
+      "topic": "deploy"
+    },
+    {
+      "id": "noise_0021",
+      "text": "Security scan: rollback procedure flagged. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0435",
+      "text": "Oncall: mobile noted backup verify needs attention.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0672",
+      "text": "Oncall: mobile noted feature flags needs attention.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0600",
+      "text": "Demo: SRE showed SSL certs improvements.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0211",
+      "text": "Workshop: devops trained on Helm charts.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0082",
+      "text": "Sprint planning: mobile prioritized Terraform state.",
+      "topic": "noise"
+    },
+    {
+      "id": "deploy_v3",
+      "text": "Switched from percentage-based canary to header-based routing. Internal team gets X-Canary header for 24h before customer traffic.",
+      "topic": "deploy"
+    },
+    {
+      "id": "noise_0857",
+      "text": "Security scan: storage quota flagged. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0120",
+      "text": "Retro: improve monitoring alerts docs for oncall.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0310",
+      "text": "Ticket BE-3454: backend closed service mesh.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0648",
+      "text": "Oncall: devops noted service mesh needs attention.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0465",
+      "text": "Incident: DNS settings degraded. RCA: timeout.",
+      "topic": "noise"
+    },
+    {
+      "id": "search_v1",
+      "text": "Implemented Elasticsearch for product search. Basic BM25 ranking with custom analyzers for multilingual support.",
+      "topic": "search"
+    },
+    {
+      "id": "noise_0219",
+      "text": "Dep update: bumped monitoring alerts. No breakage.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0749",
+      "text": "Budget: secret rotation costs 10% over forecast.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0606",
+      "text": "Demo: infra showed model registry improvements.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0011",
+      "text": "Budget: K8s node pool costs 10% over forecast.",
+      "topic": "noise"
+    },
+    {
+      "id": "search_v2",
+      "text": "Added vector search via Elasticsearch dense_vector field type. Hybrid BM25 + kNN for better relevance on long-tail queries.",
+      "topic": "search"
+    },
+    {
+      "id": "noise_0381",
+      "text": "Dep update: bumped Helm charts. No breakage.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0739",
+      "text": "Perf review: SLO dashboard latency down 15%.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0336",
+      "text": "Incident: log retention degraded. RCA: memory leak.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0191",
+      "text": "Slack: data debated SSL certs, no consensus.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0331",
+      "text": "Dep update: bumped Elasticsearch indices. No breakage.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0587",
+      "text": "Budget: runbook costs 10% over forecast.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0090",
+      "text": "Demo: backend showed sidecar injection improvements.",
+      "topic": "noise"
+    },
+    {
+      "id": "search_v3",
+      "text": "Migrated product search from Elasticsearch to Typesense. Elasticsearch cluster costs were 3x budget and Typesense handles our scale at 1/5 the cost.",
+      "topic": "search"
+    },
+    {
+      "id": "noise_0428",
+      "text": "Sprint planning: QA prioritized PagerDuty policy.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0012",
+      "text": "Security scan: GraphQL schema flagged. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0046",
+      "text": "Demo: devops showed Grafana dashboards improvements.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0946",
+      "text": "Perf review: Elasticsearch indices latency down 15%.",
+      "topic": "noise"
+    },
+    {
+      "id": "queue_v1",
+      "text": "Deployed RabbitMQ for async job processing. Durable queues with manual ack for payment and notification workflows.",
+      "topic": "queue"
+    },
+    {
+      "id": "noise_0073",
+      "text": "Incident: API gateway degraded. RCA: race condition.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0409",
+      "text": "Incident: rate limiter degraded. RCA: race condition.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0686",
+      "text": "Incident: CDN cache degraded. RCA: memory leak.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0873",
+      "text": "Demo: infra showed model registry improvements.",
+      "topic": "noise"
+    },
+    {
+      "id": "queue_v2",
+      "text": "Added priority queues in RabbitMQ. Payment jobs get priority 10, notifications priority 1. Reduced payment processing latency by 40%.",
+      "topic": "queue"
+    },
+    {
+      "id": "noise_0287",
+      "text": "devops standup: discussed DNS settings. No blockers.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0858",
+      "text": "Workshop: devops trained on GraphQL schema.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0009",
+      "text": "Budget: gRPC proto costs 10% over forecast.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0614",
+      "text": "Perf review: model registry latency down 15%.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0545",
+      "text": "Retro: improve access audit docs for oncall.",
+      "topic": "noise"
+    },
+    {
+      "id": "queue_v3",
+      "text": "Replaced RabbitMQ with Amazon SQS FIFO queues. RabbitMQ cluster management was consuming 20% of SRE bandwidth with no added value.",
+      "topic": "queue"
+    },
+    {
+      "id": "noise_0099",
+      "text": "Demo: SRE showed batch jobs improvements.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0166",
+      "text": "Demo: backend showed batch jobs improvements.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0886",
+      "text": "Budget: rate limiter costs 10% over forecast.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0405",
+      "text": "Budget: SLO dashboard costs 10% over forecast.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0817",
+      "text": "data standup: discussed log retention. No blockers.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0722",
+      "text": "Oncall: security noted connection pooling needs attention.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0908",
+      "text": "Sync: cross-team on Elasticsearch indices timeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "monitoring_v1",
+      "text": "Set up Prometheus + Grafana for infrastructure monitoring. Scrape interval 15s, 30-day retention.",
+      "topic": "monitoring"
+    },
+    {
+      "id": "noise_0638",
+      "text": "Dep update: bumped GraphQL schema. No breakage.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0476",
+      "text": "devops standup: discussed service mesh. No blockers.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0271",
+      "text": "Sprint planning: data prioritized gRPC proto.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0431",
+      "text": "Code review: platform approved Airflow DAGs PR.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0001",
+      "text": "Oncall: mobile noted network policy needs attention.",
+      "topic": "noise"
+    },
+    {
+      "id": "monitoring_v2",
+      "text": "Added Thanos sidecar for long-term metric storage. Extended retention from 30 days to 1 year with S3 backend.",
+      "topic": "monitoring"
+    },
+    {
+      "id": "noise_0135",
+      "text": "Sprint planning: data prioritized Airflow DAGs.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0753",
+      "text": "Slack: infra debated SLO dashboard, no consensus.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0265",
+      "text": "Demo: security showed API gateway improvements.",
+      "topic": "noise"
+    },
+    {
+      "id": "monitoring_v3",
+      "text": "Migrated from Prometheus/Thanos to Datadog. Self-hosted Prometheus required 2 FTEs for maintenance; Datadog TCO is lower above 500 hosts.",
+      "topic": "monitoring"
+    },
+    {
+      "id": "noise_0797",
+      "text": "Security scan: Datadog monitors flagged. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0624",
+      "text": "Ticket OPS-8610: devops closed container registry.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0003",
+      "text": "Workshop: infra trained on queue depth.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0526",
+      "text": "Workshop: infra trained on Grafana dashboards.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0058",
+      "text": "Budget: ML pipeline costs 10% over forecast.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0934",
+      "text": "Budget: Airflow DAGs costs 10% over forecast.",
+      "topic": "noise"
+    },
+    {
+      "id": "ci_v1",
+      "text": "GitHub Actions for CI/CD. Matrix builds across Python 3.10-3.12 and Node 18/20. Average pipeline time 8 minutes.",
+      "topic": "ci"
+    },
+    {
+      "id": "noise_0334",
+      "text": "Ticket DATA-4465: platform closed runbook.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0579",
+      "text": "Sprint planning: SRE prioritized webhook retry.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0866",
+      "text": "Oncall: security noted log retention needs attention.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0939",
+      "text": "Budget: container registry costs 10% over forecast.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0170",
+      "text": "Slack: platform debated queue depth, no consensus.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0487",
+      "text": "Slack: devops debated container registry, no consensus.",
+      "topic": "noise"
+    },
+    {
+      "id": "ci_v2",
+      "text": "Added self-hosted runners on ARM64 for native builds. Cut pipeline time from 8 to 4 minutes for Go services.",
+      "topic": "ci"
+    },
+    {
+      "id": "noise_0506",
+      "text": "Security scan: rollback procedure flagged. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0285",
+      "text": "Budget: Terraform state costs 10% over forecast.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0105",
+      "text": "Workshop: security trained on rate limiter.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0841",
+      "text": "Ticket MOB-6361: frontend updated Airflow DAGs.",
+      "topic": "noise"
+    },
+    {
+      "id": "ci_v3",
+      "text": "Migrated CI from GitHub Actions to Buildkite. GitHub Actions concurrency limits were blocking 15+ PRs daily during peak hours.",
+      "topic": "ci"
+    },
+    {
+      "id": "noise_0736",
+      "text": "Code review: backend approved webhook retry PR.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0867",
+      "text": "Slack: mobile debated network policy, no consensus.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0677",
+      "text": "Slack: backend debated runbook, no consensus.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0920",
+      "text": "Incident: ML pipeline degraded. RCA: config drift.",
+      "topic": "noise"
+    },
+    {
+      "id": "cdn_v1",
+      "text": "Using CloudFront for static asset delivery. Edge caching with 24h TTL for images and 1h for CSS/JS bundles.",
+      "topic": "cdn"
+    },
+    {
+      "id": "noise_0746",
+      "text": "Incident: secret rotation degraded. RCA: connection exhaustion.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0419",
+      "text": "platform standup: discussed queue depth. No blockers.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0800",
+      "text": "Sprint planning: security prioritized ML pipeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0872",
+      "text": "Ticket QA-8582: frontend resolved Helm charts.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0922",
+      "text": "Retro: improve runbook docs for oncall.",
+      "topic": "noise"
+    },
+    {
+      "id": "cdn_v2",
+      "text": "Added Lambda@Edge for A/B testing at the CDN layer. 0ms added latency for variant routing.",
+      "topic": "cdn"
+    },
+    {
+      "id": "noise_0809",
+      "text": "Security scan: network policy flagged. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0699",
+      "text": "Oncall: frontend noted rollback procedure needs attention.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0238",
+      "text": "Slack: frontend debated Helm charts, no consensus.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0582",
+      "text": "Perf review: error budget latency down 15%.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0670",
+      "text": "Sprint planning: data prioritized feature flags.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0375",
+      "text": "Incident: queue depth degraded. RCA: timeout.",
+      "topic": "noise"
+    },
+    {
+      "id": "cdn_v3",
+      "text": "Switched CDN from CloudFront to Fastly. Fastly's VCL gives us programmable edge logic without Lambda cold starts.",
+      "topic": "cdn"
+    },
+    {
+      "id": "noise_0601",
+      "text": "Ticket SRE-1491: frontend escalated secret rotation.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0571",
+      "text": "Slack: security debated CI pipeline, no consensus.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0380",
+      "text": "Sync: cross-team on load balancer timeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0733",
+      "text": "Security scan: container registry flagged. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0264",
+      "text": "Code review: QA approved monitoring alerts PR.",
+      "topic": "noise"
+    },
+    {
+      "id": "logging_v1",
+      "text": "Centralized logging with ELK stack. Filebeat shippers, Logstash parsers, Elasticsearch + Kibana for search/viz.",
+      "topic": "logging"
+    },
+    {
+      "id": "noise_0835",
+      "text": "security standup: discussed load balancer. No blockers.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0289",
+      "text": "infra standup: discussed Helm charts. No blockers.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0592",
+      "text": "Retro: improve ML pipeline docs for oncall.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0109",
+      "text": "Ticket QA-8628: infra resolved sidecar injection.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0159",
+      "text": "Incident: batch jobs degraded. RCA: config drift.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0039",
+      "text": "Perf review: webhook retry latency down 15%.",
+      "topic": "noise"
+    },
+    {
+      "id": "logging_v2",
+      "text": "Replaced Logstash with Vector for log parsing. 10x throughput improvement and 1/3 memory footprint.",
+      "topic": "logging"
+    },
+    {
+      "id": "noise_0651",
+      "text": "Budget: SLO dashboard costs 10% over forecast.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0932",
+      "text": "Workshop: security trained on CI pipeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0293",
+      "text": "Perf review: batch jobs latency down 15%.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0757",
+      "text": "Demo: QA showed container registry improvements.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0437",
+      "text": "Oncall: platform noted Helm charts needs attention.",
+      "topic": "noise"
+    },
+    {
+      "id": "logging_v3",
+      "text": "Migrated logging from ELK to Loki + Grafana. Elasticsearch index storage was 4TB/month; Loki with S3 backend costs 80% less.",
+      "topic": "logging"
+    },
+    {
+      "id": "noise_0261",
+      "text": "Sync: cross-team on sidecar injection timeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0537",
+      "text": "Security scan: Redis cluster flagged. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0470",
+      "text": "Incident: PagerDuty policy degraded. RCA: race condition.",
+      "topic": "noise"
+    },
+    {
+      "id": "feature_flags_v1",
+      "text": "Built custom feature flag service backed by Redis. JSON config per flag, 50ms evaluation latency.",
+      "topic": "feature_flags"
+    },
+    {
+      "id": "noise_0299",
+      "text": "Code review: frontend approved load balancer PR.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0043",
+      "text": "Sync: cross-team on PagerDuty policy timeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0755",
+      "text": "Workshop: frontend trained on load balancer.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0517",
+      "text": "Retro: improve load balancer docs for oncall.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0059",
+      "text": "mobile standup: discussed model registry. No blockers.",
+      "topic": "noise"
+    },
+    {
+      "id": "feature_flags_v2",
+      "text": "Added percentage rollout and user segment targeting to custom flag service. Evaluation latency unchanged.",
+      "topic": "feature_flags"
+    },
+    {
+      "id": "noise_0696",
+      "text": "Security scan: DNS settings flagged. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0726",
+      "text": "Sprint planning: mobile prioritized batch jobs.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0020",
+      "text": "Retro: improve SLO dashboard docs for oncall.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0900",
+      "text": "Dep update: bumped DNS settings. No breakage.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0346",
+      "text": "Oncall: backend noted K8s node pool needs attention.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0326",
+      "text": "Sprint planning: data prioritized secret rotation.",
+      "topic": "noise"
+    },
+    {
+      "id": "feature_flags_v3",
+      "text": "Replaced custom feature flag service with LaunchDarkly. Custom service had no audit trail and flag cleanup was impossible to track.",
+      "topic": "feature_flags"
+    },
+    {
+      "id": "noise_0623",
+      "text": "Code review: backend approved gRPC proto PR.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0121",
+      "text": "platform standup: discussed SSL certs. No blockers.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0448",
+      "text": "Security scan: runbook flagged. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0784",
+      "text": "Retro: improve gRPC proto docs for oncall.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0931",
+      "text": "Dep update: bumped cost tags. No breakage.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0621",
+      "text": "Sync: cross-team on API gateway timeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "secrets_v1",
+      "text": "Storing secrets in environment variables injected via Kubernetes ConfigMaps. Manual rotation every 90 days.",
+      "topic": "secrets"
+    },
+    {
+      "id": "noise_0785",
+      "text": "Perf review: webhook retry latency down 15%.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0566",
+      "text": "Perf review: rate limiter latency down 15%.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0611",
+      "text": "Security scan: OAuth tokens flagged. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0094",
+      "text": "devops standup: discussed sidecar injection. No blockers.",
+      "topic": "noise"
+    },
+    {
+      "id": "secrets_v2",
+      "text": "Migrated secrets from ConfigMaps to HashiCorp Vault. Auto-rotation for database credentials with 24h TTL.",
+      "topic": "secrets"
+    },
+    {
+      "id": "noise_0196",
+      "text": "Demo: infra showed K8s node pool improvements.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0206",
+      "text": "Demo: frontend showed Datadog monitors improvements.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0713",
+      "text": "Demo: mobile showed rate limiter improvements.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0081",
+      "text": "Oncall: devops noted Airflow DAGs needs attention.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0247",
+      "text": "Ticket BE-9212: devops escalated storage quota.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0861",
+      "text": "Slack: backend debated connection pooling, no consensus.",
+      "topic": "noise"
+    },
+    {
+      "id": "secrets_v3",
+      "text": "Switched from HashiCorp Vault to AWS Secrets Manager. Vault cluster required dedicated ops team; AWS SM integrates natively with EKS.",
+      "topic": "secrets"
+    },
+    {
+      "id": "noise_0358",
+      "text": "Sync: cross-team on CDN cache timeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0401",
+      "text": "Sync: cross-team on service mesh timeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0695",
+      "text": "Perf review: log retention latency down 15%.",
+      "topic": "noise"
+    },
+    {
+      "id": "api_gateway_v1",
+      "text": "Kong as API gateway. Rate limiting, JWT validation, and request transformation plugins.",
+      "topic": "api_gateway"
+    },
+    {
+      "id": "noise_0116",
+      "text": "Workshop: backend trained on DNS settings.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0605",
+      "text": "Security scan: Datadog monitors flagged. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0208",
+      "text": "Budget: Grafana dashboards costs 10% over forecast.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0689",
+      "text": "Retro: improve Airflow DAGs docs for oncall.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0162",
+      "text": "data standup: discussed rollback procedure. No blockers.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0249",
+      "text": "Oncall: mobile noted Vault policy needs attention.",
+      "topic": "noise"
+    },
+    {
+      "id": "api_gateway_v2",
+      "text": "Added gRPC-Web transcoding to Kong for mobile clients. Eliminated separate REST wrapper services.",
+      "topic": "api_gateway"
+    },
+    {
+      "id": "noise_0788",
+      "text": "Incident: PagerDuty policy degraded. RCA: timeout.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0754",
+      "text": "Incident: runbook degraded. RCA: memory leak.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0543",
+      "text": "Incident: API gateway degraded. RCA: race condition.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0682",
+      "text": "Security scan: model registry flagged. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "api_gateway_v3",
+      "text": "Replaced Kong with Envoy-based gateway using Istio. Kong plugin ecosystem couldn't keep up with our service mesh requirements.",
+      "topic": "api_gateway"
+    },
+    {
+      "id": "noise_0808",
+      "text": "Code review: security approved webhook retry PR.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0291",
+      "text": "infra standup: discussed container registry. No blockers.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0257",
+      "text": "Incident: model registry degraded. RCA: config drift.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0907",
+      "text": "devops standup: discussed Airflow DAGs. No blockers.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0337",
+      "text": "Sync: cross-team on queue depth timeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "email_v1",
+      "text": "Sending transactional email via SendGrid API. Templates stored in SendGrid dashboard. 99.2% delivery rate.",
+      "topic": "email"
+    },
+    {
+      "id": "noise_0684",
+      "text": "backend standup: discussed service mesh. No blockers.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0773",
+      "text": "Sprint planning: frontend prioritized connection pooling.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0147",
+      "text": "Dep update: bumped SSL certs. No breakage.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0154",
+      "text": "Sprint planning: mobile prioritized log retention.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0714",
+      "text": "Code review: devops approved Helm charts PR.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0144",
+      "text": "Workshop: mobile trained on error budget.",
+      "topic": "noise"
+    },
+    {
+      "id": "email_v2",
+      "text": "Moved email templates from SendGrid dashboard to version-controlled MJML files. Deployed via CI pipeline.",
+      "topic": "email"
+    },
+    {
+      "id": "noise_0661",
+      "text": "Dep update: bumped feature flags. No breakage.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0460",
+      "text": "Sprint planning: frontend prioritized service mesh.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0503",
+      "text": "Sprint planning: backend prioritized Datadog monitors.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0352",
+      "text": "Demo: platform showed Elasticsearch indices improvements.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0038",
+      "text": "Security scan: error budget flagged. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "email_v3",
+      "text": "Switched email provider from SendGrid to Postmark. Postmark's dedicated IP and deliverability tools brought delivery rate from 99.2% to 99.8%.",
+      "topic": "email"
+    },
+    {
+      "id": "noise_0737",
+      "text": "Slack: security debated Terraform state, no consensus.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0669",
+      "text": "Budget: PagerDuty policy costs 10% over forecast.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0603",
+      "text": "Demo: devops showed capacity plan improvements.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0030",
+      "text": "Retro: improve gRPC proto docs for oncall.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0217",
+      "text": "backend standup: discussed queue depth. No blockers.",
+      "topic": "noise"
+    },
+    {
+      "id": "storage_v1",
+      "text": "User uploads stored in S3 Standard. Lifecycle policy moves to Glacier after 90 days.",
+      "topic": "storage"
+    },
+    {
+      "id": "noise_0859",
+      "text": "Perf review: rollback procedure latency down 15%.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0658",
+      "text": "Oncall: platform noted OAuth tokens needs attention.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0622",
+      "text": "Dep update: bumped OAuth tokens. No breakage.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0884",
+      "text": "Demo: QA showed network policy improvements.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0864",
+      "text": "Security scan: secret rotation flagged. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "storage_v2",
+      "text": "Added CloudFront signed URLs for direct S3 access. Eliminated proxy service that was a latency bottleneck.",
+      "topic": "storage"
+    },
+    {
+      "id": "noise_0016",
+      "text": "Budget: gRPC proto costs 10% over forecast.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0164",
+      "text": "Code review: infra approved runbook PR.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0759",
+      "text": "mobile standup: discussed secret rotation. No blockers.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0780",
+      "text": "Security scan: GraphQL schema flagged. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0588",
+      "text": "Sync: cross-team on Helm charts timeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "storage_v3",
+      "text": "Migrated user uploads from S3 to R2 (Cloudflare). Zero egress fees saved $14K/month on our media-heavy workload.",
+      "topic": "storage"
+    },
+    {
+      "id": "noise_0182",
+      "text": "Code review: mobile approved OAuth tokens PR.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0013",
+      "text": "Sync: cross-team on CDN cache timeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0398",
+      "text": "Security scan: rollback procedure flagged. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0066",
+      "text": "Demo: security showed Datadog monitors improvements.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0521",
+      "text": "Security scan: SSL certs flagged. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0654",
+      "text": "Retro: improve Airflow DAGs docs for oncall.",
+      "topic": "noise"
+    },
+    {
+      "id": "testing_v1",
+      "text": "Unit tests with pytest, 78% coverage. No integration tests. Manual QA for releases.",
+      "topic": "testing"
+    },
+    {
+      "id": "noise_0491",
+      "text": "Ticket PLAT-1016: infra escalated Elasticsearch indices.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0462",
+      "text": "Workshop: infra trained on batch jobs.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0305",
+      "text": "Demo: platform showed log retention improvements.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0679",
+      "text": "Security scan: CI pipeline flagged. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "testing_v2",
+      "text": "Added Playwright E2E tests for critical flows. Coverage gate at 80%. Release QA reduced from 2 days to 4 hours.",
+      "topic": "testing"
+    },
+    {
+      "id": "noise_0836",
+      "text": "Slack: devops debated batch jobs, no consensus.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0711",
+      "text": "Retro: improve rate limiter docs for oncall.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0936",
+      "text": "Oncall: security noted queue depth needs attention.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0903",
+      "text": "Slack: SRE debated CDN cache, no consensus.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0540",
+      "text": "Sync: cross-team on Grafana dashboards timeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0383",
+      "text": "Retro: improve backup verify docs for oncall.",
+      "topic": "noise"
+    },
+    {
+      "id": "testing_v3",
+      "text": "Replaced Playwright with Cypress for E2E. Playwright's cross-browser support was unnecessary (95% users on Chrome) and Cypress has better DX.",
+      "topic": "testing"
+    },
+    {
+      "id": "noise_0145",
+      "text": "Demo: QA showed Terraform state improvements.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0032",
+      "text": "Security scan: container registry flagged. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0942",
+      "text": "infra standup: discussed network policy. No blockers.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0627",
+      "text": "frontend standup: discussed gRPC proto. No blockers.",
+      "topic": "noise"
+    },
+    {
+      "id": "dns_v1",
+      "text": "Route53 for DNS management. Simple A records and CNAME aliases. TTL 300s across the board.",
+      "topic": "dns"
+    },
+    {
+      "id": "noise_0158",
+      "text": "Code review: backend approved sidecar injection PR.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0098",
+      "text": "Sprint planning: mobile prioritized rate limiter.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0122",
+      "text": "Budget: log retention costs 10% over forecast.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0570",
+      "text": "Workshop: infra trained on connection pooling.",
+      "topic": "noise"
+    },
+    {
+      "id": "dns_v2",
+      "text": "Added Route53 health checks with failover routing. Primary us-east-1, failover eu-west-1. 30s health check interval.",
+      "topic": "dns"
+    },
+    {
+      "id": "noise_0510",
+      "text": "Budget: Airflow DAGs costs 10% over forecast.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0694",
+      "text": "Incident: backup verify degraded. RCA: connection exhaustion.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0201",
+      "text": "Workshop: QA trained on Grafana dashboards.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0853",
+      "text": "Oncall: infra noted load balancer needs attention.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0029",
+      "text": "Perf review: error budget latency down 15%.",
+      "topic": "noise"
+    },
+    {
+      "id": "dns_v3",
+      "text": "Migrated DNS from Route53 to Cloudflare DNS. Cloudflare's edge network gives faster resolution globally and we consolidated with R2/CDN.",
+      "topic": "dns"
+    },
+    {
+      "id": "noise_0447",
+      "text": "QA standup: discussed SSL certs. No blockers.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0578",
+      "text": "Retro: improve log retention docs for oncall.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0423",
+      "text": "Perf review: Terraform state latency down 15%.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0450",
+      "text": "Security scan: connection pooling flagged. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0547",
+      "text": "Oncall: frontend noted Datadog monitors needs attention.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0319",
+      "text": "frontend standup: discussed storage quota. No blockers.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0469",
+      "text": "Dep update: bumped ML pipeline. No breakage.",
+      "topic": "noise"
+    },
+    {
+      "id": "scheduling_v1",
+      "text": "Cron jobs running on a dedicated EC2 instance. 12 scheduled tasks, no retry logic, no observability.",
+      "topic": "scheduling"
+    },
+    {
+      "id": "noise_0628",
+      "text": "Perf review: Sentry alerts latency down 15%.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0356",
+      "text": "Sync: cross-team on Vault policy timeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0656",
+      "text": "Demo: devops showed queue depth improvements.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0425",
+      "text": "Sync: cross-team on load balancer timeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0143",
+      "text": "Dep update: bumped Terraform state. No breakage.",
+      "topic": "noise"
+    },
+    {
+      "id": "scheduling_v2",
+      "text": "Migrated cron jobs to Kubernetes CronJobs. Added retry with backoff and Prometheus metrics for job duration/success.",
+      "topic": "scheduling"
+    },
+    {
+      "id": "noise_0415",
+      "text": "Retro: improve capacity plan docs for oncall.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0263",
+      "text": "Security scan: Elasticsearch indices flagged. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0644",
+      "text": "Sync: cross-team on Airflow DAGs timeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0901",
+      "text": "Demo: backend showed sidecar injection improvements.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0207",
+      "text": "Oncall: security noted Vault policy needs attention.",
+      "topic": "noise"
+    },
+    {
+      "id": "scheduling_v3",
+      "text": "Replaced Kubernetes CronJobs with Temporal for workflow orchestration. Complex multi-step jobs needed durable execution and Temporal handles retries, timeouts, and saga patterns natively.",
+      "topic": "scheduling"
+    },
+    {
+      "id": "noise_0348",
+      "text": "Sprint planning: security prioritized access audit.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0882",
+      "text": "Perf review: Vault policy latency down 15%.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0203",
+      "text": "Perf review: feature flags latency down 15%.",
+      "topic": "noise"
+    },
+    {
+      "id": "payments_v1",
+      "text": "Stripe for payment processing. Direct API integration with webhooks for async events.",
+      "topic": "payments"
+    },
+    {
+      "id": "noise_0028",
+      "text": "Dep update: bumped K8s node pool. No breakage.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0533",
+      "text": "Dep update: bumped SSL certs. No breakage.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0343",
+      "text": "Security scan: container registry flagged. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0730",
+      "text": "Incident: gRPC proto degraded. RCA: memory leak.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0590",
+      "text": "Incident: cost tags degraded. RCA: timeout.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0586",
+      "text": "Retro: improve service mesh docs for oncall.",
+      "topic": "noise"
+    },
+    {
+      "id": "payments_v2",
+      "text": "Added Stripe Connect for marketplace payouts. Split payments between platform and sellers with configurable commission.",
+      "topic": "payments"
+    },
+    {
+      "id": "noise_0195",
+      "text": "Retro: improve queue depth docs for oncall.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0850",
+      "text": "Code review: SRE approved Elasticsearch indices PR.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0667",
+      "text": "Slack: data debated Elasticsearch indices, no consensus.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0277",
+      "text": "backend standup: discussed gRPC proto. No blockers.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0258",
+      "text": "Oncall: devops noted GraphQL schema needs attention.",
+      "topic": "noise"
+    },
+    {
+      "id": "payments_v3",
+      "text": "Migrated payment orchestration to a multi-PSP setup with Stripe + Adyen. Adyen handles EU/SEPA payments with lower interchange fees, Stripe remains for US/card payments.",
+      "topic": "payments"
+    },
+    {
+      "id": "noise_0531",
+      "text": "platform standup: discussed connection pooling. No blockers.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0156",
+      "text": "Dep update: bumped rollback procedure. No breakage.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0374",
+      "text": "Security scan: rollback procedure flagged. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0214",
+      "text": "Retro: improve Helm charts docs for oncall.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0137",
+      "text": "Dep update: bumped log retention. No breakage.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0124",
+      "text": "Code review: frontend approved log retention PR.",
+      "topic": "noise"
+    },
+    {
+      "id": "config_v1",
+      "text": "Application config via YAML files baked into Docker images. Config changes require full redeploy.",
+      "topic": "config"
+    },
+    {
+      "id": "noise_0327",
+      "text": "Perf review: API gateway latency down 15%.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0539",
+      "text": "Retro: improve load balancer docs for oncall.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0563",
+      "text": "Demo: backend showed network policy improvements.",
+      "topic": "noise"
+    },
+    {
+      "id": "config_v2",
+      "text": "Moved config to Consul KV store. Services poll every 30s for changes. Hot reload without redeploy.",
+      "topic": "config"
+    },
+    {
+      "id": "noise_0880",
+      "text": "Demo: security showed container registry improvements.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0165",
+      "text": "Slack: QA debated backup verify, no consensus.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0187",
+      "text": "Dep update: bumped rate limiter. No breakage.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0301",
+      "text": "Ticket PLAT-6944: devops resolved container registry.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0630",
+      "text": "Sprint planning: infra prioritized service mesh.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0221",
+      "text": "Security scan: Redis cluster flagged. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0898",
+      "text": "Sprint planning: devops prioritized cost tags.",
+      "topic": "noise"
+    },
+    {
+      "id": "config_v3",
+      "text": "Replaced Consul with native Kubernetes ConfigMaps + Reloader. Consul was over-engineered for our needs; ConfigMaps with Reloader gives auto-restart on config change.",
+      "topic": "config"
+    },
+    {
+      "id": "noise_0472",
+      "text": "Sync: cross-team on feature flags timeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0904",
+      "text": "Security scan: service mesh flagged. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0041",
+      "text": "frontend standup: discussed log retention. No blockers.",
+      "topic": "noise"
+    },
+    {
+      "id": "tracing_v1",
+      "text": "Jaeger for distributed tracing. Sidecar injection via Istio. Sampling rate 1% in production.",
+      "topic": "tracing"
+    },
+    {
+      "id": "noise_0388",
+      "text": "Security scan: Airflow DAGs flagged. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0416",
+      "text": "Ticket SRE-8932: security investigated CI pipeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0157",
+      "text": "Dep update: bumped rollback procedure. No breakage.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0529",
+      "text": "Sprint planning: mobile prioritized Elasticsearch indices.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0114",
+      "text": "Code review: backend approved Vault policy PR.",
+      "topic": "noise"
+    },
+    {
+      "id": "tracing_v2",
+      "text": "Increased sampling to 10% with tail-based sampling. Head-based was missing the long-tail latency issues.",
+      "topic": "tracing"
+    },
+    {
+      "id": "noise_0727",
+      "text": "data standup: discussed Helm charts. No blockers.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0830",
+      "text": "Oncall: platform noted K8s node pool needs attention.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0333",
+      "text": "Oncall: mobile noted CDN cache needs attention.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0433",
+      "text": "Budget: K8s node pool costs 10% over forecast.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0940",
+      "text": "Workshop: devops trained on storage quota.",
+      "topic": "noise"
+    },
+    {
+      "id": "tracing_v3",
+      "text": "Migrated tracing from Jaeger to Grafana Tempo. Jaeger's Elasticsearch dependency conflicted with our Loki migration. Tempo uses S3 backend.",
+      "topic": "tracing"
+    },
+    {
+      "id": "noise_0899",
+      "text": "Oncall: security noted container registry needs attention.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0084",
+      "text": "Budget: log retention costs 10% over forecast.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0361",
+      "text": "Oncall: platform noted Datadog monitors needs attention.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0225",
+      "text": "Oncall: infra noted webhook retry needs attention.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0560",
+      "text": "Workshop: backend trained on ML pipeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0652",
+      "text": "Perf review: DNS settings latency down 15%.",
+      "topic": "noise"
+    },
+    {
+      "id": "state_mgmt_v1",
+      "text": "Redux for frontend state management. Single global store with action creators and reducers.",
+      "topic": "state_mgmt"
+    },
+    {
+      "id": "noise_0609",
+      "text": "Perf review: rollback procedure latency down 15%.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0417",
+      "text": "Workshop: data trained on cost tags.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0924",
+      "text": "Oncall: data noted rate limiter needs attention.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0697",
+      "text": "Budget: monitoring alerts costs 10% over forecast.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0149",
+      "text": "Sprint planning: devops prioritized log retention.",
+      "topic": "noise"
+    },
+    {
+      "id": "state_mgmt_v2",
+      "text": "Added Redux Toolkit to reduce boilerplate. Migrated 60% of slices to RTK Query for server state.",
+      "topic": "state_mgmt"
+    },
+    {
+      "id": "noise_0724",
+      "text": "Retro: improve feature flags docs for oncall.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0276",
+      "text": "Oncall: mobile noted CI pipeline needs attention.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0171",
+      "text": "Workshop: frontend trained on queue depth.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0512",
+      "text": "Ticket INFRA-2878: mobile investigated capacity plan.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0295",
+      "text": "Code review: mobile approved cost tags PR.",
+      "topic": "noise"
+    },
+    {
+      "id": "state_mgmt_v3",
+      "text": "Replaced Redux entirely with Zustand for client state and TanStack Query for server state. Redux DevTools overhead was 200ms on mobile.",
+      "topic": "state_mgmt"
+    },
+    {
+      "id": "noise_0708",
+      "text": "Ticket FE-6448: QA escalated ML pipeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0180",
+      "text": "Dep update: bumped model registry. No breakage.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0311",
+      "text": "Security scan: batch jobs flagged. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0371",
+      "text": "Sprint planning: SRE prioritized SLO dashboard.",
+      "topic": "noise"
+    },
+    {
+      "id": "orm_v1",
+      "text": "SQLAlchemy 1.4 as ORM for all Python services. Session-scoped connections with autocommit.",
+      "topic": "orm"
+    },
+    {
+      "id": "noise_0511",
+      "text": "Security scan: runbook flagged. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0134",
+      "text": "Sprint planning: QA prioritized API gateway.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0449",
+      "text": "Dep update: bumped runbook. No breakage.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0505",
+      "text": "Slack: SRE debated monitoring alerts, no consensus.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0599",
+      "text": "Dep update: bumped OAuth tokens. No breakage.",
+      "topic": "noise"
+    },
+    {
+      "id": "orm_v2",
+      "text": "Upgraded to SQLAlchemy 2.0. Migrated all queries to 2.0-style select() statements.",
+      "topic": "orm"
+    },
+    {
+      "id": "noise_0480",
+      "text": "Security scan: Terraform state flagged. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0633",
+      "text": "Slack: mobile debated cost tags, no consensus.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0466",
+      "text": "Sprint planning: backend prioritized K8s node pool.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0461",
+      "text": "Security scan: batch jobs flagged. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0631",
+      "text": "Workshop: frontend trained on gRPC proto.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0634",
+      "text": "Slack: backend debated service mesh, no consensus.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0702",
+      "text": "Incident: ML pipeline degraded. RCA: memory leak.",
+      "topic": "noise"
+    },
+    {
+      "id": "orm_v3",
+      "text": "Replaced SQLAlchemy with Prisma Client Python for new services. Prisma's type-safe queries reduced data-layer bugs by 40%.",
+      "topic": "orm"
+    },
+    {
+      "id": "noise_0245",
+      "text": "Security scan: load balancer flagged. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0928",
+      "text": "Security scan: webhook retry flagged. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0938",
+      "text": "SRE standup: discussed access audit. No blockers.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0392",
+      "text": "Dep update: bumped CDN cache. No breakage.",
+      "topic": "noise"
+    },
+    {
+      "id": "image_processing_v1",
+      "text": "ImageMagick for server-side image resizing. Shell exec from Python with subprocess.",
+      "topic": "image_processing"
+    },
+    {
+      "id": "noise_0767",
+      "text": "Sprint planning: backend prioritized SLO dashboard.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0710",
+      "text": "Demo: frontend showed Airflow DAGs improvements.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0944",
+      "text": "Security scan: SLO dashboard flagged. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0811",
+      "text": "Sync: cross-team on rollback procedure timeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0572",
+      "text": "Oncall: infra noted Helm charts needs attention.",
+      "topic": "noise"
+    },
+    {
+      "id": "image_processing_v2",
+      "text": "Replaced ImageMagick with Pillow. Eliminated shell injection risk and gained 2x throughput.",
+      "topic": "image_processing"
+    },
+    {
+      "id": "noise_0594",
+      "text": "Oncall: platform noted API gateway needs attention.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0776",
+      "text": "Ticket FE-1394: SRE escalated connection pooling.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0548",
+      "text": "Dep update: bumped connection pooling. No breakage.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0948",
+      "text": "Budget: storage quota costs 10% over forecast.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0876",
+      "text": "Slack: devops debated Sentry alerts, no consensus.",
+      "topic": "noise"
+    },
+    {
+      "id": "image_processing_v3",
+      "text": "Moved image processing to Cloudflare Images. Server-side processing consumed 30% of API pod CPU; edge transformation eliminated it.",
+      "topic": "image_processing"
+    },
+    {
+      "id": "noise_0915",
+      "text": "Workshop: infra trained on GraphQL schema.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0612",
+      "text": "Security scan: capacity plan flagged. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0681",
+      "text": "Demo: frontend showed gRPC proto improvements.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0254",
+      "text": "Sync: cross-team on runbook timeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0100",
+      "text": "Sprint planning: QA prioritized network policy.",
+      "topic": "noise"
+    },
+    {
+      "id": "pdf_generation_v1",
+      "text": "wkhtmltopdf for invoice PDF generation. HTML template rendered then converted.",
+      "topic": "pdf_generation"
+    },
+    {
+      "id": "noise_0818",
+      "text": "Demo: devops showed batch jobs improvements.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0761",
+      "text": "Retro: improve secret rotation docs for oncall.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0574",
+      "text": "Retro: improve Vault policy docs for oncall.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0822",
+      "text": "Budget: DNS settings costs 10% over forecast.",
+      "topic": "noise"
+    },
+    {
+      "id": "pdf_generation_v2",
+      "text": "Switched to Puppeteer for PDF generation. wkhtmltopdf couldn't handle CSS Grid in new invoice design.",
+      "topic": "pdf_generation"
+    },
+    {
+      "id": "noise_0502",
+      "text": "Code review: security approved access audit PR.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0868",
+      "text": "Dep update: bumped queue depth. No breakage.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0055",
+      "text": "infra standup: discussed log retention. No blockers.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0550",
+      "text": "Budget: model registry costs 10% over forecast.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0848",
+      "text": "Incident: capacity plan degraded. RCA: config drift.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0477",
+      "text": "backend standup: discussed cost tags. No blockers.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0619",
+      "text": "Sync: cross-team on CDN cache timeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "pdf_generation_v3",
+      "text": "Migrated PDF generation to Gotenberg. Puppeteer required Node.js sidecar; Gotenberg is standalone Docker with HTTP API.",
+      "topic": "pdf_generation"
+    },
+    {
+      "id": "noise_0411",
+      "text": "Budget: feature flags costs 10% over forecast.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0496",
+      "text": "Sync: cross-team on Redis cluster timeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0926",
+      "text": "Dep update: bumped gRPC proto. No breakage.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0054",
+      "text": "Demo: QA showed Elasticsearch indices improvements.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0321",
+      "text": "Workshop: security trained on batch jobs.",
+      "topic": "noise"
+    },
+    {
+      "id": "websockets_v1",
+      "text": "Socket.IO for real-time notifications. Single Node.js server handling 5K connections.",
+      "topic": "websockets"
+    },
+    {
+      "id": "noise_0549",
+      "text": "Workshop: security trained on DNS settings.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0176",
+      "text": "Oncall: frontend noted Airflow DAGs needs attention.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0763",
+      "text": "Security scan: ML pipeline flagged. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "websockets_v2",
+      "text": "Added Redis adapter for Socket.IO horizontal scaling. 3 replicas, sticky sessions.",
+      "topic": "websockets"
+    },
+    {
+      "id": "noise_0698",
+      "text": "Budget: OAuth tokens costs 10% over forecast.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0917",
+      "text": "Slack: security debated feature flags, no consensus.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0551",
+      "text": "Workshop: mobile trained on connection pooling.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0659",
+      "text": "Retro: improve CI pipeline docs for oncall.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0078",
+      "text": "Slack: platform debated SLO dashboard, no consensus.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0923",
+      "text": "Incident: feature flags degraded. RCA: config drift.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0770",
+      "text": "infra standup: discussed Terraform state. No blockers.",
+      "topic": "noise"
+    },
+    {
+      "id": "websockets_v3",
+      "text": "Replaced Socket.IO with Centrifugo. Socket.IO protocol overhead was 40% on mobile. Centrifugo handles 50K connections per instance.",
+      "topic": "websockets"
+    },
+    {
+      "id": "noise_0385",
+      "text": "Budget: model registry costs 10% over forecast.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0432",
+      "text": "Workshop: data trained on OAuth tokens.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0063",
+      "text": "Budget: K8s node pool costs 10% over forecast.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0129",
+      "text": "Dep update: bumped GraphQL schema. No breakage.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0313",
+      "text": "Perf review: feature flags latency down 15%.",
+      "topic": "noise"
+    },
+    {
+      "id": "graph_db_v1",
+      "text": "Neo4j for social graph features. Bolt protocol, 2M nodes, 8M relationships.",
+      "topic": "graph_db"
+    },
+    {
+      "id": "noise_0804",
+      "text": "Perf review: Helm charts latency down 15%.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0445",
+      "text": "Sync: cross-team on Helm charts timeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0426",
+      "text": "Demo: frontend showed container registry improvements.",
+      "topic": "noise"
+    },
+    {
+      "id": "graph_db_v2",
+      "text": "Added read replicas for Neo4j. Separated writes from reads for recommendations engine.",
+      "topic": "graph_db"
+    },
+    {
+      "id": "noise_0288",
+      "text": "Security scan: model registry flagged. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0296",
+      "text": "backend standup: discussed DNS settings. No blockers.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0646",
+      "text": "Sync: cross-team on secret rotation timeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0096",
+      "text": "SRE standup: discussed Datadog monitors. No blockers.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0640",
+      "text": "Sync: cross-team on Sentry alerts timeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "graph_db_v3",
+      "text": "Replaced Neo4j with Amazon Neptune. Neo4j licensing unsustainable at scale; Neptune serverless eliminated capacity planning.",
+      "topic": "graph_db"
+    },
+    {
+      "id": "noise_0909",
+      "text": "Retro: improve queue depth docs for oncall.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0391",
+      "text": "Perf review: gRPC proto latency down 15%.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0316",
+      "text": "Incident: rollback procedure degraded. RCA: race condition.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0047",
+      "text": "Incident: CI pipeline degraded. RCA: timeout.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0528",
+      "text": "Slack: backend debated API gateway, no consensus.",
+      "topic": "noise"
+    },
+    {
+      "id": "mobile_framework_v1",
+      "text": "React Native for iOS and Android. Shared 80% of code between platforms.",
+      "topic": "mobile_framework"
+    },
+    {
+      "id": "noise_0569",
+      "text": "Dep update: bumped log retention. No breakage.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0133",
+      "text": "Perf review: Terraform state latency down 15%.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0665",
+      "text": "Code review: frontend approved connection pooling PR.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0657",
+      "text": "Demo: devops showed connection pooling improvements.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0772",
+      "text": "Sprint planning: infra prioritized backup verify.",
+      "topic": "noise"
+    },
+    {
+      "id": "mobile_framework_v2",
+      "text": "Adopted React Native New Architecture with Fabric renderer. Reduced cold start by 30%.",
+      "topic": "mobile_framework"
+    },
+    {
+      "id": "noise_0912",
+      "text": "Sync: cross-team on connection pooling timeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0069",
+      "text": "Sprint planning: devops prioritized SLO dashboard.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0083",
+      "text": "Demo: infra showed CI pipeline improvements.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0006",
+      "text": "Security scan: Airflow DAGs flagged. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0347",
+      "text": "Dep update: bumped gRPC proto. No breakage.",
+      "topic": "noise"
+    },
+    {
+      "id": "mobile_framework_v3",
+      "text": "Migrating from React Native to Flutter. RN bridge overhead causing frame drops on mid-range Android. Flutter compiled rendering solves this.",
+      "topic": "mobile_framework"
+    },
+    {
+      "id": "noise_0344",
+      "text": "Retro: improve webhook retry docs for oncall.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0414",
+      "text": "Demo: infra showed rollback procedure improvements.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0527",
+      "text": "Workshop: devops trained on GraphQL schema.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0110",
+      "text": "Workshop: data trained on Datadog monitors.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0193",
+      "text": "Demo: SRE showed monitoring alerts improvements.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0595",
+      "text": "Sync: cross-team on Vault policy timeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0339",
+      "text": "Slack: QA debated ML pipeline, no consensus.",
+      "topic": "noise"
+    },
+    {
+      "id": "container_registry_v1",
+      "text": "Docker Hub for container images. Pull rate limited to 200/6h on free tier.",
+      "topic": "container_registry"
+    },
+    {
+      "id": "noise_0704",
+      "text": "Perf review: GraphQL schema latency down 15%.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0653",
+      "text": "Perf review: batch jobs latency down 15%.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0202",
+      "text": "Ticket QA-4224: mobile escalated network policy.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0410",
+      "text": "Retro: improve OAuth tokens docs for oncall.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0192",
+      "text": "Workshop: security trained on capacity plan.",
+      "topic": "noise"
+    },
+    {
+      "id": "container_registry_v2",
+      "text": "Migrated to ECR for private images. Eliminated rate limits, reduced pull latency by 60%.",
+      "topic": "container_registry"
+    },
+    {
+      "id": "noise_0823",
+      "text": "Budget: API gateway costs 10% over forecast.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0386",
+      "text": "Dep update: bumped OAuth tokens. No breakage.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0061",
+      "text": "Incident: DNS settings degraded. RCA: race condition.",
+      "topic": "noise"
+    },
+    {
+      "id": "container_registry_v3",
+      "text": "Switched to GitHub Container Registry (GHCR). Integrates with Buildkite CI, eliminates cross-account ECR auth.",
+      "topic": "container_registry"
+    },
+    {
+      "id": "noise_0564",
+      "text": "Code review: SRE approved Airflow DAGs PR.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0241",
+      "text": "Slack: mobile debated cost tags, no consensus.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0530",
+      "text": "Sprint planning: QA prioritized SSL certs.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0167",
+      "text": "Budget: Vault policy costs 10% over forecast.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0407",
+      "text": "Workshop: platform trained on feature flags.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0097",
+      "text": "Budget: batch jobs costs 10% over forecast.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0230",
+      "text": "Security scan: Datadog monitors flagged. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "data_pipeline_v1",
+      "text": "Apache Airflow for ETL. 50 DAGs on single Kubernetes executor.",
+      "topic": "data_pipeline"
+    },
+    {
+      "id": "noise_0507",
+      "text": "Dep update: bumped DNS settings. No breakage.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0112",
+      "text": "Perf review: webhook retry latency down 15%.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0879",
+      "text": "Dep update: bumped DNS settings. No breakage.",
+      "topic": "noise"
+    },
+    {
+      "id": "data_pipeline_v2",
+      "text": "Upgraded Airflow to KubernetesExecutor with auto-scaling. 45% faster DAG processing.",
+      "topic": "data_pipeline"
+    },
+    {
+      "id": "noise_0248",
+      "text": "Dep update: bumped rollback procedure. No breakage.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0690",
+      "text": "Sprint planning: platform prioritized CI pipeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0576",
+      "text": "QA standup: discussed capacity plan. No blockers.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0838",
+      "text": "Perf review: CDN cache latency down 15%.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0688",
+      "text": "Incident: secret rotation degraded. RCA: timeout.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0015",
+      "text": "Workshop: devops trained on Redis cluster.",
+      "topic": "noise"
+    },
+    {
+      "id": "data_pipeline_v3",
+      "text": "Replaced Airflow with Dagster. Software-defined assets eliminated DAG spaghetti, added built-in data lineage.",
+      "topic": "data_pipeline"
+    },
+    {
+      "id": "noise_0101",
+      "text": "Ticket INFRA-3135: infra escalated Elasticsearch indices.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0716",
+      "text": "Ticket SEC-4160: QA closed Helm charts.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0842",
+      "text": "Oncall: frontend noted Sentry alerts needs attention.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0068",
+      "text": "Retro: improve cost tags docs for oncall.",
+      "topic": "noise"
+    },
+    {
+      "id": "error_tracking_v1",
+      "text": "Sentry self-hosted for error tracking on a single EC2.",
+      "topic": "error_tracking"
+    },
+    {
+      "id": "noise_0815",
+      "text": "Ticket MOB-8021: backend investigated PagerDuty policy.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0360",
+      "text": "Budget: K8s node pool costs 10% over forecast.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0700",
+      "text": "Perf review: monitoring alerts latency down 15%.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0183",
+      "text": "Workshop: frontend trained on runbook.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0649",
+      "text": "Demo: data showed capacity plan improvements.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0604",
+      "text": "Incident: model registry degraded. RCA: connection exhaustion.",
+      "topic": "noise"
+    },
+    {
+      "id": "error_tracking_v2",
+      "text": "Migrated to Sentry SaaS. Self-hosted was losing events under load.",
+      "topic": "error_tracking"
+    },
+    {
+      "id": "noise_0151",
+      "text": "Workshop: mobile trained on Datadog monitors.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0721",
+      "text": "Workshop: platform trained on rate limiter.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0010",
+      "text": "Oncall: security noted OAuth tokens needs attention.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0786",
+      "text": "Security scan: OAuth tokens flagged. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0862",
+      "text": "Sync: cross-team on secret rotation timeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0442",
+      "text": "Sprint planning: frontend prioritized monitoring alerts.",
+      "topic": "noise"
+    },
+    {
+      "id": "error_tracking_v3",
+      "text": "Replaced Sentry with Highlight.io. Highlight combines errors, session replay, and logging; Sentry needed three integrations.",
+      "topic": "error_tracking"
+    },
+    {
+      "id": "noise_0889",
+      "text": "QA standup: discussed SLO dashboard. No blockers.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0929",
+      "text": "Oncall: QA noted Helm charts needs attention.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0943",
+      "text": "Budget: log retention costs 10% over forecast.",
+      "topic": "noise"
+    },
+    {
+      "id": "session_store_v1",
+      "text": "Express sessions in Redis. 24h TTL, JSON serialization.",
+      "topic": "session_store"
+    },
+    {
+      "id": "noise_0190",
+      "text": "Incident: SSL certs degraded. RCA: connection exhaustion.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0546",
+      "text": "Oncall: data noted Datadog monitors needs attention.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0236",
+      "text": "Retro: improve Redis cluster docs for oncall.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0304",
+      "text": "Dep update: bumped API gateway. No breakage.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0629",
+      "text": "Code review: QA approved backup verify PR.",
+      "topic": "noise"
+    },
+    {
+      "id": "session_store_v2",
+      "text": "Added Redis Sentinel for session HA. Failover from 30s to 2s.",
+      "topic": "session_store"
+    },
+    {
+      "id": "noise_0514",
+      "text": "Sprint planning: devops prioritized connection pooling.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0520",
+      "text": "Slack: frontend debated CDN cache, no consensus.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0662",
+      "text": "Retro: improve GraphQL schema docs for oncall.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0820",
+      "text": "Sync: cross-team on cost tags timeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0075",
+      "text": "Dep update: bumped Datadog monitors. No breakage.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0350",
+      "text": "Workshop: infra trained on CI pipeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0103",
+      "text": "Demo: QA showed GraphQL schema improvements.",
+      "topic": "noise"
+    },
+    {
+      "id": "session_store_v3",
+      "text": "Replaced Redis sessions with signed JWTs client-side. Redis was a SPOF; JWT eliminates server-side session state.",
+      "topic": "session_store"
+    },
+    {
+      "id": "noise_0270",
+      "text": "platform standup: discussed secret rotation. No blockers.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0216",
+      "text": "Code review: infra approved CI pipeline PR.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0095",
+      "text": "Oncall: QA noted network policy needs attention.",
+      "topic": "noise"
+    },
+    {
+      "id": "i18n_v1",
+      "text": "i18next for frontend i18n. JSON locale files bundled with app. 4 languages.",
+      "topic": "i18n"
+    },
+    {
+      "id": "noise_0076",
+      "text": "Demo: mobile showed log retention improvements.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0168",
+      "text": "Ticket SRE-6779: platform reviewed Sentry alerts.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0834",
+      "text": "Sprint planning: platform prioritized backup verify.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0795",
+      "text": "Code review: QA approved Vault policy PR.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0111",
+      "text": "Security scan: service mesh flagged. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0919",
+      "text": "Perf review: DNS settings latency down 15%.",
+      "topic": "noise"
+    },
+    {
+      "id": "i18n_v2",
+      "text": "Added Crowdin for translator workflow. Auto-sync on CI build.",
+      "topic": "i18n"
+    },
+    {
+      "id": "noise_0519",
+      "text": "Budget: network policy costs 10% over forecast.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0155",
+      "text": "Code review: security approved K8s node pool PR.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0169",
+      "text": "Incident: queue depth degraded. RCA: connection exhaustion.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0303",
+      "text": "Perf review: SSL certs latency down 15%.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0715",
+      "text": "Incident: secret rotation degraded. RCA: race condition.",
+      "topic": "noise"
+    },
+    {
+      "id": "i18n_v3",
+      "text": "Replaced i18next with Paraglide.js. Compiler-based approach cut 40KB runtime bundle, added type-safe keys.",
+      "topic": "i18n"
+    },
+    {
+      "id": "noise_0140",
+      "text": "Code review: mobile approved error budget PR.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0565",
+      "text": "Slack: data debated cost tags, no consensus.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0175",
+      "text": "Workshop: frontend trained on log retention.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0463",
+      "text": "Sprint planning: backend prioritized gRPC proto.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0555",
+      "text": "Perf review: capacity plan latency down 15%.",
+      "topic": "noise"
+    },
+    {
+      "id": "load_testing_v1",
+      "text": "JMeter for load testing. XML test plans, manual runs before releases.",
+      "topic": "load_testing"
+    },
+    {
+      "id": "noise_0177",
+      "text": "Incident: Helm charts degraded. RCA: connection exhaustion.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0485",
+      "text": "Demo: devops showed PagerDuty policy improvements.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0269",
+      "text": "Perf review: API gateway latency down 15%.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0846",
+      "text": "frontend standup: discussed backup verify. No blockers.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0618",
+      "text": "Dep update: bumped Helm charts. No breakage.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0007",
+      "text": "Workshop: frontend trained on SLO dashboard.",
+      "topic": "noise"
+    },
+    {
+      "id": "load_testing_v2",
+      "text": "Automated JMeter in CI. Nightly load tests with Slack alerts.",
+      "topic": "load_testing"
+    },
+    {
+      "id": "noise_0554",
+      "text": "Incident: Elasticsearch indices degraded. RCA: config drift.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0315",
+      "text": "Incident: Datadog monitors degraded. RCA: timeout.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0544",
+      "text": "Dep update: bumped capacity plan. No breakage.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0181",
+      "text": "Budget: OAuth tokens costs 10% over forecast.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0141",
+      "text": "Oncall: backend noted queue depth needs attention.",
+      "topic": "noise"
+    },
+    {
+      "id": "load_testing_v3",
+      "text": "Replaced JMeter with k6. JavaScript scripts that developers actually write and review.",
+      "topic": "load_testing"
+    },
+    {
+      "id": "noise_0501",
+      "text": "Sprint planning: mobile prioritized sidecar injection.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0810",
+      "text": "Oncall: platform noted storage quota needs attention.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0650",
+      "text": "Code review: backend approved OAuth tokens PR.",
+      "topic": "noise"
+    },
+    {
+      "id": "backup_v1",
+      "text": "pg_dump cron for PostgreSQL backups. Daily to S3, 30-day retention.",
+      "topic": "backup"
+    },
+    {
+      "id": "noise_0518",
+      "text": "Oncall: frontend noted SLO dashboard needs attention.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0756",
+      "text": "Sync: cross-team on GraphQL schema timeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0812",
+      "text": "Workshop: SRE trained on SSL certs.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0365",
+      "text": "Oncall: frontend noted SSL certs needs attention.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0883",
+      "text": "Ticket BE-2090: infra resolved rollback procedure.",
+      "topic": "noise"
+    },
+    {
+      "id": "backup_v2",
+      "text": "Added WAL-G for continuous archiving. PITR with 5-minute RPO.",
+      "topic": "backup"
+    },
+    {
+      "id": "noise_0306",
+      "text": "Demo: infra showed rollback procedure improvements.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0645",
+      "text": "Demo: data showed error budget improvements.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0368",
+      "text": "Demo: frontend showed Terraform state improvements.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0309",
+      "text": "Sync: cross-team on container registry timeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0826",
+      "text": "Slack: QA debated feature flags, no consensus.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0172",
+      "text": "Budget: secret rotation costs 10% over forecast.",
+      "topic": "noise"
+    },
+    {
+      "id": "backup_v3",
+      "text": "Migrated to pgBackRest. Parallel backup/restore cut window from 45 to 12 minutes.",
+      "topic": "backup"
+    },
+    {
+      "id": "noise_0789",
+      "text": "Dep update: bumped load balancer. No breakage.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0153",
+      "text": "devops standup: discussed Sentry alerts. No blockers.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0877",
+      "text": "Demo: frontend showed runbook improvements.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0678",
+      "text": "Perf review: Datadog monitors latency down 15%.",
+      "topic": "noise"
+    },
+    {
+      "id": "access_control_v1",
+      "text": "RBAC with 5 hardcoded roles in application code.",
+      "topic": "access_control"
+    },
+    {
+      "id": "noise_0728",
+      "text": "Security scan: Helm charts flagged. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0499",
+      "text": "Security scan: log retention flagged. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0118",
+      "text": "Dep update: bumped gRPC proto. No breakage.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0024",
+      "text": "Demo: QA showed PagerDuty policy improvements.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0376",
+      "text": "Perf review: Airflow DAGs latency down 15%.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0902",
+      "text": "Slack: SRE debated GraphQL schema, no consensus.",
+      "topic": "noise"
+    },
+    {
+      "id": "access_control_v2",
+      "text": "Extracted RBAC to policy service. Roles in PostgreSQL, cached in Redis.",
+      "topic": "access_control"
+    },
+    {
+      "id": "noise_0119",
+      "text": "Perf review: Helm charts latency down 15%.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0297",
+      "text": "Dep update: bumped capacity plan. No breakage.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0482",
+      "text": "Sync: cross-team on SSL certs timeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0308",
+      "text": "Oncall: platform noted Terraform state needs attention.",
+      "topic": "noise"
+    },
+    {
+      "id": "access_control_v3",
+      "text": "Replaced RBAC with ABAC using Open Policy Agent. RBAC couldn't express location and time-based rules for compliance.",
+      "topic": "access_control"
+    },
+    {
+      "id": "noise_0718",
+      "text": "Ticket INFRA-2623: QA closed log retention.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0494",
+      "text": "Workshop: QA trained on gRPC proto.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0581",
+      "text": "Incident: monitoring alerts degraded. RCA: connection exhaustion.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0892",
+      "text": "Code review: frontend approved cost tags PR.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0275",
+      "text": "Sync: cross-team on Grafana dashboards timeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0910",
+      "text": "Sync: cross-team on ML pipeline timeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0673",
+      "text": "Slack: SRE debated gRPC proto, no consensus.",
+      "topic": "noise"
+    },
+    {
+      "id": "notification_v1",
+      "text": "Firebase Cloud Messaging for push notifications. Direct API calls.",
+      "topic": "notification"
+    },
+    {
+      "id": "noise_0732",
+      "text": "Oncall: data noted Elasticsearch indices needs attention.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0427",
+      "text": "Budget: feature flags costs 10% over forecast.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0397",
+      "text": "Workshop: security trained on batch jobs.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0741",
+      "text": "Ticket DATA-1017: devops reviewed API gateway.",
+      "topic": "noise"
+    },
+    {
+      "id": "notification_v2",
+      "text": "Added notification routing service. Centralized push, email, SMS, in-app.",
+      "topic": "notification"
+    },
+    {
+      "id": "noise_0553",
+      "text": "Demo: platform showed gRPC proto improvements.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0538",
+      "text": "Security scan: SSL certs flagged. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0366",
+      "text": "Ticket QA-289: devops escalated batch jobs.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0036",
+      "text": "Dep update: bumped network policy. No breakage.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0198",
+      "text": "Ticket DATA-4329: platform reviewed monitoring alerts.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0589",
+      "text": "Sprint planning: security prioritized connection pooling.",
+      "topic": "noise"
+    },
+    {
+      "id": "notification_v3",
+      "text": "Replaced custom routing with Novu. Multi-channel with subscriber preferences and digest out of the box.",
+      "topic": "notification"
+    },
+    {
+      "id": "noise_0212",
+      "text": "Dep update: bumped runbook. No breakage.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0636",
+      "text": "Perf review: network policy latency down 15%.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0314",
+      "text": "Budget: storage quota costs 10% over forecast.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0783",
+      "text": "Retro: improve CI pipeline docs for oncall.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0875",
+      "text": "Budget: backup verify costs 10% over forecast.",
+      "topic": "noise"
+    },
+    {
+      "id": "api_docs_v1",
+      "text": "Swagger UI from OpenAPI spec. Manual spec updates.",
+      "topic": "api_docs"
+    },
+    {
+      "id": "noise_0580",
+      "text": "Slack: QA debated error budget, no consensus.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0561",
+      "text": "Ticket PLAT-7116: infra investigated service mesh.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0402",
+      "text": "Oncall: SRE noted gRPC proto needs attention.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0878",
+      "text": "Incident: backup verify degraded. RCA: connection exhaustion.",
+      "topic": "noise"
+    },
+    {
+      "id": "api_docs_v2",
+      "text": "Added spectral linting in CI. Schema drift breaks builds.",
+      "topic": "api_docs"
+    },
+    {
+      "id": "noise_0471",
+      "text": "Retro: improve Sentry alerts docs for oncall.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0692",
+      "text": "Sync: cross-team on storage quota timeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0814",
+      "text": "Demo: SRE showed container registry improvements.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0663",
+      "text": "Retro: improve Sentry alerts docs for oncall.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0268",
+      "text": "Demo: infra showed rollback procedure improvements.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0338",
+      "text": "Incident: SLO dashboard degraded. RCA: connection exhaustion.",
+      "topic": "noise"
+    },
+    {
+      "id": "api_docs_v3",
+      "text": "Replaced Swagger UI with Mintlify. Beautiful docs with built-in auth and code samples.",
+      "topic": "api_docs"
+    },
+    {
+      "id": "noise_0758",
+      "text": "Retro: improve load balancer docs for oncall.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0210",
+      "text": "frontend standup: discussed network policy. No blockers.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0541",
+      "text": "Incident: monitoring alerts degraded. RCA: memory leak.",
+      "topic": "noise"
+    },
+    {
+      "id": "analytics_product_v1",
+      "text": "Google Analytics 4 for product analytics. Client-side gtag.js.",
+      "topic": "analytics_product"
+    },
+    {
+      "id": "noise_0813",
+      "text": "Ticket DATA-6773: data closed monitoring alerts.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0626",
+      "text": "SRE standup: discussed Airflow DAGs. No blockers.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0107",
+      "text": "Slack: mobile debated secret rotation, no consensus.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0905",
+      "text": "Perf review: Datadog monitors latency down 15%.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0914",
+      "text": "Slack: SRE debated GraphQL schema, no consensus.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0455",
+      "text": "Demo: devops showed gRPC proto improvements.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0887",
+      "text": "Slack: devops debated Redis cluster, no consensus.",
+      "topic": "noise"
+    },
+    {
+      "id": "analytics_product_v2",
+      "text": "Added Segment for server-side events. Dual tracking for reliability.",
+      "topic": "analytics_product"
+    },
+    {
+      "id": "noise_0186",
+      "text": "Code review: backend approved gRPC proto PR.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0610",
+      "text": "Oncall: data noted Grafana dashboards needs attention.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0660",
+      "text": "Security scan: SLO dashboard flagged. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0717",
+      "text": "Perf review: storage quota latency down 15%.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0791",
+      "text": "Budget: feature flags costs 10% over forecast.",
+      "topic": "noise"
+    },
+    {
+      "id": "analytics_product_v3",
+      "text": "Replaced GA4 and Segment with PostHog. Self-hosted satisfies GDPR; combines analytics, flags, and session recording.",
+      "topic": "analytics_product"
+    },
+    {
+      "id": "noise_0745",
+      "text": "Dep update: bumped ML pipeline. No breakage.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0446",
+      "text": "Workshop: backend trained on Grafana dashboards.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0199",
+      "text": "Budget: SSL certs costs 10% over forecast.",
+      "topic": "noise"
+    },
+    {
+      "id": "service_discovery_v1",
+      "text": "Consul for service discovery. Health checks every 10s, DNS interface.",
+      "topic": "service_discovery"
+    },
+    {
+      "id": "noise_0239",
+      "text": "Demo: QA showed gRPC proto improvements.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0577",
+      "text": "backend standup: discussed batch jobs. No blockers.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0418",
+      "text": "frontend standup: discussed cost tags. No blockers.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0489",
+      "text": "Sprint planning: security prioritized monitoring alerts.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0925",
+      "text": "platform standup: discussed PagerDuty policy. No blockers.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0393",
+      "text": "Security scan: CDN cache flagged. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "service_discovery_v2",
+      "text": "Added Consul Connect for service-to-service mTLS.",
+      "topic": "service_discovery"
+    },
+    {
+      "id": "noise_0085",
+      "text": "Demo: frontend showed ML pipeline improvements.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0856",
+      "text": "Retro: improve Vault policy docs for oncall.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0738",
+      "text": "Sprint planning: frontend prioritized webhook retry.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0161",
+      "text": "Slack: frontend debated backup verify, no consensus.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0492",
+      "text": "Code review: frontend approved backup verify PR.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0831",
+      "text": "Dep update: bumped queue depth. No breakage.",
+      "topic": "noise"
+    },
+    {
+      "id": "service_discovery_v3",
+      "text": "Replaced Consul with Kubernetes native DNS + Istio service mesh. Consul redundant after full K8s migration.",
+      "topic": "service_discovery"
+    },
+    {
+      "id": "noise_0117",
+      "text": "Security scan: backup verify flagged. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0837",
+      "text": "Code review: QA approved feature flags PR.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0768",
+      "text": "Code review: SRE approved error budget PR.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0067",
+      "text": "Incident: log retention degraded. RCA: timeout.",
+      "topic": "noise"
+    },
+    {
+      "id": "rate_limiting_v1",
+      "text": "Nginx rate limiting with limit_req module. Global 100 req/s per IP.",
+      "topic": "rate_limiting"
+    },
+    {
+      "id": "noise_0854",
+      "text": "Sprint planning: security prioritized API gateway.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0513",
+      "text": "Oncall: devops noted Sentry alerts needs attention.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0869",
+      "text": "Dep update: bumped feature flags. No breakage.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0404",
+      "text": "Incident: rate limiter degraded. RCA: memory leak.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0403",
+      "text": "Dep update: bumped GraphQL schema. No breakage.",
+      "topic": "noise"
+    },
+    {
+      "id": "rate_limiting_v2",
+      "text": "Added per-endpoint rate limits with different tiers. Premium users get 10x quota.",
+      "topic": "rate_limiting"
+    },
+    {
+      "id": "noise_0125",
+      "text": "Workshop: frontend trained on service mesh.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0294",
+      "text": "Sprint planning: QA prioritized access audit.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0747",
+      "text": "Slack: data debated Sentry alerts, no consensus.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0377",
+      "text": "Incident: CI pipeline degraded. RCA: timeout.",
+      "topic": "noise"
+    },
+    {
+      "id": "rate_limiting_v3",
+      "text": "Replaced Nginx rate limiting with Envoy external rate limit service backed by Redis. Needed distributed rate limiting across 20 edge nodes.",
+      "topic": "rate_limiting"
+    },
+    {
+      "id": "noise_0799",
+      "text": "Ticket SEC-5500: data investigated webhook retry.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0300",
+      "text": "Retro: improve CI pipeline docs for oncall.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0453",
+      "text": "Dep update: bumped API gateway. No breakage.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0148",
+      "text": "Code review: platform approved CDN cache PR.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0070",
+      "text": "Retro: improve Helm charts docs for oncall.",
+      "topic": "noise"
+    },
+    {
+      "id": "schema_registry_v1",
+      "text": "No schema registry. Protobuf files shared via git submodule between services.",
+      "topic": "schema_registry"
+    },
+    {
+      "id": "noise_0949",
+      "text": "Incident: webhook retry degraded. RCA: timeout.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0185",
+      "text": "Oncall: data noted cost tags needs attention.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0766",
+      "text": "Ticket MOB-464: infra updated Terraform state.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0102",
+      "text": "Perf review: container registry latency down 15%.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0280",
+      "text": "Workshop: frontend trained on error budget.",
+      "topic": "noise"
+    },
+    {
+      "id": "schema_registry_v2",
+      "text": "Added Buf for protobuf linting and breaking change detection in CI.",
+      "topic": "schema_registry"
+    },
+    {
+      "id": "noise_0364",
+      "text": "Security scan: service mesh flagged. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0500",
+      "text": "Sync: cross-team on cost tags timeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0806",
+      "text": "Code review: frontend approved log retention PR.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0807",
+      "text": "data standup: discussed Grafana dashboards. No blockers.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0355",
+      "text": "Budget: sidecar injection costs 10% over forecast.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0743",
+      "text": "Security scan: CI pipeline flagged. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "schema_registry_v3",
+      "text": "Deployed Confluent Schema Registry for all event schemas. Buf only covers protobuf; Schema Registry handles Avro and JSON Schema for Kafka events.",
+      "topic": "schema_registry"
+    },
+    {
+      "id": "noise_0459",
+      "text": "Ticket DATA-9538: platform escalated error budget.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0322",
+      "text": "Dep update: bumped CDN cache. No breakage.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0286",
+      "text": "mobile standup: discussed DNS settings. No blockers.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0731",
+      "text": "Dep update: bumped feature flags. No breakage.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0089",
+      "text": "Incident: CDN cache degraded. RCA: race condition.",
+      "topic": "noise"
+    },
+    {
+      "id": "cost_mgmt_v1",
+      "text": "Monthly AWS bill reviewed manually by engineering manager.",
+      "topic": "cost_mgmt"
+    },
+    {
+      "id": "noise_0642",
+      "text": "Perf review: SSL certs latency down 15%.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0585",
+      "text": "Retro: improve Grafana dashboards docs for oncall.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0229",
+      "text": "Oncall: security noted SLO dashboard needs attention.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0324",
+      "text": "Dep update: bumped connection pooling. No breakage.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0050",
+      "text": "Retro: improve error budget docs for oncall.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0184",
+      "text": "Perf review: runbook latency down 15%.",
+      "topic": "noise"
+    },
+    {
+      "id": "cost_mgmt_v2",
+      "text": "Added AWS Cost Explorer alerts. Threshold alerts at 80% and 100% of monthly budget.",
+      "topic": "cost_mgmt"
+    },
+    {
+      "id": "noise_0252",
+      "text": "Oncall: data noted batch jobs needs attention.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0340",
+      "text": "Workshop: backend trained on CI pipeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0701",
+      "text": "Oncall: SRE noted model registry needs attention.",
+      "topic": "noise"
+    },
+    {
+      "id": "cost_mgmt_v3",
+      "text": "Deployed Kubecost for per-team per-service cost attribution. AWS Cost Explorer couldn't break down costs by Kubernetes namespace.",
+      "topic": "cost_mgmt"
+    },
+    {
+      "id": "noise_0911",
+      "text": "Demo: platform showed load balancer improvements.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0497",
+      "text": "Code review: backend approved API gateway PR.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0113",
+      "text": "Slack: frontend debated SLO dashboard, no consensus.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0516",
+      "text": "Retro: improve queue depth docs for oncall.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0438",
+      "text": "Code review: backend approved network policy PR.",
+      "topic": "noise"
+    },
+    {
+      "id": "chaos_engineering_v1",
+      "text": "No chaos engineering. Outages discovered in production.",
+      "topic": "chaos_engineering"
+    },
+    {
+      "id": "noise_0034",
+      "text": "Security scan: GraphQL schema flagged. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0635",
+      "text": "Incident: Terraform state degraded. RCA: memory leak.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0298",
+      "text": "Security scan: access audit flagged. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0456",
+      "text": "Security scan: ML pipeline flagged. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0359",
+      "text": "Sprint planning: frontend prioritized gRPC proto.",
+      "topic": "noise"
+    },
+    {
+      "id": "chaos_engineering_v2",
+      "text": "Added Chaos Monkey for random EC2 instance termination in staging.",
+      "topic": "chaos_engineering"
+    },
+    {
+      "id": "noise_0490",
+      "text": "Oncall: QA noted capacity plan needs attention.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0330",
+      "text": "Sprint planning: platform prioritized Elasticsearch indices.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0843",
+      "text": "Demo: infra showed access audit improvements.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0591",
+      "text": "Slack: mobile debated sidecar injection, no consensus.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0267",
+      "text": "Sync: cross-team on CI pipeline timeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "chaos_engineering_v3",
+      "text": "Replaced Chaos Monkey with Litmus for Kubernetes-native chaos experiments. Chaos Monkey only kills instances; Litmus supports pod, network, and disk fault injection.",
+      "topic": "chaos_engineering"
+    },
+    {
+      "id": "noise_0913",
+      "text": "Ticket DATA-2845: infra reviewed service mesh.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0930",
+      "text": "Ticket FE-3637: backend resolved SLO dashboard.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0794",
+      "text": "Ticket BE-302: mobile updated CI pipeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0860",
+      "text": "Budget: load balancer costs 10% over forecast.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0421",
+      "text": "Workshop: devops trained on Terraform state.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0719",
+      "text": "Oncall: QA noted GraphQL schema needs attention.",
+      "topic": "noise"
+    },
+    {
+      "id": "vulnerability_scanning_v1",
+      "text": "Manual Nessus scans quarterly. Results emailed to security team.",
+      "topic": "vulnerability_scanning"
+    },
+    {
+      "id": "noise_0847",
+      "text": "Slack: platform debated CDN cache, no consensus.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0014",
+      "text": "Budget: GraphQL schema costs 10% over forecast.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0420",
+      "text": "Workshop: frontend trained on capacity plan.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0200",
+      "text": "Dep update: bumped PagerDuty policy. No breakage.",
+      "topic": "noise"
+    },
+    {
+      "id": "vulnerability_scanning_v2",
+      "text": "Added Trivy scanning in CI for container images. Blocks builds on critical CVEs.",
+      "topic": "vulnerability_scanning"
+    },
+    {
+      "id": "noise_0335",
+      "text": "Code review: infra approved batch jobs PR.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0244",
+      "text": "Sprint planning: SRE prioritized storage quota.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0771",
+      "text": "Dep update: bumped Vault policy. No breakage.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0266",
+      "text": "Perf review: queue depth latency down 15%.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0017",
+      "text": "Security scan: gRPC proto flagged. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "vulnerability_scanning_v3",
+      "text": "Replaced Trivy with Snyk for unified dependency and container scanning. Snyk's developer-first workflow and auto-fix PRs reduced mean-time-to-patch from 14 days to 2.",
+      "topic": "vulnerability_scanning"
+    },
+    {
+      "id": "noise_0282",
+      "text": "Dep update: bumped monitoring alerts. No breakage.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0441",
+      "text": "Dep update: bumped webhook retry. No breakage.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0558",
+      "text": "Workshop: data trained on Datadog monitors.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0232",
+      "text": "Security scan: secret rotation flagged. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0556",
+      "text": "SRE standup: discussed webhook retry. No blockers.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0424",
+      "text": "Budget: service mesh costs 10% over forecast.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0801",
+      "text": "Demo: data showed OAuth tokens improvements.",
+      "topic": "noise"
+    },
+    {
+      "id": "db_migration_v1",
+      "text": "Alembic for database migrations. Auto-generated from SQLAlchemy models.",
+      "topic": "db_migration"
+    },
+    {
+      "id": "noise_0045",
+      "text": "Slack: platform debated cost tags, no consensus.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0793",
+      "text": "Security scan: sidecar injection flagged. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0399",
+      "text": "Retro: improve backup verify docs for oncall.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0274",
+      "text": "Workshop: security trained on GraphQL schema.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0744",
+      "text": "Sprint planning: security prioritized Datadog monitors.",
+      "topic": "noise"
+    },
+    {
+      "id": "db_migration_v2",
+      "text": "Added migration review gate in CI. Two approvals required for any ALTER TABLE.",
+      "topic": "db_migration"
+    },
+    {
+      "id": "noise_0685",
+      "text": "Slack: mobile debated Airflow DAGs, no consensus.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0683",
+      "text": "Budget: webhook retry costs 10% over forecast.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0473",
+      "text": "Incident: Airflow DAGs degraded. RCA: config drift.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0693",
+      "text": "Demo: frontend showed rate limiter improvements.",
+      "topic": "noise"
+    },
+    {
+      "id": "db_migration_v3",
+      "text": "Replaced Alembic with Atlas for database migrations. Atlas's declarative schema approach eliminates migration ordering bugs and supports drift detection.",
+      "topic": "db_migration"
+    },
+    {
+      "id": "noise_0567",
+      "text": "Workshop: mobile trained on service mesh.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0840",
+      "text": "Sprint planning: devops prioritized GraphQL schema.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0885",
+      "text": "Budget: rate limiter costs 10% over forecast.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0071",
+      "text": "data standup: discussed runbook. No blockers.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0495",
+      "text": "Incident: Helm charts degraded. RCA: race condition.",
+      "topic": "noise"
+    },
+    {
+      "id": "ml_serving_v1",
+      "text": "Flask API wrapping scikit-learn models. Single replica, no GPU.",
+      "topic": "ml_serving"
+    },
+    {
+      "id": "noise_0302",
+      "text": "Demo: mobile showed SLO dashboard improvements.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0223",
+      "text": "Demo: backend showed feature flags improvements.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0027",
+      "text": "Dep update: bumped Terraform state. No breakage.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0127",
+      "text": "Sprint planning: backend prioritized service mesh.",
+      "topic": "noise"
+    },
+    {
+      "id": "ml_serving_v2",
+      "text": "Migrated to FastAPI with async inference. Added model versioning via MLflow.",
+      "topic": "ml_serving"
+    },
+    {
+      "id": "noise_0439",
+      "text": "Security scan: container registry flagged. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0748",
+      "text": "Code review: security approved K8s node pool PR.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0706",
+      "text": "Sync: cross-team on CI pipeline timeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0205",
+      "text": "Sprint planning: QA prioritized connection pooling.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0821",
+      "text": "mobile standup: discussed API gateway. No blockers.",
+      "topic": "noise"
+    },
+    {
+      "id": "ml_serving_v3",
+      "text": "Replaced custom serving with BentoML. BentoML handles batching, GPU scheduling, and model packaging without custom infrastructure code.",
+      "topic": "ml_serving"
+    },
+    {
+      "id": "noise_0752",
+      "text": "Demo: devops showed connection pooling improvements.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0332",
+      "text": "Workshop: platform trained on gRPC proto.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0671",
+      "text": "Budget: access audit costs 10% over forecast.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0805",
+      "text": "Incident: load balancer degraded. RCA: connection exhaustion.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0921",
+      "text": "Slack: SRE debated storage quota, no consensus.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0353",
+      "text": "Sprint planning: devops prioritized Helm charts.",
+      "topic": "noise"
+    },
+    {
+      "id": "dependency_mgmt_v1",
+      "text": "pip with requirements.txt for Python dependencies. No lock file.",
+      "topic": "dependency_mgmt"
+    },
+    {
+      "id": "noise_0534",
+      "text": "Security scan: Elasticsearch indices flagged. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0253",
+      "text": "Sync: cross-team on Datadog monitors timeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0307",
+      "text": "Slack: devops debated load balancer, no consensus.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0535",
+      "text": "Demo: data showed monitoring alerts improvements.",
+      "topic": "noise"
+    },
+    {
+      "id": "dependency_mgmt_v2",
+      "text": "Migrated to Poetry for dependency management. Lock files and virtual environment isolation.",
+      "topic": "dependency_mgmt"
+    },
+    {
+      "id": "noise_0018",
+      "text": "Demo: security showed SSL certs improvements.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0173",
+      "text": "Security scan: error budget flagged. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0056",
+      "text": "Ticket INFRA-7059: mobile reviewed cost tags.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0259",
+      "text": "Budget: DNS settings costs 10% over forecast.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0474",
+      "text": "Security scan: sidecar injection flagged. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0852",
+      "text": "Retro: improve batch jobs docs for oncall.",
+      "topic": "noise"
+    },
+    {
+      "id": "dependency_mgmt_v3",
+      "text": "Replaced Poetry with uv. uv is 10-100x faster for dependency resolution and supports the same pyproject.toml format.",
+      "topic": "dependency_mgmt"
+    },
+    {
+      "id": "noise_0278",
+      "text": "Sprint planning: frontend prioritized sidecar injection.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0413",
+      "text": "Demo: backend showed Elasticsearch indices improvements.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0037",
+      "text": "Demo: backend showed CDN cache improvements.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0123",
+      "text": "Slack: data debated rate limiter, no consensus.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0231",
+      "text": "Budget: K8s node pool costs 10% over forecast.",
+      "topic": "noise"
+    },
+    {
+      "id": "static_analysis_v1",
+      "text": "Pylint for Python linting. Custom .pylintrc with 200 disabled rules.",
+      "topic": "static_analysis"
+    },
+    {
+      "id": "noise_0774",
+      "text": "Demo: security showed SSL certs improvements.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0408",
+      "text": "Incident: Terraform state degraded. RCA: connection exhaustion.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0226",
+      "text": "Incident: secret rotation degraded. RCA: race condition.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0233",
+      "text": "Retro: improve service mesh docs for oncall.",
+      "topic": "noise"
+    },
+    {
+      "id": "static_analysis_v2",
+      "text": "Replaced Pylint with flake8 + black for formatting. Simpler config, faster execution.",
+      "topic": "static_analysis"
+    },
+    {
+      "id": "noise_0874",
+      "text": "Workshop: data trained on log retention.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0481",
+      "text": "Security scan: API gateway flagged. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0536",
+      "text": "Sprint planning: platform prioritized sidecar injection.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0051",
+      "text": "Dep update: bumped model registry. No breakage.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0057",
+      "text": "Oncall: backend noted cost tags needs attention.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0317",
+      "text": "Sync: cross-team on ML pipeline timeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0062",
+      "text": "Perf review: Airflow DAGs latency down 15%.",
+      "topic": "noise"
+    },
+    {
+      "id": "static_analysis_v3",
+      "text": "Consolidated linting to Ruff. Ruff replaces flake8, isort, and black with a single Rust-based tool that's 100x faster.",
+      "topic": "static_analysis"
+    },
+    {
+      "id": "noise_0412",
+      "text": "Dep update: bumped log retention. No breakage.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0792",
+      "text": "Incident: service mesh degraded. RCA: config drift.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0002",
+      "text": "Security scan: Redis cluster flagged. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0284",
+      "text": "Retro: improve runbook docs for oncall.",
+      "topic": "noise"
+    },
+    {
+      "id": "incident_mgmt_v1",
+      "text": "PagerDuty for on-call alerts. Manual incident creation in Jira.",
+      "topic": "incident_mgmt"
+    },
+    {
+      "id": "noise_0941",
+      "text": "Perf review: access audit latency down 15%.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0778",
+      "text": "backend standup: discussed connection pooling. No blockers.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0819",
+      "text": "Ticket INFRA-7384: frontend resolved queue depth.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0372",
+      "text": "Oncall: devops noted log retention needs attention.",
+      "topic": "noise"
+    },
+    {
+      "id": "incident_mgmt_v2",
+      "text": "Added Statuspage for public incident communication. Automated status updates from PagerDuty.",
+      "topic": "incident_mgmt"
+    },
+    {
+      "id": "noise_0434",
+      "text": "Budget: access audit costs 10% over forecast.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0387",
+      "text": "Oncall: QA noted access audit needs attention.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0370",
+      "text": "Budget: service mesh costs 10% over forecast.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0323",
+      "text": "Budget: connection pooling costs 10% over forecast.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0452",
+      "text": "Code review: devops approved DNS settings PR.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0351",
+      "text": "Dep update: bumped PagerDuty policy. No breakage.",
+      "topic": "noise"
+    },
+    {
+      "id": "incident_mgmt_v3",
+      "text": "Replaced PagerDuty incident workflow with incident.io. incident.io automates incident channels, roles, and postmortems directly in Slack.",
+      "topic": "incident_mgmt"
+    },
+    {
+      "id": "noise_0616",
+      "text": "Ticket QA-1974: security escalated Terraform state.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0292",
+      "text": "Dep update: bumped SLO dashboard. No breakage.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0146",
+      "text": "Demo: SRE showed Grafana dashboards improvements.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0235",
+      "text": "Retro: improve feature flags docs for oncall.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0542",
+      "text": "Sprint planning: SRE prioritized PagerDuty policy.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0025",
+      "text": "Security scan: DNS settings flagged. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0108",
+      "text": "Perf review: error budget latency down 15%.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0779",
+      "text": "Perf review: feature flags latency down 15%.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0240",
+      "text": "Slack: frontend debated SLO dashboard, no consensus.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0891",
+      "text": "Slack: frontend debated error budget, no consensus.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0615",
+      "text": "Demo: security showed rate limiter improvements.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0283",
+      "text": "Incident: rollback procedure degraded. RCA: connection exhaustion.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0065",
+      "text": "Budget: sidecar injection costs 10% over forecast.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0052",
+      "text": "Incident: K8s node pool degraded. RCA: timeout.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0863",
+      "text": "Ticket OPS-4734: SRE resolved Airflow DAGs.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0213",
+      "text": "Code review: platform approved CI pipeline PR.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0691",
+      "text": "Security scan: rate limiter flagged. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0742",
+      "text": "Sync: cross-team on webhook retry timeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0053",
+      "text": "Sync: cross-team on feature flags timeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0935",
+      "text": "Oncall: mobile noted K8s node pool needs attention.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0643",
+      "text": "Sync: cross-team on Elasticsearch indices timeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0044",
+      "text": "Ticket SRE-1837: infra investigated CDN cache.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0178",
+      "text": "Code review: backend approved OAuth tokens PR.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0367",
+      "text": "Demo: QA showed webhook retry improvements.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0798",
+      "text": "Ticket OPS-3084: security resolved GraphQL schema.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0436",
+      "text": "Security scan: GraphQL schema flagged. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0256",
+      "text": "Perf review: connection pooling latency down 15%.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0218",
+      "text": "Retro: improve sidecar injection docs for oncall.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0451",
+      "text": "Slack: infra debated batch jobs, no consensus.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0104",
+      "text": "security standup: discussed DNS settings. No blockers.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0597",
+      "text": "frontend standup: discussed gRPC proto. No blockers.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0664",
+      "text": "Demo: devops showed DNS settings improvements.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0525",
+      "text": "Code review: QA approved secret rotation PR.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0734",
+      "text": "Workshop: security trained on Helm charts.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0712",
+      "text": "Retro: improve K8s node pool docs for oncall.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0160",
+      "text": "Sync: cross-team on PagerDuty policy timeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0764",
+      "text": "Demo: data showed SLO dashboard improvements.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0596",
+      "text": "Retro: improve rollback procedure docs for oncall.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0341",
+      "text": "Budget: service mesh costs 10% over forecast.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0243",
+      "text": "Ticket PLAT-4428: security investigated access audit.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0086",
+      "text": "Code review: security approved container registry PR.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0440",
+      "text": "Code review: infra approved API gateway PR.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0204",
+      "text": "Security scan: cost tags flagged. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0475",
+      "text": "Budget: log retention costs 10% over forecast.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0557",
+      "text": "Sprint planning: backend prioritized monitoring alerts.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0033",
+      "text": "SRE standup: discussed Airflow DAGs. No blockers.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0509",
+      "text": "Incident: ML pipeline degraded. RCA: config drift.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0139",
+      "text": "Incident: connection pooling degraded. RCA: timeout.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0255",
+      "text": "Dep update: bumped load balancer. No breakage.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0060",
+      "text": "Code review: platform approved Elasticsearch indices PR.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0342",
+      "text": "Sync: cross-team on OAuth tokens timeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0825",
+      "text": "backend standup: discussed Vault policy. No blockers.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0163",
+      "text": "Demo: mobile showed cost tags improvements.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0895",
+      "text": "Demo: data showed GraphQL schema improvements.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0224",
+      "text": "Dep update: bumped SLO dashboard. No breakage.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0593",
+      "text": "Sprint planning: infra prioritized Elasticsearch indices.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0655",
+      "text": "SRE standup: discussed capacity plan. No blockers.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0760",
+      "text": "Security scan: ML pipeline flagged. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0251",
+      "text": "Ticket SEC-5158: infra resolved batch jobs.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0150",
+      "text": "Retro: improve sidecar injection docs for oncall.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0945",
+      "text": "Perf review: sidecar injection latency down 15%.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0406",
+      "text": "Sprint planning: SRE prioritized backup verify.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0674",
+      "text": "Workshop: data trained on monitoring alerts.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0617",
+      "text": "Workshop: backend trained on Sentry alerts.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0552",
+      "text": "Incident: container registry degraded. RCA: memory leak.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0079",
+      "text": "Perf review: Vault policy latency down 15%.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0881",
+      "text": "Retro: improve cost tags docs for oncall.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0194",
+      "text": "Budget: DNS settings costs 10% over forecast.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0855",
+      "text": "Incident: CDN cache degraded. RCA: config drift.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0777",
+      "text": "Workshop: backend trained on model registry.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0396",
+      "text": "Security scan: API gateway flagged. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0524",
+      "text": "Security scan: Terraform state flagged. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0136",
+      "text": "Perf review: monitoring alerts latency down 15%.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0637",
+      "text": "Budget: queue depth costs 10% over forecast.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0422",
+      "text": "Retro: improve monitoring alerts docs for oncall.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0632",
+      "text": "Dep update: bumped sidecar injection. No breakage.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0790",
+      "text": "security standup: discussed error budget. No blockers.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0174",
+      "text": "SRE standup: discussed service mesh. No blockers.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0126",
+      "text": "Sprint planning: SRE prioritized rate limiter.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0142",
+      "text": "Oncall: data noted GraphQL schema needs attention.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0575",
+      "text": "Retro: improve DNS settings docs for oncall.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0782",
+      "text": "Code review: SRE approved rollback procedure PR.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0363",
+      "text": "Oncall: frontend noted connection pooling needs attention.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0583",
+      "text": "Ticket BE-1736: SRE closed Datadog monitors.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0281",
+      "text": "Dep update: bumped container registry. No breakage.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0074",
+      "text": "Retro: improve feature flags docs for oncall.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0803",
+      "text": "Retro: improve Redis cluster docs for oncall.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0357",
+      "text": "Retro: improve CI pipeline docs for oncall.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0504",
+      "text": "Sprint planning: backend prioritized Redis cluster.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0197",
+      "text": "Incident: Terraform state degraded. RCA: timeout.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0318",
+      "text": "Oncall: data noted SLO dashboard needs attention.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0845",
+      "text": "Budget: SSL certs costs 10% over forecast.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0740",
+      "text": "Code review: security approved service mesh PR.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0532",
+      "text": "Incident: Redis cluster degraded. RCA: connection exhaustion.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0131",
+      "text": "Security scan: Vault policy flagged. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0429",
+      "text": "Sync: cross-team on log retention timeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0005",
+      "text": "Sync: cross-team on rollback procedure timeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0709",
+      "text": "Workshop: devops trained on Vault policy.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0040",
+      "text": "Sprint planning: security prioritized Airflow DAGs.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0325",
+      "text": "Security scan: runbook flagged. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0384",
+      "text": "Ticket FE-7732: frontend investigated sidecar injection.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0888",
+      "text": "Dep update: bumped PagerDuty policy. No breakage.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0091",
+      "text": "Security scan: access audit flagged. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0130",
+      "text": "Security scan: SSL certs flagged. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0328",
+      "text": "Ticket MOB-6814: backend reviewed API gateway.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0394",
+      "text": "SRE standup: discussed DNS settings. No blockers.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0559",
+      "text": "Workshop: data trained on connection pooling.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0260",
+      "text": "Ticket BE-9252: data reviewed rollback procedure.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0022",
+      "text": "Retro: improve Sentry alerts docs for oncall.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0687",
+      "text": "Oncall: devops noted container registry needs attention.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0378",
+      "text": "Slack: devops debated API gateway, no consensus.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0750",
+      "text": "Demo: security showed backup verify improvements.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0871",
+      "text": "Slack: SRE debated sidecar injection, no consensus.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0430",
+      "text": "SRE standup: discussed network policy. No blockers.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0478",
+      "text": "security standup: discussed storage quota. No blockers.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0832",
+      "text": "Oncall: frontend noted secret rotation needs attention.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0927",
+      "text": "Retro: improve model registry docs for oncall.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0483",
+      "text": "Sync: cross-team on feature flags timeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0115",
+      "text": "Budget: K8s node pool costs 10% over forecast.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0389",
+      "text": "Dep update: bumped Redis cluster. No breakage.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0395",
+      "text": "Security scan: DNS settings flagged. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0568",
+      "text": "Budget: access audit costs 10% over forecast.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0680",
+      "text": "Security scan: ML pipeline flagged. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0250",
+      "text": "Sync: cross-team on capacity plan timeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0894",
+      "text": "Security scan: log retention flagged. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0464",
+      "text": "Slack: frontend debated model registry, no consensus.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0486",
+      "text": "Sync: cross-team on DNS settings timeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0828",
+      "text": "Dep update: bumped feature flags. No breakage.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0620",
+      "text": "Incident: SLO dashboard degraded. RCA: connection exhaustion.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0379",
+      "text": "Code review: infra approved webhook retry PR.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0625",
+      "text": "Sync: cross-team on access audit timeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0675",
+      "text": "Sync: cross-team on secret rotation timeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0762",
+      "text": "Demo: QA showed API gateway improvements.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0227",
+      "text": "Sprint planning: SRE prioritized batch jobs.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0824",
+      "text": "Sprint planning: mobile prioritized GraphQL schema.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0382",
+      "text": "Sync: cross-team on access audit timeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0138",
+      "text": "Sync: cross-team on Vault policy timeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0705",
+      "text": "Incident: CI pipeline degraded. RCA: race condition.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0639",
+      "text": "Security scan: CDN cache flagged. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0703",
+      "text": "Code review: backend approved CDN cache PR.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0220",
+      "text": "Sync: cross-team on CI pipeline timeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0729",
+      "text": "Sprint planning: platform prioritized SLO dashboard.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0849",
+      "text": "Demo: platform showed capacity plan improvements.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0092",
+      "text": "Demo: infra showed model registry improvements.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0048",
+      "text": "platform standup: discussed SSL certs. No blockers.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0844",
+      "text": "Retro: improve error budget docs for oncall.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0851",
+      "text": "Code review: backend approved storage quota PR.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0443",
+      "text": "Dep update: bumped cost tags. No breakage.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0222",
+      "text": "Code review: devops approved batch jobs PR.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0237",
+      "text": "Slack: frontend debated SSL certs, no consensus.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0647",
+      "text": "Budget: Redis cluster costs 10% over forecast.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0479",
+      "text": "Code review: frontend approved load balancer PR.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0031",
+      "text": "Ticket OPS-5611: QA resolved Terraform state.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0312",
+      "text": "Sync: cross-team on SLO dashboard timeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0042",
+      "text": "Code review: infra approved Sentry alerts PR.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0829",
+      "text": "Dep update: bumped sidecar injection. No breakage.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0228",
+      "text": "Ticket BE-4218: SRE escalated sidecar injection.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0897",
+      "text": "Security scan: service mesh flagged. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0668",
+      "text": "Sprint planning: infra prioritized SSL certs.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0607",
+      "text": "Slack: QA debated model registry, no consensus.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0093",
+      "text": "Dep update: bumped Airflow DAGs. No breakage.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0023",
+      "text": "Budget: webhook retry costs 10% over forecast.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0865",
+      "text": "Sync: cross-team on Airflow DAGs timeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0234",
+      "text": "Sprint planning: security prioritized error budget.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0787",
+      "text": "Sync: cross-team on load balancer timeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0608",
+      "text": "backend standup: discussed access audit. No blockers.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0000",
+      "text": "Sprint planning: frontend prioritized OAuth tokens.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0602",
+      "text": "Budget: GraphQL schema costs 10% over forecast.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0893",
+      "text": "Retro: improve Airflow DAGs docs for oncall.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0215",
+      "text": "Perf review: K8s node pool latency down 15%.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0354",
+      "text": "Budget: CI pipeline costs 10% over forecast.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0004",
+      "text": "Dep update: bumped cost tags. No breakage.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0064",
+      "text": "SRE standup: discussed model registry. No blockers.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0087",
+      "text": "Workshop: QA trained on runbook.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0839",
+      "text": "Ticket FE-8583: frontend resolved Terraform state.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0128",
+      "text": "mobile standup: discussed monitoring alerts. No blockers.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0454",
+      "text": "Retro: improve capacity plan docs for oncall.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0508",
+      "text": "Oncall: infra noted rate limiter needs attention.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0088",
+      "text": "Slack: backend debated storage quota, no consensus.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0493",
+      "text": "Demo: SRE showed API gateway improvements.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0484",
+      "text": "Budget: queue depth costs 10% over forecast.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0523",
+      "text": "Demo: frontend showed sidecar injection improvements.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0188",
+      "text": "Sprint planning: infra prioritized service mesh.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0833",
+      "text": "Retro: improve CDN cache docs for oncall.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0751",
+      "text": "Retro: improve feature flags docs for oncall.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0329",
+      "text": "Oncall: frontend noted connection pooling needs attention.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0515",
+      "text": "Sync: cross-team on monitoring alerts timeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0802",
+      "text": "Perf review: CI pipeline latency down 15%.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0723",
+      "text": "platform standup: discussed ML pipeline. No blockers.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0641",
+      "text": "Perf review: batch jobs latency down 15%.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0676",
+      "text": "Slack: frontend debated K8s node pool, no consensus.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0666",
+      "text": "Retro: improve PagerDuty policy docs for oncall.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0562",
+      "text": "Budget: network policy costs 10% over forecast.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0598",
+      "text": "Dep update: bumped gRPC proto. No breakage.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0349",
+      "text": "Dep update: bumped storage quota. No breakage.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0458",
+      "text": "Sprint planning: mobile prioritized connection pooling.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0345",
+      "text": "Slack: platform debated ML pipeline, no consensus.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0906",
+      "text": "Oncall: frontend noted CI pipeline needs attention.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0189",
+      "text": "Demo: mobile showed Datadog monitors improvements.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0019",
+      "text": "Retro: improve storage quota docs for oncall.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0080",
+      "text": "Demo: security showed SSL certs improvements.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0707",
+      "text": "Slack: security debated ML pipeline, no consensus.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0918",
+      "text": "Dep update: bumped API gateway. No breakage.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0049",
+      "text": "Sprint planning: mobile prioritized PagerDuty policy.",
+      "topic": "noise"
+    }
+  ],
+  "queries": [
+    {
+      "question": "what caching solution are we currently using?",
+      "expect_topic": "cache",
+      "expect_contains": [
+        "Caffeine"
+      ]
+    },
+    {
+      "question": "what database runs the analytics warehouse?",
+      "expect_topic": "database",
+      "expect_contains": [
+        "ClickHouse"
+      ]
+    },
+    {
+      "question": "how do mobile users authenticate?",
+      "expect_topic": "auth",
+      "expect_contains": [
+        "passkey",
+        "WebAuthn"
+      ]
+    },
+    {
+      "question": "how does canary deployment work?",
+      "expect_topic": "deploy",
+      "expect_contains": [
+        "header"
+      ]
+    },
+    {
+      "question": "what search engine powers product search?",
+      "expect_topic": "search",
+      "expect_contains": [
+        "Typesense"
+      ]
+    },
+    {
+      "question": "what message queue system do we use?",
+      "expect_topic": "queue",
+      "expect_contains": [
+        "SQS"
+      ]
+    },
+    {
+      "question": "what monitoring platform do we use?",
+      "expect_topic": "monitoring",
+      "expect_contains": [
+        "Datadog"
+      ]
+    },
+    {
+      "question": "what CI/CD platform do we use?",
+      "expect_topic": "ci",
+      "expect_contains": [
+        "Buildkite"
+      ]
+    },
+    {
+      "question": "what CDN serves our static assets?",
+      "expect_topic": "cdn",
+      "expect_contains": [
+        "Fastly"
+      ]
+    },
+    {
+      "question": "what logging stack do we use?",
+      "expect_topic": "logging",
+      "expect_contains": [
+        "Loki"
+      ]
+    },
+    {
+      "question": "what feature flag system do we use?",
+      "expect_topic": "feature_flags",
+      "expect_contains": [
+        "LaunchDarkly"
+      ]
+    },
+    {
+      "question": "how do we manage secrets?",
+      "expect_topic": "secrets",
+      "expect_contains": [
+        "AWS Secrets Manager",
+        "Secrets Manager"
+      ]
+    },
+    {
+      "question": "what API gateway do we use?",
+      "expect_topic": "api_gateway",
+      "expect_contains": [
+        "Envoy",
+        "Istio"
+      ]
+    },
+    {
+      "question": "what email service sends transactional emails?",
+      "expect_topic": "email",
+      "expect_contains": [
+        "Postmark"
+      ]
+    },
+    {
+      "question": "where are user uploads stored?",
+      "expect_topic": "storage",
+      "expect_contains": [
+        "R2",
+        "Cloudflare"
+      ]
+    },
+    {
+      "question": "what E2E testing framework do we use?",
+      "expect_topic": "testing",
+      "expect_contains": [
+        "Cypress"
+      ]
+    },
+    {
+      "question": "what DNS provider do we use?",
+      "expect_topic": "dns",
+      "expect_contains": [
+        "Cloudflare"
+      ]
+    },
+    {
+      "question": "how do we handle scheduled tasks and workflows?",
+      "expect_topic": "scheduling",
+      "expect_contains": [
+        "Temporal"
+      ]
+    },
+    {
+      "question": "what payment processor handles EU payments?",
+      "expect_topic": "payments",
+      "expect_contains": [
+        "Adyen"
+      ]
+    },
+    {
+      "question": "how is application configuration managed?",
+      "expect_topic": "config",
+      "expect_contains": [
+        "ConfigMaps",
+        "Reloader"
+      ]
+    },
+    {
+      "question": "what distributed tracing system do we use?",
+      "expect_topic": "tracing",
+      "expect_contains": [
+        "Tempo"
+      ]
+    },
+    {
+      "question": "what state management libraries does the frontend use?",
+      "expect_topic": "state_mgmt",
+      "expect_contains": [
+        "Zustand",
+        "TanStack"
+      ]
+    },
+    {
+      "question": "what ORM do new Python services use?",
+      "expect_topic": "orm",
+      "expect_contains": [
+        "Prisma"
+      ]
+    },
+    {
+      "question": "how are images processed and resized?",
+      "expect_topic": "image_processing",
+      "expect_contains": [
+        "Cloudflare Images"
+      ]
+    },
+    {
+      "question": "what generates PDF invoices?",
+      "expect_topic": "pdf_generation",
+      "expect_contains": [
+        "Gotenberg"
+      ]
+    },
+    {
+      "question": "what handles real-time WebSocket connections?",
+      "expect_topic": "websockets",
+      "expect_contains": [
+        "Centrifugo"
+      ]
+    },
+    {
+      "question": "what graph database powers social features?",
+      "expect_topic": "graph_db",
+      "expect_contains": [
+        "Neptune"
+      ]
+    },
+    {
+      "question": "what framework builds our mobile apps?",
+      "expect_topic": "mobile_framework",
+      "expect_contains": [
+        "Flutter"
+      ]
+    },
+    {
+      "question": "where are container images stored?",
+      "expect_topic": "container_registry",
+      "expect_contains": [
+        "GHCR",
+        "GitHub Container Registry"
+      ]
+    },
+    {
+      "question": "what orchestrates data pipelines?",
+      "expect_topic": "data_pipeline",
+      "expect_contains": [
+        "Dagster"
+      ]
+    },
+    {
+      "question": "what error tracking tool do we use?",
+      "expect_topic": "error_tracking",
+      "expect_contains": [
+        "Highlight"
+      ]
+    },
+    {
+      "question": "how are user sessions managed?",
+      "expect_topic": "session_store",
+      "expect_contains": [
+        "JWT"
+      ]
+    },
+    {
+      "question": "what i18n library handles translations?",
+      "expect_topic": "i18n",
+      "expect_contains": [
+        "Paraglide"
+      ]
+    },
+    {
+      "question": "what load testing tool do we use?",
+      "expect_topic": "load_testing",
+      "expect_contains": [
+        "k6"
+      ]
+    },
+    {
+      "question": "what tool handles database backups?",
+      "expect_topic": "backup",
+      "expect_contains": [
+        "pgBackRest"
+      ]
+    },
+    {
+      "question": "what access control system do we use?",
+      "expect_topic": "access_control",
+      "expect_contains": [
+        "OPA",
+        "Open Policy Agent"
+      ]
+    },
+    {
+      "question": "what notification system handles multi-channel delivery?",
+      "expect_topic": "notification",
+      "expect_contains": [
+        "Novu"
+      ]
+    },
+    {
+      "question": "what tool serves API documentation?",
+      "expect_topic": "api_docs",
+      "expect_contains": [
+        "Mintlify"
+      ]
+    },
+    {
+      "question": "what product analytics platform do we use?",
+      "expect_topic": "analytics_product",
+      "expect_contains": [
+        "PostHog"
+      ]
+    },
+    {
+      "question": "how does service discovery work?",
+      "expect_topic": "service_discovery",
+      "expect_contains": [
+        "Kubernetes DNS"
+      ]
+    },
+    {
+      "question": "how is API rate limiting implemented?",
+      "expect_topic": "rate_limiting",
+      "expect_contains": [
+        "Envoy rate limit"
+      ]
+    },
+    {
+      "question": "what schema registry validates event schemas?",
+      "expect_topic": "schema_registry",
+      "expect_contains": [
+        "Confluent Schema Registry",
+        "Schema Registry"
+      ]
+    },
+    {
+      "question": "how do we track infrastructure costs per team?",
+      "expect_topic": "cost_mgmt",
+      "expect_contains": [
+        "Kubecost"
+      ]
+    },
+    {
+      "question": "what chaos engineering tool do we use?",
+      "expect_topic": "chaos_engineering",
+      "expect_contains": [
+        "Litmus"
+      ]
+    },
+    {
+      "question": "what vulnerability scanning tool do we use?",
+      "expect_topic": "vulnerability_scanning",
+      "expect_contains": [
+        "Snyk"
+      ]
+    },
+    {
+      "question": "what tool manages database migrations?",
+      "expect_topic": "db_migration",
+      "expect_contains": [
+        "Atlas"
+      ]
+    },
+    {
+      "question": "how are ML models served in production?",
+      "expect_topic": "ml_serving",
+      "expect_contains": [
+        "BentoML"
+      ]
+    },
+    {
+      "question": "what Python dependency manager do we use?",
+      "expect_topic": "dependency_mgmt",
+      "expect_contains": [
+        "uv"
+      ]
+    },
+    {
+      "question": "what linter do we use for Python code?",
+      "expect_topic": "static_analysis",
+      "expect_contains": [
+        "Ruff"
+      ]
+    },
+    {
+      "question": "what tool manages incident response?",
+      "expect_topic": "incident_mgmt",
+      "expect_contains": [
+        "incident.io"
+      ]
+    }
+  ]
+}

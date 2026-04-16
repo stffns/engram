@@ -1,0 +1,2353 @@
+{
+  "name": "knowledge_update_20topics",
+  "description": "20 decision topics x 3 versions + 380 noise = 440 events. Tests brief_v1 at scale.",
+  "events": [
+    {
+      "id": "noise_0255",
+      "text": "Training session: devops ran workshop on incident runbook best practices.",
+      "topic": "noise"
+    },
+    {
+      "id": "cache_v1",
+      "text": "We decided to use Redis as our caching layer because the in-process LRU cache was causing stale reads across 12 pods.",
+      "topic": "cache"
+    },
+    {
+      "id": "noise_0222",
+      "text": "Code review: infra approved PR for monitoring alerts changes.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0344",
+      "text": "Performance review: Elasticsearch indices latency improved 15% after recent optimizations.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0189",
+      "text": "Budget review: storage quota management costs trending 10% over forecast.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0191",
+      "text": "Dependency update: bumped batch job scheduling to latest version. No breaking changes.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0368",
+      "text": "Oncall handoff: frontend noted rate limiter tuning needs monitoring attention.",
+      "topic": "noise"
+    },
+    {
+      "id": "cache_v2",
+      "text": "Updated Redis cache TTL from 5 minutes to 60 seconds after flash sale staleness issues.",
+      "topic": "cache"
+    },
+    {
+      "id": "noise_0084",
+      "text": "Retro action item: improve access control audit documentation for on-call.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0112",
+      "text": "Slack thread: mobile debated SSL certificate renewal approach, no consensus yet.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0169",
+      "text": "Dependency update: bumped SLO dashboard to latest version. No breaking changes.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0182",
+      "text": "Performance review: backup verification latency improved 15% after recent optimizations.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0107",
+      "text": "Sprint planning: mobile team prioritized storage quota management for next sprint.",
+      "topic": "noise"
+    },
+    {
+      "id": "cache_v3",
+      "text": "Reverted from Redis to in-process caching with Caffeine. Redis added 3ms p99 latency; staleness solved by pub/sub invalidation.",
+      "topic": "cache"
+    },
+    {
+      "id": "noise_0059",
+      "text": "Ticket MOB-6946: platform team escalated Redis cluster.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0008",
+      "text": "Security scan: rate limiter tuning flagged for outdated dependency. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0291",
+      "text": "Training session: security ran workshop on rate limiter tuning best practices.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0062",
+      "text": "platform standup: discussed error budget tracking. No blockers.",
+      "topic": "noise"
+    },
+    {
+      "id": "database_v1",
+      "text": "Chose PostgreSQL 16 for the analytics warehouse because SQLite cannot handle 200+ concurrent write connections.",
+      "topic": "database"
+    },
+    {
+      "id": "noise_0287",
+      "text": "infra standup: discussed webhook retry logic. No blockers.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0001",
+      "text": "Performance review: service mesh config latency improved 15% after recent optimizations.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0185",
+      "text": "Sprint planning: infra team prioritized SSL certificate renewal for next sprint.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0073",
+      "text": "Code review: mobile approved PR for monitoring alerts changes.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0312",
+      "text": "Code review: backend approved PR for incident runbook changes.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0260",
+      "text": "security standup: discussed Elasticsearch indices. No blockers.",
+      "topic": "noise"
+    },
+    {
+      "id": "database_v2",
+      "text": "Added TimescaleDB extension on PostgreSQL. Hypertable partitioning reduced query times from 12s to 400ms.",
+      "topic": "database"
+    },
+    {
+      "id": "noise_0289",
+      "text": "Ticket SRE-6393: backend team created log retention policy.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0055",
+      "text": "Retro action item: improve backup verification documentation for on-call.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0221",
+      "text": "Oncall handoff: infra noted DNS TTL settings needs monitoring attention.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0192",
+      "text": "security standup: discussed service mesh config. No blockers.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0128",
+      "text": "Training session: devops ran workshop on network policy review best practices.",
+      "topic": "noise"
+    },
+    {
+      "id": "database_v3",
+      "text": "Migrated analytics warehouse from PostgreSQL/TimescaleDB to ClickHouse. Write throughput at 500K events/s exceeded TimescaleDB limits.",
+      "topic": "database"
+    },
+    {
+      "id": "noise_0194",
+      "text": "Retro action item: improve error budget tracking documentation for on-call.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0132",
+      "text": "infra standup: discussed feature flag cleanup. No blockers.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0244",
+      "text": "Meeting notes: cross-team sync on monitoring alerts integration timeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0118",
+      "text": "Retro action item: improve CI pipeline documentation for on-call.",
+      "topic": "noise"
+    },
+    {
+      "id": "auth_v1",
+      "text": "Implemented OAuth 2.0 with PKCE for mobile after API keys leaked in client-side JavaScript bundles.",
+      "topic": "auth"
+    },
+    {
+      "id": "noise_0319",
+      "text": "Budget review: container registry cleanup costs trending 10% over forecast.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0144",
+      "text": "Performance review: access control audit latency improved 15% after recent optimizations.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0049",
+      "text": "Performance review: batch job scheduling latency improved 15% after recent optimizations.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0007",
+      "text": "Demo session: infra presented rate limiter tuning improvements to stakeholders.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0362",
+      "text": "Performance review: storage quota management latency improved 15% after recent optimizations.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0212",
+      "text": "Sprint planning: data team prioritized load balancer rules for next sprint.",
+      "topic": "noise"
+    },
+    {
+      "id": "auth_v2",
+      "text": "Added device fingerprinting to OAuth flow. Tokens bound to device_id, refresh rejected on fingerprint change.",
+      "topic": "auth"
+    },
+    {
+      "id": "noise_0327",
+      "text": "Ticket INFRA-525: security team investigated API gateway config.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0181",
+      "text": "Security scan: rate limiter tuning flagged for outdated dependency. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0207",
+      "text": "Dependency update: bumped secret rotation schedule to latest version. No breaking changes.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0161",
+      "text": "Sprint planning: platform team prioritized error budget tracking for next sprint.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0310",
+      "text": "devops standup: discussed cost allocation tags. No blockers.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0105",
+      "text": "Meeting notes: cross-team sync on database connection pooling integration timeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "auth_v3",
+      "text": "Replaced OAuth 2.0 PKCE with passkey-based WebAuthn. OAuth refresh rotation caused iOS session drops when backgrounded >15min.",
+      "topic": "auth"
+    },
+    {
+      "id": "noise_0223",
+      "text": "Slack thread: SRE debated container registry cleanup approach, no consensus yet.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0213",
+      "text": "Performance review: Elasticsearch indices latency improved 15% after recent optimizations.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0301",
+      "text": "Meeting notes: cross-team sync on log retention policy integration timeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0224",
+      "text": "Retro action item: improve webhook retry logic documentation for on-call.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0153",
+      "text": "Security scan: load balancer rules flagged for outdated dependency. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "deploy_v1",
+      "text": "Set up canary deployments with ArgoCD. 5% traffic, auto-revert if error rate >1% during 10-minute bake.",
+      "topic": "deploy"
+    },
+    {
+      "id": "noise_0363",
+      "text": "Training session: devops ran workshop on CI pipeline best practices.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0183",
+      "text": "Ticket BE-7847: backend team reviewed database connection pooling.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0135",
+      "text": "Demo session: infra presented deployment rollback improvements to stakeholders.",
+      "topic": "noise"
+    },
+    {
+      "id": "deploy_v2",
+      "text": "Extended canary bake from 10 to 30 minutes after latent memory leak only showed after 20 minutes. Added memory as gate metric.",
+      "topic": "deploy"
+    },
+    {
+      "id": "noise_0177",
+      "text": "Dependency update: bumped error budget tracking to latest version. No breaking changes.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0232",
+      "text": "Oncall handoff: SRE noted batch job scheduling needs monitoring attention.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0215",
+      "text": "Demo session: devops presented CI pipeline improvements to stakeholders.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0058",
+      "text": "mobile standup: discussed capacity planning model. No blockers.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0067",
+      "text": "Incident postmortem: cost allocation tags caused 5-minute degradation. RCA: config drift.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0141",
+      "text": "Dependency update: bumped rate limiter tuning to latest version. No breaking changes.",
+      "topic": "noise"
+    },
+    {
+      "id": "deploy_v3",
+      "text": "Switched from percentage-based canary to header-based routing. Internal team gets X-Canary header for 24h before customer traffic.",
+      "topic": "deploy"
+    },
+    {
+      "id": "noise_0306",
+      "text": "Performance review: storage quota management latency improved 15% after recent optimizations.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0152",
+      "text": "Sprint planning: mobile team prioritized deployment rollback for next sprint.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0326",
+      "text": "mobile standup: discussed queue depth alerts. No blockers.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0081",
+      "text": "Training session: frontend ran workshop on API gateway config best practices.",
+      "topic": "noise"
+    },
+    {
+      "id": "search_v1",
+      "text": "Implemented Elasticsearch for product search. Basic BM25 ranking with custom analyzers for multilingual support.",
+      "topic": "search"
+    },
+    {
+      "id": "noise_0350",
+      "text": "security standup: discussed error budget tracking. No blockers.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0002",
+      "text": "Ticket PLAT-4806: platform team investigated secret rotation schedule.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0217",
+      "text": "Meeting notes: cross-team sync on monitoring alerts integration timeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0364",
+      "text": "Training session: mobile ran workshop on Redis cluster best practices.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0126",
+      "text": "Training session: data ran workshop on Redis cluster best practices.",
+      "topic": "noise"
+    },
+    {
+      "id": "search_v2",
+      "text": "Added vector search via Elasticsearch dense_vector field type. Hybrid BM25 + kNN for better relevance on long-tail queries.",
+      "topic": "search"
+    },
+    {
+      "id": "noise_0024",
+      "text": "Ticket DATA-1483: security team resolved feature flag cleanup.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0159",
+      "text": "Retro action item: improve webhook retry logic documentation for on-call.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0202",
+      "text": "Sprint planning: SRE team prioritized Redis cluster for next sprint.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0209",
+      "text": "Demo session: devops presented batch job scheduling improvements to stakeholders.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0379",
+      "text": "Dependency update: bumped Kubernetes node pool to latest version. No breaking changes.",
+      "topic": "noise"
+    },
+    {
+      "id": "search_v3",
+      "text": "Migrated product search from Elasticsearch to Typesense. Elasticsearch cluster costs were 3x budget and Typesense handles our scale at 1/5 the cost.",
+      "topic": "search"
+    },
+    {
+      "id": "noise_0077",
+      "text": "Budget review: API gateway config costs trending 10% over forecast.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0361",
+      "text": "Dependency update: bumped SSL certificate renewal to latest version. No breaking changes.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0277",
+      "text": "Dependency update: bumped log retention policy to latest version. No breaking changes.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0165",
+      "text": "Sprint planning: infra team prioritized CI pipeline for next sprint.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0033",
+      "text": "Dependency update: bumped database connection pooling to latest version. No breaking changes.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0111",
+      "text": "Oncall handoff: frontend noted backup verification needs monitoring attention.",
+      "topic": "noise"
+    },
+    {
+      "id": "queue_v1",
+      "text": "Deployed RabbitMQ for async job processing. Durable queues with manual ack for payment and notification workflows.",
+      "topic": "queue"
+    },
+    {
+      "id": "noise_0241",
+      "text": "Ticket MOB-246: SRE team resolved DNS TTL settings.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0377",
+      "text": "Sprint planning: devops team prioritized SSL certificate renewal for next sprint.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0125",
+      "text": "Incident postmortem: Kubernetes node pool caused 5-minute degradation. RCA: memory leak.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0113",
+      "text": "Meeting notes: cross-team sync on access control audit integration timeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0041",
+      "text": "Oncall handoff: mobile noted SSL certificate renewal needs monitoring attention.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0047",
+      "text": "Demo session: platform presented Elasticsearch indices improvements to stakeholders.",
+      "topic": "noise"
+    },
+    {
+      "id": "queue_v2",
+      "text": "Added priority queues in RabbitMQ. Payment jobs get priority 10, notifications priority 1. Reduced payment processing latency by 40%.",
+      "topic": "queue"
+    },
+    {
+      "id": "noise_0136",
+      "text": "Slack thread: infra debated incident runbook approach, no consensus yet.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0274",
+      "text": "Dependency update: bumped network policy review to latest version. No breaking changes.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0284",
+      "text": "Slack thread: backend debated cost allocation tags approach, no consensus yet.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0288",
+      "text": "Sprint planning: frontend team prioritized Kubernetes node pool for next sprint.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0014",
+      "text": "Code review: devops approved PR for Redis cluster changes.",
+      "topic": "noise"
+    },
+    {
+      "id": "queue_v3",
+      "text": "Replaced RabbitMQ with Amazon SQS FIFO queues. RabbitMQ cluster management was consuming 20% of SRE bandwidth with no added value.",
+      "topic": "queue"
+    },
+    {
+      "id": "noise_0242",
+      "text": "mobile standup: discussed database connection pooling. No blockers.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0139",
+      "text": "Dependency update: bumped secret rotation schedule to latest version. No breaking changes.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0148",
+      "text": "Slack thread: mobile debated Kubernetes node pool approach, no consensus yet.",
+      "topic": "noise"
+    },
+    {
+      "id": "monitoring_v1",
+      "text": "Set up Prometheus + Grafana for infrastructure monitoring. Scrape interval 15s, 30-day retention.",
+      "topic": "monitoring"
+    },
+    {
+      "id": "noise_0158",
+      "text": "Meeting notes: cross-team sync on network policy review integration timeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0343",
+      "text": "Incident postmortem: queue depth alerts caused 5-minute degradation. RCA: memory leak.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0000",
+      "text": "Sprint planning: frontend team prioritized CDN cache invalidation for next sprint.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0338",
+      "text": "Oncall handoff: frontend noted storage quota management needs monitoring attention.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0117",
+      "text": "Security scan: queue depth alerts flagged for outdated dependency. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0214",
+      "text": "Meeting notes: cross-team sync on service mesh config integration timeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "monitoring_v2",
+      "text": "Added Thanos sidecar for long-term metric storage. Extended retention from 30 days to 1 year with S3 backend.",
+      "topic": "monitoring"
+    },
+    {
+      "id": "noise_0254",
+      "text": "Performance review: Redis cluster latency improved 15% after recent optimizations.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0028",
+      "text": "Training session: platform ran workshop on Redis cluster best practices.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0110",
+      "text": "Meeting notes: cross-team sync on incident runbook integration timeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0145",
+      "text": "Dependency update: bumped access control audit to latest version. No breaking changes.",
+      "topic": "noise"
+    },
+    {
+      "id": "monitoring_v3",
+      "text": "Migrated from Prometheus/Thanos to Datadog. Self-hosted Prometheus required 2 FTEs for maintenance; Datadog TCO is lower above 500 hosts.",
+      "topic": "monitoring"
+    },
+    {
+      "id": "noise_0211",
+      "text": "Training session: mobile ran workshop on container registry cleanup best practices.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0216",
+      "text": "Sprint planning: security team prioritized feature flag cleanup for next sprint.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0134",
+      "text": "backend standup: discussed queue depth alerts. No blockers.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0298",
+      "text": "Training session: security ran workshop on API gateway config best practices.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0348",
+      "text": "Budget review: API gateway config costs trending 10% over forecast.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0354",
+      "text": "Demo session: infra presented batch job scheduling improvements to stakeholders.",
+      "topic": "noise"
+    },
+    {
+      "id": "ci_v1",
+      "text": "GitHub Actions for CI/CD. Matrix builds across Python 3.10-3.12 and Node 18/20. Average pipeline time 8 minutes.",
+      "topic": "ci"
+    },
+    {
+      "id": "noise_0175",
+      "text": "Budget review: load balancer rules costs trending 10% over forecast.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0275",
+      "text": "Demo session: infra presented backup verification improvements to stakeholders.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0051",
+      "text": "Demo session: devops presented network policy review improvements to stakeholders.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0150",
+      "text": "Code review: infra approved PR for deployment rollback changes.",
+      "topic": "noise"
+    },
+    {
+      "id": "ci_v2",
+      "text": "Added self-hosted runners on ARM64 for native builds. Cut pipeline time from 8 to 4 minutes for Go services.",
+      "topic": "ci"
+    },
+    {
+      "id": "noise_0378",
+      "text": "Meeting notes: cross-team sync on CDN cache invalidation integration timeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0315",
+      "text": "Sprint planning: SRE team prioritized secret rotation schedule for next sprint.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0168",
+      "text": "Budget review: container registry cleanup costs trending 10% over forecast.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0220",
+      "text": "Sprint planning: frontend team prioritized rate limiter tuning for next sprint.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0116",
+      "text": "Oncall handoff: security noted batch job scheduling needs monitoring attention.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0068",
+      "text": "Code review: frontend approved PR for webhook retry logic changes.",
+      "topic": "noise"
+    },
+    {
+      "id": "ci_v3",
+      "text": "Migrated CI from GitHub Actions to Buildkite. GitHub Actions concurrency limits were blocking 15+ PRs daily during peak hours.",
+      "topic": "ci"
+    },
+    {
+      "id": "noise_0066",
+      "text": "Ticket SRE-8043: backend team updated error budget tracking.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0171",
+      "text": "Performance review: Redis cluster latency improved 15% after recent optimizations.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0317",
+      "text": "data standup: discussed Elasticsearch indices. No blockers.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0026",
+      "text": "Demo session: backend presented CDN cache invalidation improvements to stakeholders.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0281",
+      "text": "Sprint planning: security team prioritized queue depth alerts for next sprint.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0089",
+      "text": "Dependency update: bumped rate limiter tuning to latest version. No breaking changes.",
+      "topic": "noise"
+    },
+    {
+      "id": "cdn_v1",
+      "text": "Using CloudFront for static asset delivery. Edge caching with 24h TTL for images and 1h for CSS/JS bundles.",
+      "topic": "cdn"
+    },
+    {
+      "id": "noise_0022",
+      "text": "Sprint planning: platform team prioritized incident runbook for next sprint.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0347",
+      "text": "Budget review: cost allocation tags costs trending 10% over forecast.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0323",
+      "text": "Incident postmortem: CDN cache invalidation caused 5-minute degradation. RCA: config drift.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0229",
+      "text": "Demo session: infra presented SSL certificate renewal improvements to stakeholders.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0237",
+      "text": "Security scan: backup verification flagged for outdated dependency. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "cdn_v2",
+      "text": "Added Lambda@Edge for A/B testing at the CDN layer. 0ms added latency for variant routing.",
+      "topic": "cdn"
+    },
+    {
+      "id": "noise_0366",
+      "text": "Meeting notes: cross-team sync on deployment rollback integration timeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0179",
+      "text": "Slack thread: mobile debated queue depth alerts approach, no consensus yet.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0098",
+      "text": "Slack thread: mobile debated capacity planning model approach, no consensus yet.",
+      "topic": "noise"
+    },
+    {
+      "id": "cdn_v3",
+      "text": "Switched CDN from CloudFront to Fastly. Fastly's VCL gives us programmable edge logic without Lambda cold starts.",
+      "topic": "cdn"
+    },
+    {
+      "id": "noise_0240",
+      "text": "Slack thread: frontend debated Kubernetes node pool approach, no consensus yet.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0285",
+      "text": "devops standup: discussed CI pipeline. No blockers.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0247",
+      "text": "Security scan: storage quota management flagged for outdated dependency. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0009",
+      "text": "Training session: security ran workshop on CDN cache invalidation best practices.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0004",
+      "text": "Demo session: devops presented backup verification improvements to stakeholders.",
+      "topic": "noise"
+    },
+    {
+      "id": "logging_v1",
+      "text": "Centralized logging with ELK stack. Filebeat shippers, Logstash parsers, Elasticsearch + Kibana for search/viz.",
+      "topic": "logging"
+    },
+    {
+      "id": "noise_0013",
+      "text": "Meeting notes: cross-team sync on cost allocation tags integration timeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0325",
+      "text": "Retro action item: improve capacity planning model documentation for on-call.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0328",
+      "text": "Security scan: service mesh config flagged for outdated dependency. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0351",
+      "text": "Security scan: Redis cluster flagged for outdated dependency. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0088",
+      "text": "Retro action item: improve incident runbook documentation for on-call.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0082",
+      "text": "Code review: SRE approved PR for deployment rollback changes.",
+      "topic": "noise"
+    },
+    {
+      "id": "logging_v2",
+      "text": "Replaced Logstash with Vector for log parsing. 10x throughput improvement and 1/3 memory footprint.",
+      "topic": "logging"
+    },
+    {
+      "id": "noise_0329",
+      "text": "Meeting notes: cross-team sync on access control audit integration timeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0267",
+      "text": "SRE standup: discussed Redis cluster. No blockers.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0235",
+      "text": "Ticket MOB-8105: platform team created backup verification.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0090",
+      "text": "Sprint planning: security team prioritized batch job scheduling for next sprint.",
+      "topic": "noise"
+    },
+    {
+      "id": "logging_v3",
+      "text": "Migrated logging from ELK to Loki + Grafana. Elasticsearch index storage was 4TB/month; Loki with S3 backend costs 80% less.",
+      "topic": "logging"
+    },
+    {
+      "id": "noise_0164",
+      "text": "Sprint planning: SRE team prioritized capacity planning model for next sprint.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0156",
+      "text": "Security scan: rate limiter tuning flagged for outdated dependency. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0037",
+      "text": "Code review: security approved PR for deployment rollback changes.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0092",
+      "text": "Security scan: CI pipeline flagged for outdated dependency. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0012",
+      "text": "Slack thread: mobile debated DNS TTL settings approach, no consensus yet.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0360",
+      "text": "Performance review: load balancer rules latency improved 15% after recent optimizations.",
+      "topic": "noise"
+    },
+    {
+      "id": "feature_flags_v1",
+      "text": "Built custom feature flag service backed by Redis. JSON config per flag, 50ms evaluation latency.",
+      "topic": "feature_flags"
+    },
+    {
+      "id": "noise_0316",
+      "text": "Incident postmortem: monitoring alerts caused 5-minute degradation. RCA: timeout misconfiguration.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0263",
+      "text": "Code review: mobile approved PR for CDN cache invalidation changes.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0282",
+      "text": "Ticket SRE-8569: data team created rate limiter tuning.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0268",
+      "text": "Ticket MOB-1715: security team updated API gateway config.",
+      "topic": "noise"
+    },
+    {
+      "id": "feature_flags_v2",
+      "text": "Added percentage rollout and user segment targeting to custom flag service. Evaluation latency unchanged.",
+      "topic": "feature_flags"
+    },
+    {
+      "id": "noise_0060",
+      "text": "Incident postmortem: error budget tracking caused 5-minute degradation. RCA: race condition.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0138",
+      "text": "Ticket FE-6962: mobile team created storage quota management.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0195",
+      "text": "Ticket SRE-279: data team escalated Kubernetes node pool.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0100",
+      "text": "Incident postmortem: log retention policy caused 5-minute degradation. RCA: timeout misconfiguration.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0046",
+      "text": "Retro action item: improve DNS TTL settings documentation for on-call.",
+      "topic": "noise"
+    },
+    {
+      "id": "feature_flags_v3",
+      "text": "Replaced custom feature flag service with LaunchDarkly. Custom service had no audit trail and flag cleanup was impossible to track.",
+      "topic": "feature_flags"
+    },
+    {
+      "id": "noise_0099",
+      "text": "Code review: data approved PR for Elasticsearch indices changes.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0020",
+      "text": "Slack thread: data debated CI pipeline approach, no consensus yet.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0017",
+      "text": "Oncall handoff: platform noted network policy review needs monitoring attention.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0357",
+      "text": "Performance review: incident runbook latency improved 15% after recent optimizations.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0335",
+      "text": "Demo session: security presented queue depth alerts improvements to stakeholders.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0295",
+      "text": "Performance review: SSL certificate renewal latency improved 15% after recent optimizations.",
+      "topic": "noise"
+    },
+    {
+      "id": "secrets_v1",
+      "text": "Storing secrets in environment variables injected via Kubernetes ConfigMaps. Manual rotation every 90 days.",
+      "topic": "secrets"
+    },
+    {
+      "id": "noise_0249",
+      "text": "Demo session: security presented network policy review improvements to stakeholders.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0198",
+      "text": "Code review: frontend approved PR for service mesh config changes.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0296",
+      "text": "Code review: data approved PR for storage quota management changes.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0038",
+      "text": "Security scan: access control audit flagged for outdated dependency. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0093",
+      "text": "Incident postmortem: Elasticsearch indices caused 5-minute degradation. RCA: connection exhaustion.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0225",
+      "text": "Performance review: backup verification latency improved 15% after recent optimizations.",
+      "topic": "noise"
+    },
+    {
+      "id": "secrets_v2",
+      "text": "Migrated secrets from ConfigMaps to HashiCorp Vault. Auto-rotation for database credentials with 24h TTL.",
+      "topic": "secrets"
+    },
+    {
+      "id": "noise_0236",
+      "text": "frontend standup: discussed storage quota management. No blockers.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0120",
+      "text": "Retro action item: improve SSL certificate renewal documentation for on-call.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0166",
+      "text": "Code review: platform approved PR for container registry cleanup changes.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0043",
+      "text": "Sprint planning: devops team prioritized Kubernetes node pool for next sprint.",
+      "topic": "noise"
+    },
+    {
+      "id": "secrets_v3",
+      "text": "Switched from HashiCorp Vault to AWS Secrets Manager. Vault cluster required dedicated ops team; AWS SM integrates natively with EKS.",
+      "topic": "secrets"
+    },
+    {
+      "id": "noise_0101",
+      "text": "Training session: frontend ran workshop on network policy review best practices.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0303",
+      "text": "Incident postmortem: deployment rollback caused 5-minute degradation. RCA: config drift.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0371",
+      "text": "Ticket PLAT-4579: infra team reviewed container registry cleanup.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0253",
+      "text": "Security scan: load balancer rules flagged for outdated dependency. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0018",
+      "text": "Dependency update: bumped DNS TTL settings to latest version. No breaking changes.",
+      "topic": "noise"
+    },
+    {
+      "id": "api_gateway_v1",
+      "text": "Kong as API gateway. Rate limiting, JWT validation, and request transformation plugins.",
+      "topic": "api_gateway"
+    },
+    {
+      "id": "noise_0187",
+      "text": "Incident postmortem: queue depth alerts caused 5-minute degradation. RCA: connection exhaustion.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0072",
+      "text": "Code review: platform approved PR for SLO dashboard changes.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0121",
+      "text": "Ticket MOB-3585: backend team resolved load balancer rules.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0085",
+      "text": "Demo session: data presented SSL certificate renewal improvements to stakeholders.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0157",
+      "text": "frontend standup: discussed API gateway config. No blockers.",
+      "topic": "noise"
+    },
+    {
+      "id": "api_gateway_v2",
+      "text": "Added gRPC-Web transcoding to Kong for mobile clients. Eliminated separate REST wrapper services.",
+      "topic": "api_gateway"
+    },
+    {
+      "id": "noise_0278",
+      "text": "Demo session: SRE presented network policy review improvements to stakeholders.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0074",
+      "text": "Slack thread: platform debated storage quota management approach, no consensus yet.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0372",
+      "text": "Slack thread: platform debated database connection pooling approach, no consensus yet.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0025",
+      "text": "Oncall handoff: backend noted batch job scheduling needs monitoring attention.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0130",
+      "text": "Performance review: batch job scheduling latency improved 15% after recent optimizations.",
+      "topic": "noise"
+    },
+    {
+      "id": "api_gateway_v3",
+      "text": "Replaced Kong with Envoy-based gateway using Istio. Kong plugin ecosystem couldn't keep up with our service mesh requirements.",
+      "topic": "api_gateway"
+    },
+    {
+      "id": "noise_0313",
+      "text": "Oncall handoff: backend noted secret rotation schedule needs monitoring attention.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0353",
+      "text": "Slack thread: SRE debated queue depth alerts approach, no consensus yet.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0230",
+      "text": "Sprint planning: security team prioritized log retention policy for next sprint.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0318",
+      "text": "Ticket SRE-6468: SRE team updated CDN cache invalidation.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0086",
+      "text": "Demo session: devops presented log retention policy improvements to stakeholders.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0286",
+      "text": "Dependency update: bumped access control audit to latest version. No breaking changes.",
+      "topic": "noise"
+    },
+    {
+      "id": "email_v1",
+      "text": "Sending transactional email via SendGrid API. Templates stored in SendGrid dashboard. 99.2% delivery rate.",
+      "topic": "email"
+    },
+    {
+      "id": "noise_0054",
+      "text": "Slack thread: infra debated deployment rollback approach, no consensus yet.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0076",
+      "text": "Security scan: deployment rollback flagged for outdated dependency. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0031",
+      "text": "Incident postmortem: secret rotation schedule caused 5-minute degradation. RCA: timeout misconfiguration.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0052",
+      "text": "Code review: frontend approved PR for monitoring alerts changes.",
+      "topic": "noise"
+    },
+    {
+      "id": "email_v2",
+      "text": "Moved email templates from SendGrid dashboard to version-controlled MJML files. Deployed via CI pipeline.",
+      "topic": "email"
+    },
+    {
+      "id": "noise_0079",
+      "text": "Budget review: rate limiter tuning costs trending 10% over forecast.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0040",
+      "text": "Meeting notes: cross-team sync on Redis cluster integration timeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0339",
+      "text": "Performance review: access control audit latency improved 15% after recent optimizations.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0218",
+      "text": "Ticket SRE-3467: devops team updated SLO dashboard.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0309",
+      "text": "Ticket MOB-8054: security team created access control audit.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0106",
+      "text": "Performance review: database connection pooling latency improved 15% after recent optimizations.",
+      "topic": "noise"
+    },
+    {
+      "id": "email_v3",
+      "text": "Switched email provider from SendGrid to Postmark. Postmark's dedicated IP and deliverability tools brought delivery rate from 99.2% to 99.8%.",
+      "topic": "email"
+    },
+    {
+      "id": "noise_0199",
+      "text": "Security scan: CDN cache invalidation flagged for outdated dependency. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0146",
+      "text": "SRE standup: discussed SSL certificate renewal. No blockers.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0010",
+      "text": "Meeting notes: cross-team sync on network policy review integration timeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "storage_v1",
+      "text": "User uploads stored in S3 Standard. Lifecycle policy moves to Glacier after 90 days.",
+      "topic": "storage"
+    },
+    {
+      "id": "noise_0330",
+      "text": "infra standup: discussed error budget tracking. No blockers.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0375",
+      "text": "Demo session: infra presented batch job scheduling improvements to stakeholders.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0003",
+      "text": "Dependency update: bumped network policy review to latest version. No breaking changes.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0203",
+      "text": "Oncall handoff: frontend noted rate limiter tuning needs monitoring attention.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0064",
+      "text": "Security scan: log retention policy flagged for outdated dependency. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0356",
+      "text": "Sprint planning: frontend team prioritized Kubernetes node pool for next sprint.",
+      "topic": "noise"
+    },
+    {
+      "id": "storage_v2",
+      "text": "Added CloudFront signed URLs for direct S3 access. Eliminated proxy service that was a latency bottleneck.",
+      "topic": "storage"
+    },
+    {
+      "id": "noise_0114",
+      "text": "Budget review: CI pipeline costs trending 10% over forecast.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0186",
+      "text": "Incident postmortem: queue depth alerts caused 5-minute degradation. RCA: memory leak.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0272",
+      "text": "Budget review: access control audit costs trending 10% over forecast.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0305",
+      "text": "Budget review: access control audit costs trending 10% over forecast.",
+      "topic": "noise"
+    },
+    {
+      "id": "storage_v3",
+      "text": "Migrated user uploads from S3 to R2 (Cloudflare). Zero egress fees saved $14K/month on our media-heavy workload.",
+      "topic": "storage"
+    },
+    {
+      "id": "noise_0029",
+      "text": "Dependency update: bumped batch job scheduling to latest version. No breaking changes.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0122",
+      "text": "Retro action item: improve storage quota management documentation for on-call.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0124",
+      "text": "Dependency update: bumped queue depth alerts to latest version. No breaking changes.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0258",
+      "text": "Meeting notes: cross-team sync on cost allocation tags integration timeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0196",
+      "text": "Performance review: DNS TTL settings latency improved 15% after recent optimizations.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0307",
+      "text": "Demo session: infra presented network policy review improvements to stakeholders.",
+      "topic": "noise"
+    },
+    {
+      "id": "testing_v1",
+      "text": "Unit tests with pytest, 78% coverage. No integration tests. Manual QA for releases.",
+      "topic": "testing"
+    },
+    {
+      "id": "noise_0373",
+      "text": "Demo session: SRE presented capacity planning model improvements to stakeholders.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0069",
+      "text": "Training session: platform ran workshop on webhook retry logic best practices.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0352",
+      "text": "Meeting notes: cross-team sync on service mesh config integration timeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0042",
+      "text": "Slack thread: SRE debated feature flag cleanup approach, no consensus yet.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0023",
+      "text": "frontend standup: discussed capacity planning model. No blockers.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0057",
+      "text": "Meeting notes: cross-team sync on capacity planning model integration timeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "testing_v2",
+      "text": "Added Playwright E2E tests for critical flows. Coverage gate at 80%. Release QA reduced from 2 days to 4 hours.",
+      "topic": "testing"
+    },
+    {
+      "id": "noise_0358",
+      "text": "Code review: platform approved PR for storage quota management changes.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0050",
+      "text": "Dependency update: bumped capacity planning model to latest version. No breaking changes.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0119",
+      "text": "infra standup: discussed backup verification. No blockers.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0359",
+      "text": "Oncall handoff: mobile noted secret rotation schedule needs monitoring attention.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0019",
+      "text": "Sprint planning: devops team prioritized queue depth alerts for next sprint.",
+      "topic": "noise"
+    },
+    {
+      "id": "testing_v3",
+      "text": "Replaced Playwright with Cypress for E2E. Playwright's cross-browser support was unnecessary (95% users on Chrome) and Cypress has better DX.",
+      "topic": "testing"
+    },
+    {
+      "id": "noise_0355",
+      "text": "Performance review: cost allocation tags latency improved 15% after recent optimizations.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0078",
+      "text": "Retro action item: improve CI pipeline documentation for on-call.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0178",
+      "text": "Meeting notes: cross-team sync on log retention policy integration timeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0201",
+      "text": "Ticket DATA-4449: security team escalated deployment rollback.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0205",
+      "text": "Incident postmortem: backup verification caused 5-minute degradation. RCA: connection exhaustion.",
+      "topic": "noise"
+    },
+    {
+      "id": "dns_v1",
+      "text": "Route53 for DNS management. Simple A records and CNAME aliases. TTL 300s across the board.",
+      "topic": "dns"
+    },
+    {
+      "id": "noise_0269",
+      "text": "Training session: frontend ran workshop on deployment rollback best practices.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0123",
+      "text": "Slack thread: SRE debated monitoring alerts approach, no consensus yet.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0245",
+      "text": "Ticket FE-3624: infra team updated rate limiter tuning.",
+      "topic": "noise"
+    },
+    {
+      "id": "dns_v2",
+      "text": "Added Route53 health checks with failover routing. Primary us-east-1, failover eu-west-1. 30s health check interval.",
+      "topic": "dns"
+    },
+    {
+      "id": "noise_0103",
+      "text": "Incident postmortem: CDN cache invalidation caused 5-minute degradation. RCA: memory leak.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0048",
+      "text": "Sprint planning: infra team prioritized capacity planning model for next sprint.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0115",
+      "text": "Retro action item: improve cost allocation tags documentation for on-call.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0131",
+      "text": "Dependency update: bumped backup verification to latest version. No breaking changes.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0334",
+      "text": "Training session: data ran workshop on DNS TTL settings best practices.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0127",
+      "text": "Slack thread: frontend debated rate limiter tuning approach, no consensus yet.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0053",
+      "text": "Incident postmortem: webhook retry logic caused 5-minute degradation. RCA: config drift.",
+      "topic": "noise"
+    },
+    {
+      "id": "dns_v3",
+      "text": "Migrated DNS from Route53 to Cloudflare DNS. Cloudflare's edge network gives faster resolution globally and we consolidated with R2/CDN.",
+      "topic": "dns"
+    },
+    {
+      "id": "noise_0147",
+      "text": "Code review: frontend approved PR for API gateway config changes.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0083",
+      "text": "Incident postmortem: batch job scheduling caused 5-minute degradation. RCA: connection exhaustion.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0321",
+      "text": "Dependency update: bumped Redis cluster to latest version. No breaking changes.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0367",
+      "text": "Sprint planning: mobile team prioritized access control audit for next sprint.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0163",
+      "text": "platform standup: discussed log retention policy. No blockers.",
+      "topic": "noise"
+    },
+    {
+      "id": "scheduling_v1",
+      "text": "Cron jobs running on a dedicated EC2 instance. 12 scheduled tasks, no retry logic, no observability.",
+      "topic": "scheduling"
+    },
+    {
+      "id": "noise_0108",
+      "text": "Security scan: error budget tracking flagged for outdated dependency. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0140",
+      "text": "Performance review: feature flag cleanup latency improved 15% after recent optimizations.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0063",
+      "text": "Oncall handoff: mobile noted storage quota management needs monitoring attention.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0365",
+      "text": "Slack thread: data debated backup verification approach, no consensus yet.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0143",
+      "text": "Budget review: backup verification costs trending 10% over forecast.",
+      "topic": "noise"
+    },
+    {
+      "id": "scheduling_v2",
+      "text": "Migrated cron jobs to Kubernetes CronJobs. Added retry with backoff and Prometheus metrics for job duration/success.",
+      "topic": "scheduling"
+    },
+    {
+      "id": "noise_0246",
+      "text": "Security scan: DNS TTL settings flagged for outdated dependency. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0045",
+      "text": "Incident postmortem: feature flag cleanup caused 5-minute degradation. RCA: connection exhaustion.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0228",
+      "text": "Oncall handoff: platform noted batch job scheduling needs monitoring attention.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0297",
+      "text": "Ticket INFRA-7241: frontend team investigated Kubernetes node pool.",
+      "topic": "noise"
+    },
+    {
+      "id": "scheduling_v3",
+      "text": "Replaced Kubernetes CronJobs with Temporal for workflow orchestration. Complex multi-step jobs needed durable execution and Temporal handles retries, timeouts, and saga patterns natively.",
+      "topic": "scheduling"
+    },
+    {
+      "id": "noise_0324",
+      "text": "Demo session: devops presented webhook retry logic improvements to stakeholders.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0109",
+      "text": "Ticket SRE-8516: SRE team reviewed service mesh config.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0091",
+      "text": "Oncall handoff: frontend noted Elasticsearch indices needs monitoring attention.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0197",
+      "text": "Incident postmortem: service mesh config caused 5-minute degradation. RCA: race condition.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0056",
+      "text": "Performance review: backup verification latency improved 15% after recent optimizations.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0015",
+      "text": "Meeting notes: cross-team sync on batch job scheduling integration timeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "payments_v1",
+      "text": "Stripe for payment processing. Direct API integration with webhooks for async events.",
+      "topic": "payments"
+    },
+    {
+      "id": "noise_0293",
+      "text": "Security scan: rate limiter tuning flagged for outdated dependency. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0370",
+      "text": "Oncall handoff: data noted error budget tracking needs monitoring attention.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0180",
+      "text": "Budget review: incident runbook costs trending 10% over forecast.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0154",
+      "text": "Ticket BE-9207: platform team updated Redis cluster.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0369",
+      "text": "Meeting notes: cross-team sync on Redis cluster integration timeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "payments_v2",
+      "text": "Added Stripe Connect for marketplace payouts. Split payments between platform and sellers with configurable commission.",
+      "topic": "payments"
+    },
+    {
+      "id": "noise_0259",
+      "text": "Training session: platform ran workshop on cost allocation tags best practices.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0239",
+      "text": "Dependency update: bumped storage quota management to latest version. No breaking changes.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0333",
+      "text": "Ticket MOB-4575: infra team updated storage quota management.",
+      "topic": "noise"
+    },
+    {
+      "id": "payments_v3",
+      "text": "Migrated payment orchestration to a multi-PSP setup with Stripe + Adyen. Adyen handles EU/SEPA payments with lower interchange fees, Stripe remains for US/card payments.",
+      "topic": "payments"
+    },
+    {
+      "id": "noise_0243",
+      "text": "Budget review: cost allocation tags costs trending 10% over forecast.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0299",
+      "text": "Retro action item: improve load balancer rules documentation for on-call.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0271",
+      "text": "Meeting notes: cross-team sync on incident runbook integration timeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0160",
+      "text": "Sprint planning: security team prioritized error budget tracking for next sprint.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0016",
+      "text": "Slack thread: security debated container registry cleanup approach, no consensus yet.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0174",
+      "text": "Security scan: batch job scheduling flagged for outdated dependency. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0308",
+      "text": "Training session: backend ran workshop on deployment rollback best practices.",
+      "topic": "noise"
+    },
+    {
+      "id": "config_v1",
+      "text": "Application config via YAML files baked into Docker images. Config changes require full redeploy.",
+      "topic": "config"
+    },
+    {
+      "id": "noise_0167",
+      "text": "Oncall handoff: platform noted container registry cleanup needs monitoring attention.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0104",
+      "text": "Performance review: network policy review latency improved 15% after recent optimizations.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0027",
+      "text": "Sprint planning: data team prioritized queue depth alerts for next sprint.",
+      "topic": "noise"
+    },
+    {
+      "id": "config_v2",
+      "text": "Moved config to Consul KV store. Services poll every 30s for changes. Hot reload without redeploy.",
+      "topic": "config"
+    },
+    {
+      "id": "noise_0070",
+      "text": "Demo session: data presented webhook retry logic improvements to stakeholders.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0376",
+      "text": "Training session: data ran workshop on secret rotation schedule best practices.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0226",
+      "text": "Dependency update: bumped batch job scheduling to latest version. No breaking changes.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0044",
+      "text": "Meeting notes: cross-team sync on SLO dashboard integration timeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0290",
+      "text": "Incident postmortem: SLO dashboard caused 5-minute degradation. RCA: memory leak.",
+      "topic": "noise"
+    },
+    {
+      "id": "config_v3",
+      "text": "Replaced Consul with native Kubernetes ConfigMaps + Reloader. Consul was over-engineered for our needs; ConfigMaps with Reloader gives auto-restart on config change.",
+      "topic": "config"
+    },
+    {
+      "id": "noise_0036",
+      "text": "Retro action item: improve deployment rollback documentation for on-call.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0374",
+      "text": "Security scan: monitoring alerts flagged for outdated dependency. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0071",
+      "text": "Sprint planning: backend team prioritized SLO dashboard for next sprint.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0302",
+      "text": "Sprint planning: platform team prioritized SSL certificate renewal for next sprint.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0021",
+      "text": "Dependency update: bumped batch job scheduling to latest version. No breaking changes.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0142",
+      "text": "Meeting notes: cross-team sync on monitoring alerts integration timeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0208",
+      "text": "Meeting notes: cross-team sync on Kubernetes node pool integration timeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0102",
+      "text": "security standup: discussed access control audit. No blockers.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0266",
+      "text": "SRE standup: discussed CDN cache invalidation. No blockers.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0311",
+      "text": "Code review: data approved PR for CDN cache invalidation changes.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0231",
+      "text": "Training session: infra ran workshop on monitoring alerts best practices.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0322",
+      "text": "Budget review: network policy review costs trending 10% over forecast.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0034",
+      "text": "Ticket SRE-3147: mobile team resolved queue depth alerts.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0233",
+      "text": "Ticket FE-1636: platform team created error budget tracking.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0265",
+      "text": "Demo session: SRE presented backup verification improvements to stakeholders.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0155",
+      "text": "Dependency update: bumped deployment rollback to latest version. No breaking changes.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0133",
+      "text": "Performance review: rate limiter tuning latency improved 15% after recent optimizations.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0095",
+      "text": "Performance review: API gateway config latency improved 15% after recent optimizations.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0200",
+      "text": "Performance review: CDN cache invalidation latency improved 15% after recent optimizations.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0035",
+      "text": "Code review: data approved PR for webhook retry logic changes.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0096",
+      "text": "Sprint planning: backend team prioritized log retention policy for next sprint.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0332",
+      "text": "data standup: discussed SLO dashboard. No blockers.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0257",
+      "text": "Demo session: platform presented deployment rollback improvements to stakeholders.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0349",
+      "text": "data standup: discussed backup verification. No blockers.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0279",
+      "text": "Demo session: mobile presented CI pipeline improvements to stakeholders.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0337",
+      "text": "Code review: security approved PR for error budget tracking changes.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0030",
+      "text": "Performance review: CI pipeline latency improved 15% after recent optimizations.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0340",
+      "text": "Retro action item: improve cost allocation tags documentation for on-call.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0336",
+      "text": "Sprint planning: devops team prioritized API gateway config for next sprint.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0097",
+      "text": "Oncall handoff: backend noted cost allocation tags needs monitoring attention.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0270",
+      "text": "Training session: backend ran workshop on service mesh config best practices.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0149",
+      "text": "Budget review: error budget tracking costs trending 10% over forecast.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0184",
+      "text": "Demo session: mobile presented SSL certificate renewal improvements to stakeholders.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0190",
+      "text": "Retro action item: improve API gateway config documentation for on-call.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0005",
+      "text": "Slack thread: frontend debated API gateway config approach, no consensus yet.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0219",
+      "text": "Retro action item: improve Redis cluster documentation for on-call.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0210",
+      "text": "Ticket SRE-914: platform team resolved API gateway config.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0173",
+      "text": "Retro action item: improve error budget tracking documentation for on-call.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0251",
+      "text": "Slack thread: infra debated incident runbook approach, no consensus yet.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0162",
+      "text": "Training session: SRE ran workshop on monitoring alerts best practices.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0176",
+      "text": "Budget review: monitoring alerts costs trending 10% over forecast.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0331",
+      "text": "Security scan: monitoring alerts flagged for outdated dependency. Patch scheduled.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0276",
+      "text": "Budget review: batch job scheduling costs trending 10% over forecast.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0234",
+      "text": "Dependency update: bumped network policy review to latest version. No breaking changes.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0304",
+      "text": "Incident postmortem: API gateway config caused 5-minute degradation. RCA: connection exhaustion.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0250",
+      "text": "Slack thread: infra debated error budget tracking approach, no consensus yet.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0061",
+      "text": "mobile standup: discussed network policy review. No blockers.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0341",
+      "text": "Training session: backend ran workshop on container registry cleanup best practices.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0206",
+      "text": "Meeting notes: cross-team sync on access control audit integration timeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0300",
+      "text": "Incident postmortem: backup verification caused 5-minute degradation. RCA: config drift.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0294",
+      "text": "Retro action item: improve SSL certificate renewal documentation for on-call.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0292",
+      "text": "Sprint planning: data team prioritized error budget tracking for next sprint.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0129",
+      "text": "Meeting notes: cross-team sync on webhook retry logic integration timeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0261",
+      "text": "Dependency update: bumped SSL certificate renewal to latest version. No breaking changes.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0252",
+      "text": "Sprint planning: infra team prioritized cost allocation tags for next sprint.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0262",
+      "text": "Ticket INFRA-3367: platform team updated backup verification.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0264",
+      "text": "Training session: data ran workshop on cost allocation tags best practices.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0193",
+      "text": "Dependency update: bumped backup verification to latest version. No breaking changes.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0248",
+      "text": "Dependency update: bumped load balancer rules to latest version. No breaking changes.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0032",
+      "text": "SRE standup: discussed error budget tracking. No blockers.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0273",
+      "text": "Retro action item: improve secret rotation schedule documentation for on-call.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0227",
+      "text": "mobile standup: discussed backup verification. No blockers.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0346",
+      "text": "Dependency update: bumped SSL certificate renewal to latest version. No breaking changes.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0314",
+      "text": "Slack thread: security debated rate limiter tuning approach, no consensus yet.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0238",
+      "text": "Oncall handoff: platform noted service mesh config needs monitoring attention.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0320",
+      "text": "Code review: devops approved PR for monitoring alerts changes.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0188",
+      "text": "Oncall handoff: backend noted container registry cleanup needs monitoring attention.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0345",
+      "text": "Demo session: frontend presented database connection pooling improvements to stakeholders.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0080",
+      "text": "Dependency update: bumped Kubernetes node pool to latest version. No breaking changes.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0011",
+      "text": "Retro action item: improve queue depth alerts documentation for on-call.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0283",
+      "text": "Performance review: capacity planning model latency improved 15% after recent optimizations.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0170",
+      "text": "Slack thread: data debated database connection pooling approach, no consensus yet.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0342",
+      "text": "Ticket DATA-8109: infra team reviewed deployment rollback.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0065",
+      "text": "Dependency update: bumped webhook retry logic to latest version. No breaking changes.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0172",
+      "text": "Ticket PLAT-3865: frontend team created deployment rollback.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0280",
+      "text": "Ticket PLAT-2363: devops team closed webhook retry logic.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0137",
+      "text": "Code review: security approved PR for load balancer rules changes.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0256",
+      "text": "Meeting notes: cross-team sync on incident runbook integration timeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0094",
+      "text": "Incident postmortem: incident runbook caused 5-minute degradation. RCA: connection exhaustion.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0006",
+      "text": "Retro action item: improve Redis cluster documentation for on-call.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0075",
+      "text": "Meeting notes: cross-team sync on deployment rollback integration timeline.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0087",
+      "text": "Budget review: DNS TTL settings costs trending 10% over forecast.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0039",
+      "text": "infra standup: discussed queue depth alerts. No blockers.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0151",
+      "text": "devops standup: discussed secret rotation schedule. No blockers.",
+      "topic": "noise"
+    },
+    {
+      "id": "noise_0204",
+      "text": "Demo session: infra presented backup verification improvements to stakeholders.",
+      "topic": "noise"
+    }
+  ],
+  "queries": [
+    {
+      "question": "what caching solution are we currently using?",
+      "expect_topic": "cache",
+      "expect_contains": [
+        "Caffeine"
+      ]
+    },
+    {
+      "question": "what database runs the analytics warehouse?",
+      "expect_topic": "database",
+      "expect_contains": [
+        "ClickHouse"
+      ]
+    },
+    {
+      "question": "how do mobile users authenticate?",
+      "expect_topic": "auth",
+      "expect_contains": [
+        "passkey",
+        "WebAuthn"
+      ]
+    },
+    {
+      "question": "how does canary deployment work?",
+      "expect_topic": "deploy",
+      "expect_contains": [
+        "header"
+      ]
+    },
+    {
+      "question": "what search engine powers product search?",
+      "expect_topic": "search",
+      "expect_contains": [
+        "Typesense"
+      ]
+    },
+    {
+      "question": "what message queue system do we use?",
+      "expect_topic": "queue",
+      "expect_contains": [
+        "SQS"
+      ]
+    },
+    {
+      "question": "what monitoring platform do we use?",
+      "expect_topic": "monitoring",
+      "expect_contains": [
+        "Datadog"
+      ]
+    },
+    {
+      "question": "what CI/CD platform do we use?",
+      "expect_topic": "ci",
+      "expect_contains": [
+        "Buildkite"
+      ]
+    },
+    {
+      "question": "what CDN serves our static assets?",
+      "expect_topic": "cdn",
+      "expect_contains": [
+        "Fastly"
+      ]
+    },
+    {
+      "question": "what logging stack do we use?",
+      "expect_topic": "logging",
+      "expect_contains": [
+        "Loki"
+      ]
+    },
+    {
+      "question": "what feature flag system do we use?",
+      "expect_topic": "feature_flags",
+      "expect_contains": [
+        "LaunchDarkly"
+      ]
+    },
+    {
+      "question": "how do we manage secrets?",
+      "expect_topic": "secrets",
+      "expect_contains": [
+        "AWS Secrets Manager",
+        "Secrets Manager"
+      ]
+    },
+    {
+      "question": "what API gateway do we use?",
+      "expect_topic": "api_gateway",
+      "expect_contains": [
+        "Envoy",
+        "Istio"
+      ]
+    },
+    {
+      "question": "what email service sends transactional emails?",
+      "expect_topic": "email",
+      "expect_contains": [
+        "Postmark"
+      ]
+    },
+    {
+      "question": "where are user uploads stored?",
+      "expect_topic": "storage",
+      "expect_contains": [
+        "R2",
+        "Cloudflare"
+      ]
+    },
+    {
+      "question": "what E2E testing framework do we use?",
+      "expect_topic": "testing",
+      "expect_contains": [
+        "Cypress"
+      ]
+    },
+    {
+      "question": "what DNS provider do we use?",
+      "expect_topic": "dns",
+      "expect_contains": [
+        "Cloudflare"
+      ]
+    },
+    {
+      "question": "how do we handle scheduled tasks and workflows?",
+      "expect_topic": "scheduling",
+      "expect_contains": [
+        "Temporal"
+      ]
+    },
+    {
+      "question": "what payment processor handles EU payments?",
+      "expect_topic": "payments",
+      "expect_contains": [
+        "Adyen"
+      ]
+    },
+    {
+      "question": "how is application configuration managed?",
+      "expect_topic": "config",
+      "expect_contains": [
+        "ConfigMaps",
+        "Reloader"
+      ]
+    }
+  ]
+}
