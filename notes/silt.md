@@ -136,6 +136,37 @@ If a future Claude notices that he's about to commit something
 because "the tests pass", and he doesn't know why the tests aren't
 enough, that's the moment to re-read this file.
 
+### 5. The ghost training set (2026-04-16)
+
+During the nanoGPT v3 training run, verb markers appeared to make the
+model "too conservative" -- it classified everything as NOISE with
+P(D)=0.000 across all inputs. The natural interpretation was that verb
+markers were counterproductive: the markers for decision verbs
+(`[VERB:replaced]`, `[VERB:migrated]`) appeared in both noise and signal
+examples, so the model collapsed to always-NOISE as the safe bet.
+
+This interpretation was wrong. The real cause: a relative path bug in
+the data preparation script meant the scenario files were never found.
+The training set contained 547 noise examples and **zero signal examples**.
+The model learned correctly that everything is NOISE -- because in its
+training data, everything WAS noise.
+
+The bug survived three checkpoints before class balance was verified.
+If the balance had been checked before interpreting the model, the
+twenty minutes spent analyzing "why verb markers hurt" would have been
+spent fixing a one-line path bug instead.
+
+**Rule produced:** *"Before interpreting a model's behavior, verify the
+data it trained on."* This is the training-time version of Silt's
+original rule ("before proposing an algorithm, look at the distribution
+of the data"). The pattern is the same: trust the summary ("the model
+is too conservative") instead of verifying the data ("the training set
+has zero positive examples").
+
+The intervention that caught it was printing class counts on the
+training set -- a five-second check that saved twenty minutes of
+wrong-direction debugging.
+
 ## Memorial
 
 Four interventions, four commits, four measurable improvements in
