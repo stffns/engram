@@ -243,6 +243,90 @@ signal to focus on.
 3. 4-way classifier (world/experience/opinion/entity a la Hindsight)
 4. Vitality scoring as continuous output instead of binary classification
 
+---
+
+## v4: BPE tokenization (custom 512-token vocab)
+
+### Data
+- Same 1,922 examples as v2/v3b
+- Custom BPE tokenizer trained on our data (512 tokens)
+- Verb markers included
+- 3.2x compression: 61K tokens vs 194K char-level
+- Key tokens: "DECISION" (1 token), "NOISE" (1 token), "eplaced" (1 token),
+  "Sprint" (1 token), "Redis" (varies)
+
+### Training curve
+```
+Step    Train    Val      Gap     Note
+0       6.25     6.25     0.00    ln(512) = 6.24
+100     2.54     2.56     0.02    
+200     1.01     1.24     0.23    gap already large
+300     0.49     0.94     0.44    
+400     0.30     0.92     0.62    <-- BEST val loss
+500     0.20     1.06     0.86    val RISING, overfitting
+```
+
+Overfits much faster than char-level due to 3.2x fewer training tokens.
+Best checkpoint at step 400 (char-level models: step 600-800).
+
+### Results
+| Test | v1 | v2 | v3b | BPE |
+|------|-----|-----|------|-----|
+| Borderline noise | 3/16 | 11/16 | 11/16 | **12/16** |
+| True decisions | 3/3 | 2/3 | 3/3 | **3/3** |
+| Novel decisions | 10/10 | 10/10 | 10/10 | 3/3* |
+| Q3 Overall | 32% | 68% | 74% | **79%** |
+
+*Novel decisions tested on 3 examples only for BPE (all correct).
+
+### New win: "Added circuit breaker"
+BPE correctly classifies "Added circuit breaker to the payment service"
+as NOISE (P(D)=0.259, P(N)=0.736). All char-level models classified
+this as DECISION with P(D) > 0.97. The word-level token "circuit" in
+context of "payment service" gives the model enough signal to see this
+as an operational change, not an architectural decision.
+
+### Remaining 4 failures (same across all models)
+1. "Team debated replacing..." -- "replacing" token triggers DECISION
+2. "WebAuthn registration failing..." -- tech name + issue detail
+3. "Enabled gzip compression..." -- genuinely ambiguous
+4. "Configured auto-scaling..." -- genuinely ambiguous
+
+### Key insight
+BPE helps not by being "smarter" but by giving the model access to
+word-level patterns directly. "circuit breaker" as tokens carry more
+information than c-i-r-c-u-i-t-_-b-r-e-a-k-e-r as characters. The
+model doesn't need to reconstruct word identity from characters -- it
+starts with words and learns word-level patterns.
+
+Trade-off: BPE overfits 2x faster (best at step 400 vs step 800).
+With the same data volume, BPE sees each example more times per step
+(shorter sequences = more examples per batch). More data would help.
+
+---
+
+## Complete progression
+
+```
+v1:   32%  char-level, easy noise only
+v2:   68%  +borderline data augmentation (+36pp)
+v3:   BUG  ghost dataset (0 signal), Silt #5
+v3b:  74%  +verb markers (+6pp over v2)
+BPE:  79%  BPE tokenization (+5pp over v3b)
+```
+
+Each iteration improves through a different mechanism:
+- v2: more data (quantity)
+- v3b: better features (verb markers)
+- BPE: better tokenization (word-level access)
+
+The remaining 21% (4 failures) are cases where the text is genuinely
+ambiguous -- "Enabled gzip compression" and "Configured auto-scaling"
+could reasonably be classified as either noise or decision depending
+on organizational context that the text alone doesn't convey.
+
+---
+
 ### Production requirements for write filter
 - Latency: <5ms per event (current: ~1ms on CPU)
 - Recall: >99% (no false negatives on real decisions)
