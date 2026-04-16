@@ -126,8 +126,36 @@ Step    Train    Val      Gap     Note
 200     1.16     1.18     0.02    faster than v1/v2
 300     0.44     0.52     0.08    
 400     0.20     0.34     0.14    already at v2's BEST val
-500     0.11     0.29     0.18    <-- BEST val loss (new record)
-600     0.08     0.29     0.21    val plateaued, overfitting
+500     0.11     0.29     0.18    <-- appeared to be BEST val loss
+600     0.08     0.29     0.21    val plateaued
+```
+
+**BUG FOUND:** v3 trained on 0% signal data due to relative path bug
+in prepare.py. All scenarios were "not found" because the script ran
+from the nanoGPT directory. The model correctly learned "everything is
+NOISE" because in its training data, everything WAS noise.
+
+This produced a misleading result: val loss 0.287 (best ever!) but the
+model classified ALL inputs as NOISE with P(D)=0.000. The low val loss
+reflected perfect prediction of a trivial task (100% of examples are
+the same class).
+
+**Silt lesson #5:** Before interpreting a model's behavior, verify the
+data it trained on. A five-second class balance check would have caught
+this before three training runs were wasted.
+
+### v3b: verb markers + correct data (fix applied)
+
+Training data rebuilt with absolute paths. 1922 examples (147 signal
+in train, 15 in val) -- same volume as v2 but with verb markers added.
+
+```
+Step    Train    Val      Gap     Note
+0       4.44     4.44     0.00
+100     1.96     1.95     0.01
+200     1.33     1.35     0.02
+300     0.82     0.84     0.02    between v1 and v2 pace
+...     (in progress)
 ```
 
 ### Comparison at matched steps
@@ -193,7 +221,8 @@ signal to focus on.
 |---------|------|----------|----------------|-----------------|
 | v1 | 1,314 (easy noise) | 0.411 | 19% | baseline |
 | v2 | 1,922 (+borderline) | 0.335 | 69% | +50pp borderline |
-| v3 | 608 (+verb markers) | **0.287** | TBD | 2x faster, 14% better val |
+| v3 | 608 (BUG: 0 signal) | 0.287 | 0% (all NOISE) | ghost dataset, Silt #5 |
+| v3b | 1922 (+verb markers) | **0.330** | **74%** | best overall, recovers true decisions |
 
 ---
 
