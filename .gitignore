@@ -44,3 +44,5 @@ experiments/**/.cache/
 
 # Benchmark run logs (raw output; curated results go in RESULTS.md)
 experiments/**/runs/
+experiments/retrieval/locomo/data/
+experiments/retrieval/locomo/results_detail.json
