@@ -830,7 +830,37 @@ natural experiment.
 - Gemma 3 4B-IT (8.6 GB disk, likely 15-30s/event on CPU; might be
   too slow for any live role).
 - SmolLM / Qwen / Phi mini-class models.
-- Ensembling nanoGPT v6 + Gemma 1B at decision time.
+
+### Cascade experiment (nanoGPT v6 gate -> Gemma 1B arbiter)
+
+Composed via the existing ``ChainedWriteDecider``: v6 runs first, if
+it says SKIP we return immediately; if it says WRITE we call Gemma
+as arbiter. Script:
+``experiments/consolidation/cascade_bench.py``.
+
+| Scenario                   | cascade recall | cascade FPR | cascade avg latency |
+|----------------------------|----------------|-------------|---------------------|
+| markdown_tables_held_out   | 100%           | 16.7%       | 3.4 s               |
+| organic_val_held_out       | 100%           | --          | 5.8 s               |
+| jay_vstash_snapshot        | 100%           | --          | 6.2 s               |
+
+These numbers are **identical to Gemma 1B standalone** on all three
+scenarios, because v6 is permissive on markdown and organic content
+(writes ~100% of the events), so every event reaches the arbiter.
+
+Where the cascade actually wins is on scenarios v6 is trained on.
+On ``knowledge_update_50topics`` (1100 events, 950 synthetic noise),
+v6 correctly skips 950/950 synthetic noise at 1 ms each. Under the
+cascade, Gemma would never see those 950 events -- so the combined
+latency is ~150 events * 6 s (arbiter work) + 950 events * 1 ms
+(v6 fast-path) ~= 15 minutes total, vs 110 minutes Gemma-alone, with
+identical quality (v6 already handled synthetic noise perfectly).
+
+Takeaway: **cascade is the right production composition when you
+have a fast decisive backend for the easy cases** (synthetic noise,
+boilerplate) and a slow accurate backend for the hard cases
+(markdown, organic prose). Quality = arbiter quality; latency is
+arbiter-bound only on arbiter-bound events.
 
 ---
 
