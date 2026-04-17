@@ -303,10 +303,25 @@ _SHADOW_FLAG_TO_MARKER = {
 
 
 def _build_label_backend(name: str):
-    """Construct a ``LabelBackend`` from a CLI string identifier."""
+    """Construct a ``LabelBackend`` from a CLI string identifier.
+
+    Backends:
+
+    - ``gemini`` -- Gemini 2.0 Flash via the google-genai SDK. Online,
+      fast, rich rationales.
+    - ``local`` -- a local HuggingFace causal LM scored via
+      ``LLMWriteDecider``. Offline; model defaults to
+      ``google/gemma-3-1b-it`` but is overridable via
+      ``MERKEN_LABEL_LLM_MODEL`` (and ``MERKEN_LABEL_LLM_DEVICE``).
+    """
     if name == "gemini":
         from merken.labeling import GeminiLabelBackend
         return GeminiLabelBackend()
+    if name == "local":
+        from merken.labeling import LocalLLMLabelBackend
+        model = os.environ.get("MERKEN_LABEL_LLM_MODEL", "google/gemma-3-1b-it")
+        device = os.environ.get("MERKEN_LABEL_LLM_DEVICE", "cpu")
+        return LocalLLMLabelBackend(model_name=model, device=device)
     raise SystemExit(f"unknown --label-with backend: {name!r}")
 
 
@@ -729,12 +744,13 @@ def build_parser() -> argparse.ArgumentParser:
     )
     aud.add_argument(
         "--label-with",
-        choices=("gemini",),
+        choices=("gemini", "local"),
         default=None,
         help=(
-            "run oracular labeling on unlabeled shadow_disagree rows with the "
-            "chosen backend. Labels are stored in the merken_labels "
-            "collection; re-running is safe."
+            "run oracular labeling on unlabeled shadow_disagree rows with "
+            "the chosen backend (gemini: online Flash; local: offline "
+            "HuggingFace model, see MERKEN_LABEL_LLM_MODEL). Labels are "
+            "stored in the merken_labels collection; re-running is safe."
         ),
     )
     aud.add_argument(

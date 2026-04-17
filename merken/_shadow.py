@@ -47,11 +47,21 @@ import os
 _ENABLED_VALUES = {"nanogpt", "llm"}
 _SHADOW_KIND = os.environ.get("MERKEN_SHADOW", "").strip().lower()
 _PRIMARY_KIND = os.environ.get("MERKEN_PRIMARY", "").strip().lower()
+# Local-oracle labeling also needs torch loaded first (Mistake #10):
+# ``merken audit --label-with local`` constructs an LLMWriteDecider
+# which imports transformers + torch. If vstash has already loaded
+# fastembed, the process segfaults on first model forward.
+_LABEL_LLM_MODEL = os.environ.get("MERKEN_LABEL_LLM_MODEL", "").strip()
 
-# Eagerly import torch if either role is enabled. This must happen
-# before any other merken module that transitively imports vstash
-# (fastembed/ONNX). See notes/nanogpt-training-log.md Mistake #10.
-if _SHADOW_KIND in _ENABLED_VALUES or _PRIMARY_KIND in _ENABLED_VALUES:
+# Eagerly import torch if any role that needs torch is enabled. This
+# must happen before any other merken module that transitively imports
+# vstash (fastembed/ONNX). See notes/nanogpt-training-log.md
+# Mistake #10.
+if (
+    _SHADOW_KIND in _ENABLED_VALUES
+    or _PRIMARY_KIND in _ENABLED_VALUES
+    or _LABEL_LLM_MODEL
+):
     import torch  # noqa: F401
 
 

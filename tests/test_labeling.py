@@ -13,6 +13,7 @@ from pathlib import Path
 from merken import AlwaysWrite, Memory, ShadowWriteDecider
 from merken.labeling import (
     Label,
+    LocalLLMLabelBackend,
     _parse_backend_response,
     label_disagreements,
 )
@@ -158,6 +159,50 @@ def test_label_disagreements_error_is_caught(tmp_path: Path) -> None:
         errored = [r for r in results if r[0] == "error"]
         assert len(errored) >= 1
         assert all("RuntimeError" in r[3] for r in errored)
+
+
+def test_local_label_backend_maps_decision(monkeypatch) -> None:
+    """LocalLLMLabelBackend converts WriteDecider output into a Label.
+
+    The backend wraps ``LLMWriteDecider`` and maps its write/skip call
+    onto the DECISION/NOISE oracle schema. We stub the decider so
+    tests stay offline.
+    """
+    from merken.policies import Decision
+
+    calls: list[str] = []
+
+    class _StubDeciderFactory:
+        def __init__(self, *, write: bool, policy: str = "stub-llm") -> None:
+            self._write = write
+            self._policy = policy
+
+        def decide(self, event: Event, ctx: WriteContext) -> Decision:  # noqa: ARG002
+            calls.append(event.text)
+            return Decision(
+                write=self._write,
+                reason="P(D)=0.900 P(N)=0.100 raw_mass=0.950",
+                confidence=0.9,
+                policy=self._policy,
+            )
+
+    # Avoid loading transformers + torch in CI.
+    def _fake_init(self, *, model_name, device="cpu", confidence_threshold=0.5):
+        self._decider = _StubDeciderFactory(write=True)
+        self.name = f"local-llm:{model_name}"
+
+    monkeypatch.setattr(
+        LocalLLMLabelBackend, "__init__", _fake_init
+    )
+
+    backend = LocalLLMLabelBackend(model_name="stub-model")
+    out = backend.label("some event text")
+
+    assert out.decision == "DECISION"
+    assert out.backend == "local-llm:stub-model"
+    assert 0.0 <= out.confidence <= 1.0
+    assert "P(D)=" in out.rationale
+    assert calls == ["some event text"]
 
 
 def test_memory_label_roundtrip(tmp_path: Path) -> None:
