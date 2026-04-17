@@ -483,6 +483,62 @@ accuracy at this scale.
 
 ---
 
+## v5: organic augmentation (2026-04-17)
+
+Follow-up to the real-content failure above. Training data augmented
+with 68 organic DECISION samples: 55 from `~/.merken/*.db` (full text
+of documents Jay's merken loop kept) + 13 from
+`jay_vstash_2026_04_09_snapshot` (4 topics held in for train; 2 topics
+held out for val: `medlocal_clinical` + `vstash_notes` = 7 events).
+
+### Training
+
+- Same architecture as v4 (4 layer, 4 head, 128 dim, BPE 512 vocab,
+  block 128). Iters bumped 2000 -> 2500 because organic prose adds
+  2.4x more training tokens.
+- Train loss 0.26, val loss 2.78 at plateau (iter 1400+). Training
+  killed at 1800; best ckpt saved at iter 1700.
+- Gap train/val is large because the LM loss on markdown prose is
+  intrinsically higher than on "Replaced X with Y"; the classification
+  head (next-token after `<|label|>`) can still converge cleanly.
+
+### Evaluation
+
+| Scenario                         | v4 recall | v5 recall | FPR (v5) |
+|----------------------------------|-----------|-----------|----------|
+| organic_val_held_out (7)         | 100%      | 100%      | --       |
+| jay_vstash snapshot (20, mixed)  | 95%       | 100%      | --       |
+| knowledge_update_50topics (1100) | 100%      | 100%      | 0.0%     |
+
+No regression on synthetic. v5 rescues the one event v4 dropped on
+the snapshot ("merken -- Open Questions Resolved", markdown table),
+but that event was in v5's training data (`merken_design` topic
+is held-in for train). This fix is **memorization**, not generalization.
+
+The val split I chose (`medlocal_clinical` + `vstash_notes`) tests
+medical case prose and debug playbooks, which are paragraph-heavy,
+not table-heavy. Both v4 and v5 already handled those at 100%. To
+prove v5 generalizes to markdown tables it hasn't seen, need a
+markdown-tables-specific held-out scenario (see "What's next below").
+
+### Honest summary
+
+- **v5 does not regress on anything measured.**
+- **v5 does not prove generalization to markdown tables** -- the only
+  case it fixed was also in its training set.
+- **v5 is safe to land** (no regression) but **not proven to improve
+  the real weakness** (markdown blind spot).
+
+### What's next (really)
+
+- Build or find a markdown-tables scenario that no model in the v1
+  -> v5 chain has seen. Run v4 and v5 on it. If v5 > v4, the
+  augmentation generalized. If v4 == v5, the organic augmentation was
+  pure memorization and a different intervention (features,
+  architecture, richer synthetic tables) is needed.
+
+---
+
 ## Mistakes, dead ends, and lessons (the important part)
 
 ### Mistake 1: Celebrating 100/100 before testing properly
