@@ -850,17 +850,57 @@ class Memory:
         query: str = "should_remember",
         *,
         top_k: int = 20,
+        fts_only: bool = False,
     ) -> list[SearchResult]:
         """Query the audit log.
 
         Use this to answer "why was X kept / dropped?" The audit collection
-        is searched in isolation from normal memory.
+        is searched in isolation from normal memory. Pass ``fts_only=True``
+        when the query is a literal token (e.g. ``shadow_disagree``) so
+        vstash uses its full-text index directly instead of hybrid vector
+        + FTS -- embedding tiny tag tokens degrades recall on small
+        collections.
         """
         return self._vstash.search(
             query,
             top_k=top_k,
             collection=AUDIT_COLLECTION,
             layer=AUDIT_LAYER,
+            fts_only=fts_only,
+        )
+
+    # --------------------------------------------------------------- labels
+
+    def remember_label(self, *, event_title: str, body: str) -> None:
+        """Write one oracular label into the ``merken_labels`` collection.
+
+        Used by ``merken.labeling`` when an oracle classifies a
+        shadow-mode disagreement. Stored in the project's own vstash so
+        labels are always co-located with the audit rows they annotate.
+        Failure is silent for the same reason audit writes are silent:
+        label failures must not break normal memory ops.
+        """
+        from merken.labeling import LABEL_COLLECTION, LABEL_LAYER, _label_title
+
+        try:
+            self._vstash.remember(
+                body,
+                title=_label_title(event_title),
+                collection=LABEL_COLLECTION,
+                layer=LABEL_LAYER,
+            )
+        except Exception:
+            pass
+
+    def search_labels(self, query: str = "label:", *, top_k: int = 200):
+        """Query the label store for previously-oracled disagreements."""
+        from merken.labeling import LABEL_COLLECTION, LABEL_LAYER
+
+        return self._vstash.search(
+            query,
+            top_k=top_k,
+            collection=LABEL_COLLECTION,
+            layer=LABEL_LAYER,
         )
 
     # --------------------------------------------------------------- internals
