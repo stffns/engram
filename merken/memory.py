@@ -61,6 +61,7 @@ from merken.policies.should_recall import (
     RecallPlan,
 )
 from merken.policies.should_remember import (
+    ChainedWriteDecider,
     HeuristicWriteDecider,
     ShadowWriteDecider,
 )
@@ -74,29 +75,39 @@ DEFAULT_COLLECTION = "default"
 
 
 def _default_write_decider() -> WriteDecider:
-    """Build the write decider, auto-wrapping in shadow mode if env set.
+    """Build the write decider with env-based shadow / primary wiring.
 
-    Env vars are read via ``merken._shadow.load_shadow_from_env``. If no
-    ``MERKEN_SHADOW`` is configured, returns a plain
-    ``HeuristicWriteDecider``. Otherwise wraps it in a
-    ``ShadowWriteDecider`` whose secondary is the env-configured
-    classifier (nanoGPT or LLM). Shadow failures do not block writes;
-    the ShadowWriteDecider catches them per-event.
+    Precedence (MERKEN_PRIMARY wins if both are set -- typing PRIMARY
+    is the more deliberate act):
 
-    If shadow construction itself fails (e.g. missing checkpoint),
-    degrade to the plain default -- the user's writes must not break
-    because an opt-in shadow is misconfigured.
+    1. ``MERKEN_PRIMARY`` set -> ``ChainedWriteDecider(Heuristic, classifier)``.
+       Heuristic keeps hygiene gates; classifier decides write/skip for
+       anything that passes the gates.
+    2. ``MERKEN_SHADOW`` set -> ``ShadowWriteDecider(Heuristic, classifier)``.
+       Heuristic stays authoritative; classifier only annotates the
+       audit reason.
+    3. Neither set (or classifier construction fails) -> plain
+       ``HeuristicWriteDecider()``. An opt-in classifier never blocks
+       writes, even when misconfigured.
     """
-    from merken._shadow import load_shadow_from_env
+    from merken._shadow import load_primary_from_env, load_shadow_from_env
 
-    primary = HeuristicWriteDecider()
+    heuristic = HeuristicWriteDecider()
+
+    try:
+        primary_classifier = load_primary_from_env()
+    except Exception:
+        primary_classifier = None
+    if primary_classifier is not None:
+        return ChainedWriteDecider(heuristic, primary_classifier)
+
     try:
         shadow = load_shadow_from_env()
     except Exception:
-        return primary
+        return heuristic
     if shadow is None:
-        return primary
-    return ShadowWriteDecider(primary, shadow)
+        return heuristic
+    return ShadowWriteDecider(heuristic, shadow)
 
 
 def _resolve_vstash_embed_model(vstash_memory: vstash.Memory) -> str:

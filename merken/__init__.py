@@ -13,6 +13,7 @@ from merken.consolidation import ConsolidationResult, Fact
 from merken.memory import ForgetResult, Memory, RememberResult
 from merken.policies import (
     AlwaysWrite,
+    ChainedWriteDecider,
     ConsolidateContext,
     ConsolidateDecider,
     ConsolidationDecision,
@@ -43,6 +44,7 @@ from merken.policies import (
 __version__ = "0.1.0"
 __all__ = [
     "AlwaysWrite",
+    "ChainedWriteDecider",
     "ContentTypePriorDecider",
     "ConsolidateContext",
     "ConsolidateDecider",
