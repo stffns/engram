@@ -4,6 +4,11 @@ See ``CONSTITUTION.md`` for what merken is, what it isn't, and the principles
 that should outlive any specific implementation.
 """
 
+# Must import _shadow FIRST: when MERKEN_SHADOW is set, this eagerly
+# loads torch before vstash/fastembed gets imported transitively via
+# .memory / .consolidation -- see notes/nanogpt-training-log.md
+# Mistake #10 for why the load order matters.
+from merken import _shadow as _shadow  # noqa: F401
 from merken.consolidation import ConsolidationResult, Fact
 from merken.memory import ForgetResult, Memory, RememberResult
 from merken.policies import (

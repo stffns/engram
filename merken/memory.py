@@ -40,7 +40,6 @@ from merken.consolidation import (
     cluster_by_jaccard,
     cluster_by_recall,
     fact_fingerprint,
-    generate_briefs,
     materialize_fact,
 )
 from merken.policies.should_consolidate import (
@@ -61,7 +60,10 @@ from merken.policies.should_recall import (
     RecallDecider,
     RecallPlan,
 )
-from merken.policies.should_remember import HeuristicWriteDecider
+from merken.policies.should_remember import (
+    HeuristicWriteDecider,
+    ShadowWriteDecider,
+)
 from merken.policies.types import Decision, Event, WriteContext, WriteDecider
 
 if TYPE_CHECKING:
@@ -69,6 +71,32 @@ if TYPE_CHECKING:
 
 DEFAULT_LAYER = "episodic"
 DEFAULT_COLLECTION = "default"
+
+
+def _default_write_decider() -> WriteDecider:
+    """Build the write decider, auto-wrapping in shadow mode if env set.
+
+    Env vars are read via ``merken._shadow.load_shadow_from_env``. If no
+    ``MERKEN_SHADOW`` is configured, returns a plain
+    ``HeuristicWriteDecider``. Otherwise wraps it in a
+    ``ShadowWriteDecider`` whose secondary is the env-configured
+    classifier (nanoGPT or LLM). Shadow failures do not block writes;
+    the ShadowWriteDecider catches them per-event.
+
+    If shadow construction itself fails (e.g. missing checkpoint),
+    degrade to the plain default -- the user's writes must not break
+    because an opt-in shadow is misconfigured.
+    """
+    from merken._shadow import load_shadow_from_env
+
+    primary = HeuristicWriteDecider()
+    try:
+        shadow = load_shadow_from_env()
+    except Exception:
+        return primary
+    if shadow is None:
+        return primary
+    return ShadowWriteDecider(primary, shadow)
 
 
 def _resolve_vstash_embed_model(vstash_memory: vstash.Memory) -> str:
@@ -195,7 +223,7 @@ class Memory:
             db=db,
             collection=collection,
         )
-        self._write_decider: WriteDecider = write_decider or HeuristicWriteDecider()
+        self._write_decider: WriteDecider = write_decider or _default_write_decider()
         self._consolidate_decider: ConsolidateDecider = (
             consolidate_decider or PeriodicConsolidator()
         )
