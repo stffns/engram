@@ -1,0 +1,67 @@
+{
+  "name": "markdown_tables_held_out",
+  "description": "Held-out markdown-table events to test generalization beyond the v5 training set. Content intentionally uses tech stacks and topics NOT present in the 68 organic training samples (aviation, game dev, bio-lab, retail, satellite, firmware). Ground truth: 6 DECISION (tables that document a commitment / choice / specification) + 6 NOISE (tables that are routine status snapshots). Tests whether v5 learned 'table-shaped content can be DECISION' generically, or just memorized the specific markdown tables in training.",
+  "events": [
+    {
+      "id": "decision_adr_flight_planner_kafka_vs_nats",
+      "topic": "decision_table",
+      "text": "# ADR-014: Flight Planner Event Bus (2026-05-12)\n\n## Context\nThe flight planner service must emit ~8K events/sec during peak hours. We compared two event-bus options.\n\n## Options\n\n| Option  | Throughput | Ops burden | Cost/mo | Team skill |\n|---------|-----------|-----------|---------|-----------|\n| Kafka   | 2M/sec    | High      | $3,200  | Yes       |\n| NATS JS | 600K/sec  | Low       | $800    | No        |\n\n## Decision\nAdopt NATS JetStream. Throughput headroom is 75x over peak; ops burden is the real bottleneck given our 2-engineer SRE team."
+    },
+    {
+      "id": "decision_game_engine_choice",
+      "topic": "decision_table",
+      "text": "## Engine Selection for Project Hyacinth (2026-05-04)\n\nAfter a 3-week spike we ran the following scoring matrix on the two candidate engines.\n\n| Criterion        | Weight | Godot 4.4 | Bevy 0.15 |\n|------------------|--------|-----------|-----------|\n| Team onboarding  | 25%    | 9         | 4         |\n| Rendering perf   | 20%    | 7         | 9         |\n| Tooling maturity | 20%    | 9         | 5         |\n| Console export   | 15%    | 8         | 3         |\n| Mod ecosystem    | 10%    | 7         | 6         |\n| License          | 10%    | MIT-ish   | MIT       |\n\nWeighted totals: Godot 7.95, Bevy 5.55.\n\n**Chosen: Godot 4.4.** Console export was the hard blocker for Bevy; mod ecosystem tied."
+    },
+    {
+      "id": "decision_biolab_assay_cutoffs",
+      "topic": "decision_table",
+      "text": "# Cytometry Panel A -- Final Cutoff Table (v1.2)\n\nAfter running 1,200 calibration samples, these are the approved gates for Panel A reports. Supersedes v1.0 and v1.1.\n\n| Channel | Gate low | Gate high | Positivity |\n|---------|----------|-----------|-----------|\n| CD45    | 180      | 3,500     | >= 240    |\n| CD14    | 60       | 1,800     | >= 110    |\n| HLA-DR  | 90       | 2,100     | >= 150    |\n| CD16    | 40       | 1,200     | >= 75     |\n\nSigned off by the lab director. Applies to all runs starting Batch 2026-05-A."
+    },
+    {
+      "id": "decision_retail_store_rollout_waves",
+      "topic": "decision_table",
+      "text": "# Store Rollout Plan for Inventory-V2 (2026-05-20)\n\nPreviously proposed a big-bang cutover; exec team pushed back. New plan is a 3-wave rollout with go/no-go gates.\n\n| Wave | Stores | Region   | Cutover date | Gate criterion         |\n|------|--------|----------|--------------|------------------------|\n| 1    | 12     | LATAM-S  | 2026-06-02   | <= 2 P1 incidents/wk   |\n| 2    | 48     | LATAM-N  | 2026-06-23   | Wave 1 green for 3 wks |\n| 3    | 140    | EU       | 2026-07-14   | Wave 2 green for 3 wks |\n\nDeclared approach: pause and escalate at any gate miss, do not skip waves."
+    },
+    {
+      "id": "decision_satellite_slot_allocation",
+      "topic": "decision_table",
+      "text": "## Ground Station Slot Allocation for AsterSat-3 (2026-05-18)\n\nContract terms for the 2026-H2 pass schedule. Locks in station windows.\n\n| Pass window (UTC) | Station    | Purpose          | Priority |\n|-------------------|------------|------------------|----------|\n| 02:15 -- 02:27    | Svalbard   | Housekeeping TM  | P0       |\n| 09:40 -- 09:52    | Punta Arenas| Payload download| P0       |\n| 14:10 -- 14:21    | Troll      | Contingency TC   | P1       |\n| 21:05 -- 21:18    | Kiruna     | Payload download | P0       |\n\nSigned contract 2026-05-18, Svalbard + Kiruna billed monthly, Punta Arenas per-pass."
+    },
+    {
+      "id": "decision_firmware_feature_freeze",
+      "topic": "decision_table",
+      "text": "# Firmware 4.8 Feature Freeze (2026-05-09)\n\nEngineering committed to the following feature set for 4.8 ship. Anything not in this table is deferred to 4.9.\n\n| Feature                     | Owner   | Status |\n|-----------------------------|---------|--------|\n| OTA delta updates           | Sasha   | DONE   |\n| Secure boot chain v2        | Rene    | DONE   |\n| Low-power radio scheduler   | Mira    | DONE   |\n| Self-test diagnostics API   | Sasha   | DONE   |\n| Remote reset over cellular  | Rene    | DONE   |\n\nBuild tag: fw-4.8.0-rc1. Deferred to 4.9: peer-to-peer mesh, RF calibration auto-tune."
+    },
+    {
+      "id": "noise_daily_ops_standup",
+      "topic": "noise",
+      "text": "## Daily Ops Standup -- 2026-05-12\n\nStandard agenda, no decisions taken.\n\n| Area       | Person | Status |\n|------------|--------|--------|\n| DB cluster | Lin    | Green  |\n| Edge CDN   | Kwame  | Green  |\n| Payments   | Pia    | Yellow |\n| Search     | Dev    | Green  |\n\nPia to follow up offline on the payments yellow flag. No incidents."
+    },
+    {
+      "id": "noise_meeting_roster",
+      "topic": "noise",
+      "text": "# Design Review Roster -- Week of 2026-05-05\n\nAttendance reminder for this week's sessions, nothing to decide.\n\n| Day      | Time  | Topic             | Presenter |\n|----------|-------|-------------------|-----------|\n| Tue 14:00| 45 min| Payments billing  | Lin       |\n| Wed 10:30| 60 min| Search relevance  | Dev       |\n| Thu 16:00| 30 min| Onboarding flow   | Kwame     |\n\nAttendees confirmed. No action items."
+    },
+    {
+      "id": "noise_sprint_burndown_snapshot",
+      "topic": "noise",
+      "text": "## Sprint 62 Burndown -- Day 6 of 10\n\nRoutine burndown, tracking as expected. No scope changes.\n\n| Day | Remaining | Done | Blocked |\n|-----|-----------|------|---------|\n| 1   | 46        | 0    | 0       |\n| 2   | 43        | 3    | 0       |\n| 3   | 39        | 7    | 0       |\n| 4   | 36        | 10   | 0       |\n| 5   | 32        | 14   | 0       |\n| 6   | 28        | 18   | 0       |\n\nProjected completion by day 9, one day of buffer."
+    },
+    {
+      "id": "noise_ticket_triage_summary",
+      "topic": "noise",
+      "text": "# Support Triage Summary -- 2026-05-11 17:00 UTC\n\nEnd-of-day snapshot, nothing urgent.\n\n| Queue      | Open | New today | Closed today |\n|------------|------|-----------|--------------|\n| Billing    | 18   | 4         | 7            |\n| Access     | 9    | 2         | 2            |\n| Data       | 5    | 1         | 1            |\n| Platform   | 12   | 3         | 3            |\n\nNo escalations pending. Queue health within SLA."
+    },
+    {
+      "id": "noise_capacity_snapshot",
+      "topic": "noise",
+      "text": "## Weekly Capacity Snapshot -- W19 2026\n\nRoutine capacity report, no threshold breaches, no action needed.\n\n| Service    | CPU avg | Mem avg | p99 lat | Err rate |\n|------------|---------|---------|---------|----------|\n| api-gw     | 42%     | 58%     | 120ms   | 0.02%    |\n| user-svc   | 33%     | 51%     | 85ms    | 0.01%    |\n| notify-svc | 21%     | 38%     | 210ms   | 0.04%    |\n| search-svc | 49%     | 62%     | 155ms   | 0.03%    |\n\nAll services below autoscale trigger thresholds."
+    },
+    {
+      "id": "noise_oncall_handoff_log",
+      "topic": "noise",
+      "text": "# Oncall Handoff -- 2026-05-10 -> 2026-05-17\n\nQuiet rotation. Handoff note for the incoming oncall.\n\n| Alert             | Count | Impact |\n|-------------------|-------|--------|\n| Latency p99 warn  | 2     | None   |\n| Disk usage warn   | 1     | None   |\n| Cert expiry notice| 1     | None   |\n\nAll self-healed or within ack SLA. No follow-ups required."
+    }
+  ],
+  "queries": []
+}

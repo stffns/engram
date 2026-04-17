@@ -153,6 +153,77 @@ class HeuristicWriteDecider:
         return Decision(True, "novel", 0.8, self.name)
 
 
+class ShadowWriteDecider:
+    """Run two deciders side by side; the primary is authoritative.
+
+    The shadow decider observes every event but cannot affect the
+    write outcome. Its result is appended to the ``Decision.reason``
+    string so the audit trail records whether the two agreed, what the
+    shadow would have done, and at what confidence. This is a
+    bootstrapping tool: run a not-yet-trusted classifier (e.g.
+    ``NanoGPTWriteDecider``) against the current default and
+    accumulate disagreement data, then retrain and re-measure once
+    enough real labels exist.
+
+    Failure in the shadow is never fatal -- any exception is caught
+    and tagged ``shadow_error:<ExcClass>`` in the reason. The
+    primary's decision is preserved bit-for-bit.
+
+    Reason format (appended to the primary's reason):
+
+    - agreement: ``|shadow_agree:<shadow.policy>=<write|skip>:<conf>``
+    - disagreement: ``|shadow_disagree:<shadow.policy>=<write|skip>:<conf>``
+    - shadow error: ``|shadow_error:<ExceptionClass>``
+
+    Querying flagged events later is a matter of grepping the audit
+    collection for ``shadow_disagree`` in the reason.
+    """
+
+    def __init__(self, primary, shadow) -> None:
+        self._primary = primary
+        self._shadow = shadow
+        primary_name = getattr(primary, "name", type(primary).__name__)
+        shadow_name = getattr(shadow, "name", type(shadow).__name__)
+        self.name = f"Shadow({primary_name}|{shadow_name})"
+
+    def set_hydrate_fn(
+        self,
+        fn: Callable[[], Iterable[str]],
+    ) -> None:
+        """Forward hydration to the primary (shadow is stateless).
+
+        The shadow is assumed to be a model-based classifier with no
+        cross-event state. If that changes, add a similar forward here.
+        """
+        if hasattr(self._primary, "set_hydrate_fn"):
+            self._primary.set_hydrate_fn(fn)
+
+    def decide(self, event: Event, ctx: WriteContext) -> Decision:
+        primary = self._primary.decide(event, ctx)
+
+        try:
+            shadow = self._shadow.decide(event, ctx)
+        except Exception as exc:
+            return Decision(
+                write=primary.write,
+                reason=f"{primary.reason}|shadow_error:{exc.__class__.__name__}",
+                confidence=primary.confidence,
+                policy=self.name,
+            )
+
+        shadow_label = "write" if shadow.write else "skip"
+        state = "shadow_agree" if shadow.write == primary.write else "shadow_disagree"
+        shadow_policy = getattr(shadow, "policy", type(self._shadow).__name__)
+        tag = f"{state}:{shadow_policy}={shadow_label}:{shadow.confidence:.3f}"
+
+        return Decision(
+            write=primary.write,
+            reason=f"{primary.reason}|{tag}",
+            confidence=primary.confidence,
+            policy=self.name,
+        )
+
+
 class ContentTypePriorDecider:
     """Extends HeuristicWriteDecider with an A-MAC-style content-type prior.
 

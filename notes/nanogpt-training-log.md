@@ -335,6 +335,312 @@ on organizational context that the text alone doesn't convey.
 
 ---
 
+## Write filter end-to-end on knowledge_update_50topics (2026-04-17)
+
+First E2E measurement with `NanoGPTWriteDecider` integrated into
+`Memory.remember()`. Scenario: 1100 events (150 signal across 50
+topics, 950 noise), 50 retrieval queries, Gemini 2.0 Flash as answer
+generator + judge. top_k=5.
+
+Inference was pre-computed offline (1.0-1.2 s for 1100 events) and
+loaded through `_PrecomputedDecider` at E2E time -- see Mistake #10
+for why this split is necessary.
+
+### Filter-quality (offline, before E2E)
+
+| Model   | n_written | recall | FPR  | infer_time |
+|---------|-----------|--------|------|------------|
+| char v2 | 150 / 1100 | 100%  | 0.0% | 1.22 s     |
+| BPE v4  | 150 / 1100 | 100%  | 0.0% | 1.09 s     |
+
+Both models perfectly separate the 150 true decisions from the 950
+noise events on this scenario (noise is the "easy" kind -- Sprint
+planning, Ticket investigations, etc. -- that the training data
+over-represents). Nothing surprising at the unit level; the harder
+question is whether that perfect filter translates to a better E2E
+answer-accuracy number.
+
+### E2E accuracy (with Gemini Flash judge)
+
+| Config          | Written | Skipped | Accuracy    | Δ vs AlwaysWrite |
+|-----------------|---------|---------|-------------|------------------|
+| always-write    | 1100    | 0       | 21/50 = 42% | --               |
+| nanogpt-char-v2 | 150     | 950     | 27/50 = 54% | **+12 pp**       |
+| nanogpt-bpe-v4  | 150     | 950     | 28/50 = 56% | **+14 pp**       |
+
+Store reduction: 86% (wrote 150 of 1100 events). Directionally
+consistent with Jay's parallel-session result from 2026-04-16 (+18 pp
+on an earlier smaller scenario). CIs at n=50 are wide (~±14 pp) and
+overlap, so statistical significance needs a larger query pool --
+but the direction is unambiguous and the filter is perfect, so the
+gain is not an artifact of filter noise.
+
+### What this proves
+
+1. The BPE v4 → production integration we shipped today (`NanoGPTWriteDecider`
+   auto-detecting BPE vs char) works end-to-end.
+2. The write filter is not a wash -- dropping 86% of the store cleanly
+   improves retrieval quality for the surviving queries.
+3. BPE v4 beats char v2 by +2 pp on E2E, consistent with the +5 pp Q3
+   delta on borderline noise. Small but in the predicted direction.
+
+### What this does NOT prove
+
+- That nanoGPT should be the *default* `WriteDecider`. That requires
+  (a) a real-content scenario (CONSTITUTION hard rule: "Test fixtures
+  are not ground truth") and (b) running it on `jay_vstash_*_snapshot`
+  and confirming no regression in pass_rate.
+- That +14 pp generalizes. This scenario was built for nanoGPT-style
+  decision vs noise; scenarios where the noise is less stereotyped
+  (meeting summaries, documentation, chat transcripts) will likely
+  close the gap.
+
+### Files
+
+- `experiments/consolidation/precompute_nanogpt.py` -- torch-only
+  inference, saves `{event_id: Decision}` JSON.
+- `experiments/consolidation/test_write_filter.py` -- E2E, reads
+  precomputed JSON via `_PrecomputedDecider`.
+- `/tmp/decisions_char.json`, `/tmp/decisions_bpe.json` -- artifacts
+  of the runs above (not committed).
+
+---
+
+## Real-content validation on jay_vstash_2026_04_09_snapshot (2026-04-17)
+
+Same pipeline on organic content (20 events across 6 topics: MedLocal
+clinical/meta, vstash notes, merken design, daily review, kafka
+meeting; 4 queries). The scenario has NO "noise" topic -- every event
+is legitimate content. The question: does the filter kill real events?
+
+### Filter quality (offline, no noise to false-positive on)
+
+| Model   | n_written | filter recall | dropped |
+|---------|-----------|---------------|---------|
+| char v2 | 12 / 20   | 60%           | 8 real events |
+| BPE v4  | 19 / 20   | 95%           | 1 real event  |
+
+**Char v2 dropped 7 substantial MedLocal/vstash notes** (e.g., "MedLocal
+Demo — Petequias/Meningococcemia", "vstash — Upstream Improvement
+Ideas", "MedLocal — Ventaja Diferenciadora: Decision Tables"). These
+are real decisions, design notes, and incident reports. Character-level
+training on "Replaced X with Y" patterns does not generalize to
+markdown-structured prose.
+
+**BPE v4 dropped only one event** -- the "merken — Open Questions
+Resolved" table. Shared failure mode between both models: bullet-dense
+markdown tables trip the classifier. Hypothesis: training data had no
+such structures; the model's "DECISION verb + detail" heuristic
+doesn't match "| Question | Decision |" table syntax.
+
+### E2E (Gemini Flash, 4 queries)
+
+| Config       | Written | E2E Accuracy |
+|--------------|---------|--------------|
+| always-write | 20      | 1/4 = 25%    |
+| char v2      | 12      | 1/4 = 25%    |
+| BPE v4       | 19      | 1/4 = 25%    |
+
+At n=4 the E2E metric cannot discriminate. All three configs miss
+the same three queries -- they're retrieval-limited (short queries
+against long markdown docs at top_k=5), not filter-limited. The
+filter-quality numbers above are the load-bearing signal, not E2E
+accuracy at this scale.
+
+### Conclusions
+
+1. **Char v2 is NOT a safe default.** Dropping 40% of real organic
+   content is a disqualifier regardless of E2E numbers. The
+   CONSTITUTION hard rule "Test fixtures are not ground truth" exists
+   for exactly this: the 100/100 on knowledge_update_50topics was
+   ground truth for stereotyped-noise detection, not for "does this
+   event contain a decision?" in markdown-structured prose.
+
+2. **BPE v4 is closer but not proven safe.** 95% filter recall means
+   we'd still lose ~1 in 20 organic events. That's better than char
+   v2 by a factor of 8, but a user noticing "my medical case notes
+   keep disappearing" would be an immediate trust break.
+
+3. **The +14 pp on knowledge_update_50topics did NOT replicate.** This
+   is the key generalization failure: noise that *looks* like the
+   training noise is trivially filtered, but the filter does not
+   understand "decision-ness", it understands a surface pattern.
+
+4. **Markdown tables are a systematic blind spot.** Both models fail
+   on the "Open Questions Resolved" event -- this is independent of
+   tokenization. Training-data coverage of structured content is the
+   next intervention.
+
+### What's next
+
+- Do NOT flip the default to nanoGPT. Keep `HeuristicWriteDecider`.
+- If nanoGPT is to graduate, the training data needs organic content
+  samples (real notes, markdown docs, decision logs), not just
+  synthetic "Replaced X with Y" + "Sprint planning" pairs.
+- A useful intermediate: use nanoGPT BPE v4 as a *flag* (route flagged
+  events to a secondary path / ask user), not a silent filter. That
+  captures the signal without risking trust-breaking drops.
+
+---
+
+## v5: organic augmentation (2026-04-17)
+
+Follow-up to the real-content failure above. Training data augmented
+with 68 organic DECISION samples: 55 from `~/.merken/*.db` (full text
+of documents Jay's merken loop kept) + 13 from
+`jay_vstash_2026_04_09_snapshot` (4 topics held in for train; 2 topics
+held out for val: `medlocal_clinical` + `vstash_notes` = 7 events).
+
+### Training
+
+- Same architecture as v4 (4 layer, 4 head, 128 dim, BPE 512 vocab,
+  block 128). Iters bumped 2000 -> 2500 because organic prose adds
+  2.4x more training tokens.
+- Train loss 0.26, val loss 2.78 at plateau (iter 1400+). Training
+  killed at 1800; best ckpt saved at iter 1700.
+- Gap train/val is large because the LM loss on markdown prose is
+  intrinsically higher than on "Replaced X with Y"; the classification
+  head (next-token after `<|label|>`) can still converge cleanly.
+
+### Evaluation
+
+| Scenario                         | v4 recall | v5 recall | FPR (v5) |
+|----------------------------------|-----------|-----------|----------|
+| organic_val_held_out (7)         | 100%      | 100%      | --       |
+| jay_vstash snapshot (20, mixed)  | 95%       | 100%      | --       |
+| knowledge_update_50topics (1100) | 100%      | 100%      | 0.0%     |
+
+No regression on synthetic. v5 rescues the one event v4 dropped on
+the snapshot ("merken -- Open Questions Resolved", markdown table),
+but that event was in v5's training data (`merken_design` topic
+is held-in for train). This fix is **memorization**, not generalization.
+
+The val split I chose (`medlocal_clinical` + `vstash_notes`) tests
+medical case prose and debug playbooks, which are paragraph-heavy,
+not table-heavy. Both v4 and v5 already handled those at 100%. To
+prove v5 generalizes to markdown tables it hasn't seen, need a
+markdown-tables-specific held-out scenario (see "What's next below").
+
+### Honest summary
+
+- **v5 does not regress on anything measured.**
+- **v5 does not prove generalization to markdown tables** -- the only
+  case it fixed was also in its training set.
+- **v5 is safe to land** (no regression) but **not proven to improve
+  the real weakness** (markdown blind spot).
+
+### What's next (really)
+
+- Build or find a markdown-tables scenario that no model in the v1
+  -> v5 chain has seen. Run v4 and v5 on it. If v5 > v4, the
+  augmentation generalized. If v4 == v5, the organic augmentation was
+  pure memorization and a different intervention (features,
+  architecture, richer synthetic tables) is needed.
+
+### markdown_tables_held_out (2026-04-17) -- augmentation made it worse
+
+Built a 12-event scenario of markdown tables (6 DECISION -- ADR with
+scoring matrix, engine selection, biolab gate cutoffs, rollout plan,
+satellite slot allocation, firmware feature freeze; 6 NOISE --
+daily ops standup, meeting roster, sprint burndown, ticket triage,
+capacity snapshot, oncall handoff). Content uses tech stacks absent
+from training (aviation, game dev, bio lab, satellite, firmware).
+
+Filter recall / FPR:
+
+| Model | recall (6 sig) | FPR (6 noise) |
+|-------|----------------|---------------|
+| v4    | 100%           | 100%          |
+| v5    | 100%           | 100%          |
+
+Both models write all 12 events. The filter is completely blind to
+markdown-table NOISE. But the per-event confidences tell a sharper
+story:
+
+- **v4** had one borderline call: `noise_meeting_roster` at
+  P(D)=0.516, P(N)=0.484. With `confidence_threshold=0.6` this event
+  would have been correctly skipped -- the model sensed *something*
+  off.
+- **v5** plows through with >=0.94 P(D) on every event, including all
+  6 NOISE tables. The organic augmentation reinforced
+  "markdown = DECISION" into a near-deterministic rule and erased
+  the only residual noise signal v4 had.
+
+**Conclusion: v5 is worse than v4 on markdown NOISE detection.** The
+augmentation didn't generalize the filter; it specialized it harder
+toward "long structured markdown = keep". That's net negative if your
+real noise includes routine status tables.
+
+**Root cause:** The NOISE training set is 100% single-paragraph flat
+text ("Sprint planning: infra team..."). The model has no reference
+for what a table-formatted NOISE looks like. Adding 68 more
+markdown-DECISION examples without any markdown-NOISE examples tips
+the decision boundary further in the wrong direction.
+
+**What this points at:**
+
+- **v6 must add markdown-formatted NOISE samples.** The scenario above
+  can seed the NOISE side (6 examples) but more are needed -- routine
+  status snapshots, handoff summaries, attendance rosters, etc. Not
+  drawn from `~/.merken/*.db` because by definition those were all
+  kept.
+- Alternative: accept that the single-filter architecture has
+  irreducible blind spots, and route high-confidence markdown through
+  a secondary check (LLM judge, heuristic pattern).
+- Empirically the safest default remains `HeuristicWriteDecider`.
+
+**Do NOT graduate v5.** The synthetic-scenario win does not make up
+for the markdown-NOISE regression vs v4.
+
+---
+
+## Shadow mode: bootstrap the training set instead of synthesizing it (2026-04-17)
+
+Three sessions of synthetic-data iteration have landed the filter at a
+provable architectural limit: each augmentation fixes one blind spot
+and opens another, because the model is surface-pattern-matching and
+the data distribution we build for it is always a proxy for Jay's
+actual decision-making. The real signal lives in the audit log, but
+the current default (`HeuristicWriteDecider`) rarely skips -- so the
+audit is 58 "write: True" rows and zero "write: False". There is no
+ground-truth label set to train on.
+
+Shadow mode attacks the bootstrapping problem directly. A new
+`ShadowWriteDecider` runs two deciders side by side: the primary is
+authoritative and controls writes; the shadow only annotates the
+audit reason with its prediction and whether the two agreed.
+`Memory(write_decider=ShadowWriteDecider(HeuristicWriteDecider(),
+NanoGPTWriteDecider(...)))` gives us:
+
+- Zero behavior change for writes (primary wins, always).
+- Every event tagged in the audit with shadow-agree or shadow-disagree
+  plus the shadow's confidence.
+- `merken audit | grep shadow_disagree` surfaces the flagged events.
+- User-reviewed disagreements become the labeled training set the
+  filter has always needed.
+
+Reason format (appended to the primary's reason):
+
+    |shadow_agree:<shadow.policy>=<write|skip>:<conf>
+    |shadow_disagree:<shadow.policy>=<write|skip>:<conf>
+    |shadow_error:<ExceptionClass>    (shadow failure; never blocks)
+
+The intended graduation path: run shadow mode in real usage, wait for
+~200 disagreements, have Jay review and label them, retrain v6 on
+those labels, measure against v4 on the four scenarios we already
+have. If v6 > v4 on `markdown_tables_held_out`, the augmentation
+generalized; if not, the architecture itself is the ceiling and the
+next move is a regression head / larger model / entirely different
+approach.
+
+Shadow mode is strictly additive. It does not commit us to anything:
+if the disagreements show the shadow is usefully corrective, we
+graduate. If they show the shadow is random, we delete the class and
+move on with `HeuristicWriteDecider` permanently. Either outcome is a
+cheap experiment.
+
+---
+
 ## Mistakes, dead ends, and lessons (the important part)
 
 ### Mistake 1: Celebrating 100/100 before testing properly
@@ -480,6 +786,43 @@ changes what retrieval CAN find, not just how well it finds it.
 
 **How to avoid:** Fix chunk strategy as the first design decision,
 before any experiments. Document it as an experimental parameter.
+
+### Mistake 10: torch + fastembed segfault across subprocess boundaries
+
+Running `experiments/consolidation/test_write_filter.py` with all three
+configs (AlwaysWrite, char v2, BPE v4) in one process segfaulted on the
+second config -- Mistake #6 reappearing. The obvious fix was to split
+into three separate `python -m ...` invocations. It did not work: both
+char and BPE processes segfaulted with exit 139 *immediately on first
+`NanoGPTWriteDecider(ckpt, meta)` construction*, even in a freshly
+forked Python interpreter.
+
+Root cause is subtler than Mistake #6 suggested. `merken/__init__.py`
+imports `merken.memory`, which transitively imports vstash, which loads
+fastembed/ONNX Runtime. The *order of first load* matters -- once
+fastembed has touched the process, loading a torch model corrupts the
+runtime. A fresh subprocess does not help if the script's first
+statement is `from merken import AlwaysWrite, Memory`.
+
+Two workarounds confirmed to work:
+
+1. `import torch` at the very top of the script, before any merken
+   import. Torch initializes before fastembed/ONNX and they coexist.
+   Used for `precompute_nanogpt.py`.
+
+2. Pre-compute nanoGPT decisions offline (torch-only process), save to
+   JSON, then read through a torch-free `_PrecomputedDecider` at E2E
+   time. Used for `test_write_filter.py` so the recall pipeline never
+   touches torch.
+
+**Lesson:** On macOS, torch and fastembed/ONNX are first-load-order
+sensitive. Subprocess isolation is necessary but not sufficient -- the
+first native library to load wins the process and corrupts later ones.
+
+**How to avoid:** For any experiment that mixes torch with vstash, pick
+one: (a) make torch load first in every entry point, or (b) separate
+inference (torch) from retrieval (vstash) into distinct processes
+communicating via files/pipes.
 
 ### Non-mistake: Things that worked on first try
 

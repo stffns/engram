@@ -34,6 +34,7 @@ from merken.policies.should_remember import (
     AlwaysWrite,
     ContentTypePriorDecider,
     HeuristicWriteDecider,
+    ShadowWriteDecider,
 )
 from merken.policies.types import Decision, Event, WriteContext, WriteDecider
 
@@ -61,6 +62,7 @@ __all__ = [
     "RecallDecider",
     "RecallPlan",
     "SemanticOnlyRecaller",
+    "ShadowWriteDecider",
     "WriteContext",
     "WriteDecider",
 ]
