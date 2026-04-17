@@ -1,0 +1,212 @@
+[
+  {
+    "id": "md_noise_schedule_00",
+    "topic": "noise",
+    "category": "schedule",
+    "universe": "arts foundation grants office",
+    "text": "# Grant Application Review Schedule - Fall 2024\n\nThis is the rotating schedule for initial application review. Reviewers are responsible for reading assigned applications and providing a brief summary and rating (High, Medium, Low) based on alignment with the foundation's artistic goals and criteria.\n\n| Week      | Reviewer 1         | Reviewer 2      | Reviewer 3     |\n| ----------- | ----------- | ----------- | ----------- |\n| Oct 21-25   | Amelia Chen      | David Rossi   | Elena Silva   |\n| Oct 28-Nov 1 | Ben Carter      | Amelia Chen    | David Rossi |\n| Nov 4-8    | Felicity Ito    | Ben Carter    | Amelia Chen  |\n| Nov 11-15 | David Rossi | Felicity Ito | Ben Carter |\n| Nov 18-22 | Elena Silva  | David Rossi | Felicity Ito |\n| Nov 25-29   | Amelia Chen      | Elena Silva   | David Rossi   |"
+  },
+  {
+    "id": "md_noise_schedule_01",
+    "topic": "noise",
+    "category": "schedule",
+    "universe": "music festival production crew",
+    "text": "# Stagehand Schedule: Weekend 2\n\nHere's the upcoming stagehand crew schedule for Weekend 2 of the festival.\n\n| Time          | Stage     | Task               | Crew Lead  |\n|---------------|-----------|--------------------|------------|\n| Fri 14:00-18:00 | Main      | Set Dressing       | Maya       |\n| Fri 18:00-22:00 | Indie Tent| Lights Check       | Kenji      |\n| Sat 08:00-12:00 | Main      | Band Load-in       | Liam       |\n| Sat 12:00-16:00 | Side Stage| Monitor Setup      | Anya       |\n| Sun 10:00-14:00 | Main      | Instrument Tuning  | Liam       |\n| Sun 14:00-18:00 | Indie Tent| Stage Breakdown    | Kenji      |"
+  },
+  {
+    "id": "md_noise_schedule_02",
+    "topic": "noise",
+    "category": "schedule",
+    "universe": "university research lab",
+    "text": "# BioSim Lab - Microscope Booking (Week of Oct 23, 2024)\n\nUpcoming microscope slots for the week. Please ensure samples are prepared beforehand. Contact [lab manager email] with questions.\n\n| Date      | Time          | Microscope       | User          |\n|-----------|---------------|-------------------|---------------|\n| Oct 23    | 9:00 - 12:00   | Confocal Zeiss 880 | Alice B.    |\n| Oct 23    | 14:00 - 17:00  | Widefield Olympus  | Bob C.      |\n| Oct 24    | 10:00 - 13:00  | Confocal Zeiss 880 | Carol D.    |\n| Oct 24    | 14:00 - 17:00  | Inverted Nikon Ti | David E.    |\n| Oct 25    | 9:00 - 12:00   | Widefield Olympus  | Alice B.    |\n| Oct 25    | 13:00 - 16:00  | Confocal Zeiss 880 | Frank G.    |\n\nPlease remember to clean the objective lenses after use. Log sheets are beside each microscope."
+  },
+  {
+    "id": "md_noise_schedule_03",
+    "topic": "noise",
+    "category": "schedule",
+    "universe": "veterinary clinic chain",
+    "text": "# MedVet Clinic - Weekend Vaccination Roster\n\nUpcoming weekend vaccination clinic staffing. Please ensure coverage during your assigned slot. Contact Scheduling if you need to swap.\n\n| Date       | Time Slot     | Vet On Duty   | Tech Support    |\n|------------|---------------|----------------|-----------------|\n| 2024-07-20 | 9:00 - 13:00  | Dr. Emily Carter | Sarah Miller    |\n| 2024-07-20 | 13:00 - 17:00 | Dr. Ben Nguyen  | David Lee       |\n| 2024-07-21 | 9:00 - 13:00  | Dr. Anna Patel   | Maria Rodriguez |\n| 2024-07-21 | 13:00 - 17:00 | Dr. Emily Carter | John Smith      |"
+  },
+  {
+    "id": "md_noise_schedule_04",
+    "topic": "noise",
+    "category": "schedule",
+    "universe": "neighbourhood clinic network",
+    "text": "# Clinic Network On-Call Schedule: Week of October 26, 2024\n\n| Day       | Primary Doctor      | Backup Doctor      | Nurse Coordinator    |\n|-----------|-----------------------|----------------------|-----------------------|\n| Monday    | Dr. Ramirez          | Dr. Chen           | Sarah Miller, RN      |\n| Tuesday   | Dr. Chen             | Dr. Jones          | David Lee, RN         |\n| Wednesday | Dr. Jones            | Dr. Ramirez          | Sarah Miller, RN      |\n| Thursday  | Dr. Ramirez          | Dr. Chen           | David Lee, RN         |\n| Friday    | Dr. Chen             | Dr. Jones          | Sarah Miller, RN      |\n\nNotes: Please ensure pagers are charged and accessible. Contact numbers are available on the shared drive. Any shift swaps must be communicated to all listed parties and the clinic administrator."
+  },
+  {
+    "id": "md_noise_status_snapshot_05",
+    "topic": "noise",
+    "category": "status_snapshot",
+    "universe": "urban planning office",
+    "text": "# Daily Land Use Report - October 26, 2023\n\nHere's a summary of zoning application progress and inspection completion rates:\n\n| Application Type | Received Today | Approved Today | Pending Review |\n|-------------------|-----------------|------------------|---------------|\n| Residential       | 12              | 8                | 35            |\n| Commercial        | 5               | 2                | 18            |\n| Industrial        | 2               | 1                | 7             |\n\nCurrent Inspection Completion: 87% of inspections scheduled today are complete, with the remaining scheduled for completion by end of day. Rescheduling is rare.\n\nBelow is the list of the scheduled inspections for tomorrow:\n\n| Address                | Type        | Priority | Status         |\n| ---------------------- | ----------- | -------- | -------------- |\n| 123 Main St            | Residential | High     | Scheduled      |\n| 456 Oak Ave            | Commercial  | Medium   | Scheduled      |\n| 789 Pine Ln            | Industrial  | High     | Scheduled      |\n| 101 Elm St             | Residential | Low      | Scheduled      |"
+  },
+  {
+    "id": "md_noise_status_snapshot_06",
+    "topic": "noise",
+    "category": "status_snapshot",
+    "universe": "arts foundation grants office",
+    "text": "Arts Foundation Grant Pipeline - Week 34\n\n| Grant Type | Applications Received | Applications Assigned | Applications Under Review |\n|---|---|---|---|\n| Visual Arts | 17 | 17 | 8 |\n| Performing Arts | 22 | 22 | 15 |\n| Literary Arts | 11 | 11 | 6 |\n| Community Arts | 8 | 8 | 4 |\n\n**Reviewer Load**\n\nReviewers have 3-5 applications each. No reviewers exceed the maximum allocation limit of 5 applications currently. All applications assigned before the end of Week 33 now have reviewer assignments. Automated assignment continues.\n\n**System Status**\n\nThe grant portal is operating normally. No outages reported. The automated assignment script ran successfully each night."
+  },
+  {
+    "id": "md_noise_status_snapshot_07",
+    "topic": "noise",
+    "category": "status_snapshot",
+    "universe": "university research lab",
+    "text": "## Lab Server Status - 2024-10-27\n\n| Server Name | CPU Load (%) | Memory Usage (%) | Disk Usage (%) | Status |\n|---|---|---|---|---|\n| NeuronSim-01 | 12 | 65 | 32 | Online |\n| SpikeAnalysis-02 | 85 | 92 | 88 | Warning |\n| GenomeAlign-03 | 4 | 15 | 7 | Online |\n| ProteinFold-04 | 67 | 70 | 55 | Online |\n| DataArchive-01 | 2 | 5 | 95 | Critical |\n\nSpikeAnalysis-02 CPU and memory usage are high; check running processes. DataArchive-01 disk usage is critical, free up space. All other servers within nominal operating parameters. Log files are being rotated regularly."
+  },
+  {
+    "id": "md_noise_status_snapshot_08",
+    "topic": "noise",
+    "category": "status_snapshot",
+    "universe": "public library system",
+    "text": "# Branch Status: 2024-02-29\n\n| Branch | Open Hours | Patron Count | WiFi Uptime (%) | PC Availability (%) |\n|---|---|---|---|---|\n| Central | 10 | 357 | 99.8 | 95 |\n| Westside | 10 | 289 | 99.5 | 88 |\n| Downtown | 8 | 195 | 100 | 72 |\n| North End | 6 | 112 | 98.9 | 99 |\n| Eastgate | 10 | 312 | 99.9 | 91 |\n\nAutomated hourly updates show branch traffic and key systems performance. No action required unless metrics consistently fall below thresholds specified in policy LIB-POL-007. WiFi and PC availability are monitored by networked monitoring software (Zabbix). Patron counts are estimated via entry turnstile data."
+  },
+  {
+    "id": "md_noise_status_snapshot_09",
+    "topic": "noise",
+    "category": "status_snapshot",
+    "universe": "maritime logistics company",
+    "text": "# Container Yard Utilization - Weekly Snapshot\n\nHere's a quick snapshot of container yard utilization across our key port locations as of 2024-10-27. Numbers represent current container counts and percentages of maximum capacity.\n\n| Port      | Inbound Containers | Outbound Containers | Total Utilization |\n| --------- | ------------------ | ------------------- | ----------------- |\n| Rotterdam | 4520               | 3980                | 85%               |\n| Shanghai  | 6110               | 5890                | 92%               |\n| Long Beach| 3250               | 2800                | 75%               |\n| Singapore | 5280               | 4720                | 88%               |\n\nAll locations are operating within acceptable limits. No immediate capacity concerns."
+  },
+  {
+    "id": "md_noise_toc_10",
+    "topic": "noise",
+    "category": "toc",
+    "universe": "renewable energy co-op",
+    "text": "## Renewable Energy Co-op Documentation\n\n| Section               | Page |\n|-----------------------|------|\n| 1. Intro               | 1    |\n| 2. Meeting Schedule     | 2    |\n| 3. Vendor Contact Info | 3    |\n| 4. Project Updates     | 4    |\n\n### Vendor Contract Details\n\n| Vendor Name         | Contact Person | Phone         | Email                     | Notes          |\n|----------------------|----------------|---------------|---------------------------|----------------|\n| Solar Solutions Inc. | Jane Doe       | 555-123-4567  | jane.doe@solar.com        | Panel supplier |\n| Wind Power Gen   | John Smith      | 555-987-6543  | john.smith@wind.com       | Turbine maint  |\n| Grid Connect Ltd.  | Alice Brown      | 555-246-8013  | alice.brown@grid.com      | Grid services  |\n| Hydro Dynamics      | Bob White       | 555-369-1215  | bob.white@hydro.com       | Micro hydro   |\n\nMonthly meetings are held on the first Tuesday of the month at 7 PM. Agendas are distributed one week prior. All members are expected to review the agenda beforehand. Project update summaries are posted to the internal wiki on the last day of each month. New vendor onboarding follows the standard checklist. IT help desk is available for password resets."
+  },
+  {
+    "id": "md_noise_toc_11",
+    "topic": "noise",
+    "category": "toc",
+    "universe": "music festival production crew",
+    "text": "# Stagehand Runbook\n\n| Section                                   | Page |\n| ----------------------------------------- | ---- |\n| Daily Schedule Overview                    | 1    |\n| Sound Check Procedures                    | 2    |\n| Band Hospitality Rider Checklist          | 3    |\n| Emergency Contact Information              | 4    |\n\n## Page 1: Daily Schedule Overview\n\n## Page 2: Sound Check Procedures\n\n## Page 3: Band Hospitality Rider Checklist\n\nRider Item Checklist\n\n| Item                  | Quantity | Status    | Notes                                 |\n|-----------------------|----------|-----------|---------------------------------------|\n| Bottled Water        | 24       | Delivered | Dasani, per rider                    |\n| Craft Service Platter | 1        | Delivered | Vegan options confirmed              |\n| Towels                | 4        | Delivered | Black, hand towels                    |\n| Local Beer (IPA)       | 12       | Delivered | \"Hop Riot\" specified, got it locally |\n| Fruit Bowl            | 1        | Delivered | Assorted, seasonal                     |\n\n## Page 4: Emergency Contact Information"
+  },
+  {
+    "id": "md_noise_toc_12",
+    "topic": "noise",
+    "category": "toc",
+    "universe": "regional airline cargo ops",
+    "text": "# Table of Contents\n\n| Section           | Page |\n|-------------------|------|\n| Daily Flight Schedule | 1    |\n| Cargo Manifest Updates | 2    |\n| Maintenance Log    | 3    |\n\n## Page 1: Daily Flight Schedule\n\n| Flight # | Origin | Destination | Departure | Arrival |\n|----------|--------|-------------|-----------|---------|\n| AX101    | SEA    | PDX         | 06:00 PST | 07:00 PST|\n| AX102    | PDX    | SFO         | 07:30 PST | 09:00 PST|\n| AX103    | SFO    | LAX         | 09:30 PST | 11:00 PST|\n\n## Page 2: Cargo Manifest Updates\n\nManifest data for flights AX101 - AX103 updated at 05:30 PST. Load weights within acceptable limits. No hazardous materials reported.\n\n## Page 3: Maintenance Log\n\nRoutine pre-flight checks completed on all aircraft assigned to today's schedule. Tire pressures nominal. Avionics self-tests passed. Ground crew refueled all aircraft. Aircraft cleaning in progress."
+  },
+  {
+    "id": "md_noise_toc_13",
+    "topic": "noise",
+    "category": "toc",
+    "universe": "university research lab",
+    "text": "# Lab Notebook: Index\n\n| Section                       | Page |\n| ----------------------------- | ---- |\n| Protocol Updates              | 1    |\n| Equipment Calibration Logs    | 2    |\n| Reagent Inventory             | 3    |\n| Meeting Reminders             | 4    |\n\n## Page 3: Reagent Inventory\n\nCurrent Stock Levels:\n\n| Reagent      | Lot Number | Expiration Date | Location | Quantity (mL) |\n|--------------|------------|-----------------|----------|---------------|\n| Antibody A   | L1234      | 2024-12-31      | Freezer 1| 5             |\n| Buffer X     | B5678      | 2025-03-15      | Shelf 2  | 100           |\n| Inhibitor Z  | I9012      | 2024-11-01      | Freezer 2| 2             |\n| Compound Y   | C3456      | 2025-06-30      | Shelf 3  | 25            |\n| Media Supplement | M7890 | 2026-01-15      | Fridge | 50 |"
+  },
+  {
+    "id": "md_noise_toc_14",
+    "topic": "noise",
+    "category": "toc",
+    "universe": "veterinary clinic chain",
+    "text": "## Table of Contents\n\n| Section                      | Page |\n|-------------------------------|------|\n| New Client Onboarding Process | 1    |\n| Weekly Staff Schedule         | 2    |\n| Supply Re-Order Levels        | 3    |\n\n### New Client Onboarding Process\nFill out forms, confirm reminders, give tour.\n\n### Weekly Staff Schedule\n\nThis week's schedule assignments:\n\n| Employee | Monday    | Tuesday   | Wednesday | Thursday  | Friday    |\n|----------|-----------|-----------|-----------|-----------|-----------|\n| Dr. Lee  | Surgery   | Exams     | Surgery   | Exams     | Surgery   |\n| Ash     | Reception | Reception | Reception | Reception | Reception |\n| Ben      | Tech      | Tech      | Tech      | Tech      | Tech      |\n\n### Supply Re-Order Levels\n\nReordering needs for the next stock are determined by usage analysis and a set minimum inventory level.\nA request is generated if any items fall below set thresholds, and automatically approved by a supervisor.\nThe following are common minimums:\n\n| Item              | Minimum Level | Units  |\n|-------------------|---------------|--------|\n| Exam Gloves       | 500           | Pair   |\n| Syringes (3cc)    | 200           | Each   |\n| Antibiotic Pills | 1000          | Tablet |\n| Bandages          | 300           | Roll   |"
+  },
+  {
+    "id": "md_noise_pricing_15",
+    "topic": "noise",
+    "category": "pricing",
+    "universe": "regional airline cargo ops",
+    "text": "## Cargo Rates - Preliminary\n\nThese are preliminary cargo rate estimates for different zones and priority levels, in USD per kg. These are subject to change.\n\n| Zone  | Priority | Rate/kg | Surcharge (Hazmat) | Est. Transit (hrs) |\n|-------|----------|---------|--------------------|----------------------|\n| Zone A| Standard | $0.75   | $0.20              | 48-72                |\n| Zone A| Express  | $1.25   | $0.20              | 24-36                |\n| Zone B| Standard | $1.00   | $0.30              | 72-96                |\n| Zone B| Express  | $1.75   | $0.30              | 36-48                |\n| Zone C| Standard | $1.50   | $0.40              | 96-120               |\n| Zone C| Express  | $2.50   | $0.40              | 48-60                |"
+  },
+  {
+    "id": "md_noise_pricing_16",
+    "topic": "noise",
+    "category": "pricing",
+    "universe": "archival digitization project",
+    "text": "# Archival Digitization Project - Pricing Estimates\n\nThese are potential vendors and their associated pricing tiers for scanning services. All prices are estimates and subject to change. This is purely informational.\n\n## Scanning Vendor Pricing (USD)\n\n| Vendor | Basic Scan (per page) | Enhanced Scan (per page) | OCR/Indexing (per page) |\n|---|---|---|---|\n| DigitizePro | $0.10 | $0.25 | $0.05 |\n| Archival Solutions | $0.12 | $0.30 | $0.07 |\n| ScanMasters | $0.09 | $0.22 | $0.04 |\n| FutureArchive | $0.15 | $0.35 | $0.10 |\n\n## Notes\n\n*   Basic Scan includes standard resolution scanning.\n*   Enhanced Scan includes higher resolution scanning, color correction, and minor damage repair.\n*   OCR/Indexing includes optical character recognition and creation of searchable PDFs. These prices are based on publicly available price sheets."
+  },
+  {
+    "id": "md_noise_pricing_17",
+    "topic": "noise",
+    "category": "pricing",
+    "universe": "music festival production crew",
+    "text": "## Stagehand Rates\n\nCurrent hourly rates for the various stagehand positions. These are ballpark figures; actual rates can vary slightly based on experience and union agreements.\n\n| Position        | Base Rate | Overtime (After 8 hrs) | Weekend Rate |\n|-----------------|-----------|-------------------------|--------------|\n| Stagehand       | $25/hr    | $37.50/hr              | $50/hr      |\n| Lighting Tech   | $30/hr    | $45/hr                 | $60/hr      |\n| Audio Engineer  | $35/hr    | $52.50/hr              | $70/hr      |\n| Rigger          | $40/hr    | $60/hr                 | $80/hr      |\n| Carpenter       | $30/hr    | $45/hr                 | $60/hr      |\n\nEquipment rental cost ranges, per day.\n\n| Equipment       | Low End   | High End  |\n|-----------------|-----------|-----------|\n| PA System       | $500      | $2000     |\n| Lighting Rig    | $300      | $1500     |\n| Stage Decking   | $100      | $500      |"
+  },
+  {
+    "id": "md_noise_pricing_18",
+    "topic": "noise",
+    "category": "pricing",
+    "universe": "urban planning office",
+    "text": "## Zoning Permit Fees - Proposed\n\nHere's the draft schedule.\n\n| Zone   | Type          | Area (sq ft) | Cost  | Review Time (days) |\n| :------ | :------------ | :------------ | :---- | :----------------- |\n| R-1    | Single Family | <2000         | $50   | 5                   |\n| R-1    | Single Family | 2000-4000     | $100  | 7                   |\n| C-1    | Commercial    | <5000         | $200  | 10                  |\n| C-1    | Commercial    | 5000+         | $500  | 15                  |\n| M-1    | Industrial    | Any           | $1000 | 20                  |\n| AG-1   | Agricultural  | Any           | $25   | 3                   |\n\nThese are projected costs for the next fiscal year, subject to council approval. We'll update this sheet with any changes. Just a draft for now."
+  },
+  {
+    "id": "md_noise_pricing_19",
+    "topic": "noise",
+    "category": "pricing",
+    "universe": "maritime logistics company",
+    "text": "# Maritime Logistics Pricing Tiers\n\nHere's a snapshot of potential pricing for various cargo types and destinations. These are example rates only and subject to change.\n\n| Cargo Type | Destination | Price per TEU | Transit Time (Days) |\n|---|---|---|---|\n| Dry Goods | Antwerp | $2500 | 21 |\n| Refrigerated | Rotterdam | $3800 | 18 |\n| Hazardous Materials | Singapore | $4200 | 28 |\n| Automotive Parts | Bremerhaven | $3100 | 24 |\n| Bulk Grain | Constanta | $1900 | 35 |\n\nStandard demurrage charges apply after 7 days at the destination port ($150/day). Fuel surcharges may fluctuate based on current market conditions. Special handling for oversized cargo is priced separately upon request. All prices in USD. Insurance options are available. We utilize an internal container tracking system based on PostgreSQL and Django."
+  },
+  {
+    "id": "md_noise_log_20",
+    "topic": "noise",
+    "category": "log",
+    "universe": "urban planning office",
+    "text": "## Daily Log Digest - Urban Planning Office\n\n| Severity | Source         | Message                                                              |\n| :------- | :------------- | :--------------------------------------------------------------------- |\n| INFO     | BuildingPermit | Permit #2023-UP-4789 submitted for review.                           |\n| WARN     | TrafficModel   | Peak hour congestion exceeds threshold on Elm Street between 8-9 AM. |\n| INFO     | Zoning         | Application for variance received at 14:22.                          |\n| INFO     | PublicComment  | New comment added to the proposed park design.                      |\n| WARN     | GIS Server     | Disk space nearing capacity (85%).                                  |\n\nParking Spot Usage:\n\n| Location       | Total Spots | Spots Used | Spots Available |\n|----------------|-------------|------------|-----------------|\n| City Hall      | 100         | 78         | 22              |\n| Community Center| 50          | 35         | 15              |\n| Library        | 30          | 28         | 2               |"
+  },
+  {
+    "id": "md_noise_log_21",
+    "topic": "noise",
+    "category": "log",
+    "universe": "renewable energy co-op",
+    "text": "## Daily System Status - Green Solutions Co-op - 2024-10-27\n\n| Severity | Source | Message |\n|---|---|---|\n| INFO | WindTurbine-07 | Power output: 1.2 MW |\n| WARN | SolarArray-AZ-1 | Panel temperature exceeds threshold. Derating initiated. |\n| INFO | BatteryBank-02 | Charge level: 98% |\n| INFO | WeatherService | Predicted sunshine hours: 7 |\n| DEBUG | Inverter-GridTie-A | Voltage slightly high - within tolerance. |\n| INFO | DemandResponse | Peak demand exceeded forecast, initiating tiered shedding. |"
+  },
+  {
+    "id": "md_noise_log_22",
+    "topic": "noise",
+    "category": "log",
+    "universe": "archival digitization project",
+    "text": "## Archival Digitization - Daily Log\n\n| Severity | Source       | Message                                                              |\n| :------- | :----------- | :-------------------------------------------------------------------- |\n| INFO     | OCR Processor | Document ID A123 processed successfully.                            |\n| WARN     | Image Server | Low DPI detected for Document ID B456. Recommend re-scanning.       |\n| INFO     | File Storage   | File 'A123_scan.tif' uploaded to archive.                         |\n| DEBUG    | Workflow     | Triggered OCR for Document ID C789.                                 |\n| INFO     | Validation   | Metadata validation passed for Document ID A123.                    |\n\n### System Stats\n\n| Metric         | Value    |\n| :------------- | :------- |\n| CPU Utilization | 35%      |\n| Disk Space Used | 2.3 TB   |\n| Documents Proc | 65 today |\n| Error Rate     | 0.01%    |"
+  },
+  {
+    "id": "md_noise_log_23",
+    "topic": "noise",
+    "category": "log",
+    "universe": "arts foundation grants office",
+    "text": "Arts Foundation Grant System - Routine Log Digest\n\n| Severity | Source       | Message                                                              |\n| -------- | ------------- | --------------------------------------------------------------------- |\n| INFO     | UserAuth      | Successful login: user 'amelia.hernandez'                             |\n| WARN     | PaymentGateway | Transaction declined for Grant ID 2024-003. Insufficient funds.        |\n| INFO     | ApplicationSrv| Grant application 'Sculpting the Void' autosaved.                     |\n| DEBUG    | EmailService  | Email queued: Notification to user 'bjorn.olsen' re: grant deadline. |\n| INFO     | UserAuth      | Successful logout: user 'amelia.hernandez'                            |\n\nGrant Application Activity (Last 24 Hours)\n\n| Grant ID | Status      | Stage         |\n|----------|-------------|---------------|\n| 2024-007 | In Progress | Draft         |\n| 2024-003 | Submitted   | Review        |\n| 2024-012 | In Progress | Budget Upload |\n| 2024-009 | Submitted   | Awaiting Funds |"
+  },
+  {
+    "id": "md_noise_log_24",
+    "topic": "noise",
+    "category": "log",
+    "universe": "regional airline cargo ops",
+    "text": "## Cargo Route Daily Log - 2024-02-29\n\n| Severity | Source        | Message                                     |\n|----------|---------------|---------------------------------------------|\n| INFO     | Ramp Agent 3  | Container A12 secured on flight SR227.      |\n| WARN     | Weight System | Minor discrepancy: Actual weight 1kg > manifest. |\n| INFO     | Load Balancer  | Flight SR228: Optimal load distribution achieved.|\n| INFO     | RFID Scanner  | Pallet X452 scanned at loading dock 7.     |\n| WARN     | Fuel Sensor   | SR229: Increased fuel consumption detected during taxi.|\n| INFO     | Baggage System| Container B11 transferred to connecting flight LR301. |"
+  },
+  {
+    "id": "md_noise_roster_25",
+    "topic": "noise",
+    "category": "roster",
+    "universe": "veterinary clinic chain",
+    "text": "# Regional Veterinary Clinic Team Roster\n\nHere's the current contact list for our regional support team.\n\n| Name          | Role                         | Contact Email           |\n|---------------|------------------------------|--------------------------|\n| Dr. Anya Sharma  | Regional Medical Director   | a.sharma@vetcare.com     |\n| Ben Carter    | Clinic Operations Manager   | b.carter@vetcare.com    |\n| Carol Davies   | Client Services Coordinator| c.davies@vetcare.com    |\n| David Evans   | HR Generalist               | d.evans@vetcare.com     |\n| Emily Flores | Marketing Specialist        | e.flores@vetcare.com   |"
+  },
+  {
+    "id": "md_noise_roster_26",
+    "topic": "noise",
+    "category": "roster",
+    "universe": "arts foundation grants office",
+    "text": "## Grants Review Committee - Spring 2024\n\nHere's the current roster for the Spring 2024 grant review committee. Please reach out to individuals directly with any questions relevant to their role.\n\n| Name           | Role             | Contact                | Area of Expertise   |\n|----------------|-------------------|------------------------|----------------------|\n| Alice Chen     | Visual Arts Lead  | alice.chen@artfound.org| Painting, Sculpture|\n| Bob Davis      | Literary Arts      | bob.davis@artfound.org  | Poetry, Non-Fiction |\n| Carol Evans    | Performing Arts   | carol.evans@artfound.org| Dance, Theatre     |\n| David Flores   | New Media Arts    | david.flores@artfound.org| Digital Art, Film   |\n| Emily Garcia  | Community Arts Liaison  | emily.garcia@artfound.org| Public Art, Outreach |"
+  },
+  {
+    "id": "md_noise_roster_27",
+    "topic": "noise",
+    "category": "roster",
+    "universe": "public library system",
+    "text": "# West Branch Library - Volunteers Committee\n\nHere's the current roster of volunteers serving on the West Branch's Volunteers Committee.\n\n| Name          | Role               | Contact                | Background                                |\n|---------------|--------------------|------------------------|-------------------------------------------|\n| Alice Chen    | Committee Chair    | alice.chen@email.org   | Retired Teacher                            |\n| Bob Davis     | Secretary          | bob.davis@email.net    | Local Business Owner                      |\n| Carol Evans   | Recruitment Lead   | carol.evans@email.com  | Community Organizer                      |\n| David Foster  | Training Coordinator| david.foster@email.gov | Former Librarian (another branch)        |\n| Emily Garcia  | Event Support      | emily.garcia@email.edu | High School Student Volunteer            |"
+  },
+  {
+    "id": "md_noise_roster_28",
+    "topic": "noise",
+    "category": "roster",
+    "universe": "neighbourhood clinic network",
+    "text": "# Clinic Network Roster - Q3 2024\n\nHere's the current team roster for the Tri-County Community Clinic Network. Please reach out to the appropriate contact for any questions or assistance.\n\n| Name           | Role                      | Contact              | Notes                                     |\n|----------------|---------------------------|-----------------------|-------------------------------------------|\n| Anya Sharma    | Network Coordinator        | anya.sharma@tcc.org    | Main point of contact for general inquiries |\n| Ben Carter     | Data Analytics Specialist | ben.carter@tcc.org     | Reporting, dashboard maintenance          |\n| Chloe Davis    | Community Outreach Lead   | chloe.davis@tcc.org    | Event planning, volunteer management      |\n| David Evans   | IT Support               | david.evans@tcc.org    | Hardware, software, network issues         |\n\nAll personnel are available during standard business hours, Monday-Friday, 9 AM - 5 PM. After hours support requests should be directed to the general clinic line."
+  },
+  {
+    "id": "md_noise_roster_29",
+    "topic": "noise",
+    "category": "roster",
+    "universe": "university research lab",
+    "text": "# Neuroimaging Lab Team Roster\n\n## Contact Information\n\n| Name          | Role               | Contact Email          | Slack Handle |\n|---------------|--------------------|------------------------|--------------|\n| Dr. Anya Sharma| Principal Investigator| anya.sharma@uni.edu    | @dr_sharma    |\n| Ben Carter     | Research Assistant   | ben.carter@uni.edu     | @bcarter     |\n| Chloe Davis    | PhD Candidate      | chloe.davis@uni.edu    | @chlo_davis   |\n| David Lee      | Lab Technician     | david.lee@uni.edu      | @dlee        |\n| Emily Flores   | Postdoctoral Fellow| emily.flores@uni.edu   | @eflores     |"
+  }
+]

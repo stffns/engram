@@ -153,6 +153,70 @@ class HeuristicWriteDecider:
         return Decision(True, "novel", 0.8, self.name)
 
 
+class ChainedWriteDecider:
+    """Run a gate then a classifier. Gate skips short-circuit the chain.
+
+    The graduation path from shadow mode to "classifier-as-primary":
+    we do NOT want to swap the shadow and primary wholesale, because
+    a model-based decider has no dedup state, no empty/too-short
+    checks, and no length guard. Those gates belong to
+    ``HeuristicWriteDecider``.
+
+    Composition:
+
+    - ``gate.decide(event, ctx)`` runs first. If it returns ``write=False``,
+      that decision is returned unchanged -- the classifier never sees
+      an empty/duplicate/too-long event.
+    - If the gate says write, ``classifier.decide`` is called and its
+      result becomes the chain's result. The chain's reason prefixes
+      the classifier's reason with ``gate_ok|`` so audits remain
+      self-describing.
+
+    Hydration: the gate typically needs a hydrate_fn (dedup).
+    ``set_hydrate_fn`` forwards to the gate only.
+
+    When to graduate: use this only AFTER shadow mode + oracular
+    labels have shown the classifier beats the gate-only baseline on
+    held-out organic content AND does not regress on
+    ``markdown_tables_held_out``. See notes/nanogpt-training-log.md
+    for the criteria.
+    """
+
+    def __init__(self, gate, classifier) -> None:
+        self._gate = gate
+        self._classifier = classifier
+        gate_name = getattr(gate, "name", type(gate).__name__)
+        clf_name = getattr(classifier, "name", type(classifier).__name__)
+        self.name = f"Chain({gate_name}->{clf_name})"
+
+    def set_hydrate_fn(
+        self,
+        fn: Callable[[], Iterable[str]],
+    ) -> None:
+        if hasattr(self._gate, "set_hydrate_fn"):
+            self._gate.set_hydrate_fn(fn)
+
+    def decide(self, event: Event, ctx: WriteContext) -> Decision:
+        gate = self._gate.decide(event, ctx)
+        if not gate.write:
+            # Gate rejected. Preserve reason verbatim so audit reads
+            # like "dup_exact" / "too_short:<8" / etc.
+            return Decision(
+                write=False,
+                reason=gate.reason,
+                confidence=gate.confidence,
+                policy=self.name,
+            )
+
+        clf = self._classifier.decide(event, ctx)
+        return Decision(
+            write=clf.write,
+            reason=f"gate_ok|{clf.reason}",
+            confidence=clf.confidence,
+            policy=self.name,
+        )
+
+
 class ShadowWriteDecider:
     """Run two deciders side by side; the primary is authoritative.
 
