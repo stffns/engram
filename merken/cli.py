@@ -142,14 +142,86 @@ def cmd_recall(args: argparse.Namespace) -> int:
     return 0
 
 
-def cmd_consolidate(args: argparse.Namespace) -> int:
+def cmd_recall_briefs(args: argparse.Namespace) -> int:
+    """Dual-channel recall: briefs + episodic hits.
+
+    Wrapper over ``Memory.recall_with_briefs``. The hook consumer
+    (``~/.claude/hooks/merken-session-start.sh``) prepends the briefs
+    to the Claude context so they don't compete with episodic docs in
+    the same retrieval pool.
+    """
     with Memory(project=args.project, db=_resolve_db(args)) as mem:
-        result = mem.consolidate(
-            method=args.method,
-            embedding_threshold=args.threshold,
-            min_cluster=args.min_cluster,
-            force=args.force,
+        episodic, briefs = mem.recall_with_briefs(
+            args.query,
+            top_k=args.top_k,
+            brief_k=args.brief_k,
+            max_brief_tokens=args.max_brief_tokens,
         )
+
+    if args.json:
+        print(_json_dump({
+            "briefs": briefs,
+            "episodic": [_hit_payload(h) for h in episodic],
+        }))
+    else:
+        if briefs:
+            print("=== briefs ===")
+            for i, b in enumerate(briefs, 1):
+                preview = b[:300].replace("\n", " ")
+                print(f"{i}. {preview}")
+            print()
+        if not episodic:
+            print("(no episodic hits)")
+        else:
+            print("=== episodic ===")
+            for i, h in enumerate(episodic, 1):
+                title = (h.title or "")[:70]
+                snippet = (h.text or "").replace("\n", " ")[:100]
+                print(f"{i}. {title}")
+                print(f"   {snippet}")
+    return 0
+
+
+def _gemini_synthesize_fn():
+    """Build a SynthesizeFn backed by Gemini Flash.
+
+    Used by ``--method brief_v1`` to materialize temporal briefs from
+    episodic events. Rich enough to pick schemas (DECISION / ENTITY /
+    EVENT / FREE), cheap enough to run on PreCompact hooks.
+    """
+    from google import genai
+
+    key = (
+        os.environ.get("GEMINI_API_KEY")
+        or os.environ.get("GOOGLE_API_KEY")
+    )
+    if not key:
+        raise SystemExit(
+            "brief_v1 needs GEMINI_API_KEY or GOOGLE_API_KEY set."
+        )
+    client = genai.Client(api_key=key)
+    model = os.environ.get("MERKEN_BRIEF_MODEL", "gemini-2.0-flash")
+
+    def synth(prompts: list[str]) -> str:
+        prompt = "\n\n".join(prompts) if isinstance(prompts, list) else prompts
+        resp = client.models.generate_content(model=model, contents=prompt)
+        return (resp.text or "").strip()
+
+    return synth
+
+
+def cmd_consolidate(args: argparse.Namespace) -> int:
+    kwargs: dict[str, Any] = {
+        "method": args.method,
+        "embedding_threshold": args.threshold,
+        "min_cluster": args.min_cluster,
+        "force": args.force,
+    }
+    if args.method == "brief_v1":
+        kwargs["synthesize_fn"] = _gemini_synthesize_fn()
+
+    with Memory(project=args.project, db=_resolve_db(args)) as mem:
+        result = mem.consolidate(**kwargs)
 
     if args.json:
         payload = {
@@ -494,6 +566,22 @@ def build_parser() -> argparse.ArgumentParser:
     )
     rec.set_defaults(func=cmd_recall)
 
+    recb = sub.add_parser(
+        "recall-briefs",
+        help="dual-channel recall: brief_v1 briefs + episodic hits",
+        description=(
+            "Same as ``recall`` but also returns the top brief_k briefs "
+            "from the semantic layer (filtered to method:brief_v1). "
+            "Output is structured so the SessionStart hook can prepend "
+            "briefs above episodic in the Claude context."
+        ),
+    )
+    recb.add_argument("query", help="natural language query")
+    recb.add_argument("--top-k", type=int, default=5)
+    recb.add_argument("--brief-k", type=int, default=3)
+    recb.add_argument("--max-brief-tokens", type=int, default=8000)
+    recb.set_defaults(func=cmd_recall_briefs)
+
     cons = sub.add_parser(
         "consolidate",
         help="episodic → semantic facts",
@@ -507,7 +595,7 @@ def build_parser() -> argparse.ArgumentParser:
     cons.add_argument(
         "--method",
         default="embedding_v1",
-        choices=["embedding_v1", "jaccard_v1", "recall_v1"],
+        choices=["embedding_v1", "jaccard_v1", "recall_v1", "brief_v1"],
     )
     cons.add_argument("--threshold", type=float, default=0.70)
     cons.add_argument("--min-cluster", type=int, default=2)
