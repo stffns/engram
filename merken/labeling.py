@@ -144,6 +144,62 @@ class GeminiLabelBackend:
         return _parse_backend_response(resp.text or "", self.name)
 
 
+class LocalLLMLabelBackend:
+    """Offline label oracle via ``LLMWriteDecider`` under the hood.
+
+    Good when: labeling a batch privately (no API call), or when the
+    caller wants to measure how much of Gemini's signal a local model
+    captures on the same disagreement set. Uses the same chat-template
+    + single-turn few-shot scoring that
+    :class:`merken.classifiers.llm.LLMWriteDecider` uses, so the
+    classifier's production behavior and the oracular comparison stay
+    aligned.
+
+    Rationale is synthesized mechanically from the logit scores --
+    small local LMs are not reliable at producing useful natural-
+    language justifications in a single forward pass, so we trade
+    prose for honesty about what the oracle actually did.
+    """
+
+    def __init__(
+        self,
+        *,
+        model_name: str,
+        device: str = "cpu",
+        confidence_threshold: float = 0.5,
+    ) -> None:
+        # Import here so importing merken.labeling does not force
+        # torch + transformers on every CLI invocation.
+        from merken.classifiers.llm import LLMWriteDecider
+
+        self._decider = LLMWriteDecider(
+            model_name=model_name,
+            device=device,
+            confidence_threshold=confidence_threshold,
+        )
+        self.name = f"local-llm:{model_name}"
+
+    def label(self, text: str) -> Label:
+        from merken.policies import Event, WriteContext
+
+        decision = self._decider.decide(
+            Event(text=text), WriteContext(project="labeling")
+        )
+        # Map WriteDecider output onto the oracle schema. Local LLMs
+        # via two-token scoring never emit UNCERTAIN -- the caller can
+        # inspect confidence if they want an uncertainty proxy.
+        kind = "DECISION" if decision.write else "NOISE"
+        return Label(
+            decision=kind,
+            confidence=float(decision.confidence),
+            rationale=(
+                f"local-llm scored {decision.reason}; "
+                f"policy={decision.policy}"
+            ),
+            backend=self.name,
+        )
+
+
 def _shadow_marker(reason: str) -> str | None:
     """Return the shadow marker in a reason string, or None."""
     if "|shadow_" not in reason:
