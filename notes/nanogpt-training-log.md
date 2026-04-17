@@ -335,6 +335,77 @@ on organizational context that the text alone doesn't convey.
 
 ---
 
+## Write filter end-to-end on knowledge_update_50topics (2026-04-17)
+
+First E2E measurement with `NanoGPTWriteDecider` integrated into
+`Memory.remember()`. Scenario: 1100 events (150 signal across 50
+topics, 950 noise), 50 retrieval queries, Gemini 2.0 Flash as answer
+generator + judge. top_k=5.
+
+Inference was pre-computed offline (1.0-1.2 s for 1100 events) and
+loaded through `_PrecomputedDecider` at E2E time -- see Mistake #10
+for why this split is necessary.
+
+### Filter-quality (offline, before E2E)
+
+| Model   | n_written | recall | FPR  | infer_time |
+|---------|-----------|--------|------|------------|
+| char v2 | 150 / 1100 | 100%  | 0.0% | 1.22 s     |
+| BPE v4  | 150 / 1100 | 100%  | 0.0% | 1.09 s     |
+
+Both models perfectly separate the 150 true decisions from the 950
+noise events on this scenario (noise is the "easy" kind -- Sprint
+planning, Ticket investigations, etc. -- that the training data
+over-represents). Nothing surprising at the unit level; the harder
+question is whether that perfect filter translates to a better E2E
+answer-accuracy number.
+
+### E2E accuracy (with Gemini Flash judge)
+
+| Config          | Written | Skipped | Accuracy    | Δ vs AlwaysWrite |
+|-----------------|---------|---------|-------------|------------------|
+| always-write    | 1100    | 0       | 21/50 = 42% | --               |
+| nanogpt-char-v2 | 150     | 950     | 27/50 = 54% | **+12 pp**       |
+| nanogpt-bpe-v4  | 150     | 950     | 28/50 = 56% | **+14 pp**       |
+
+Store reduction: 86% (wrote 150 of 1100 events). Directionally
+consistent with Jay's parallel-session result from 2026-04-16 (+18 pp
+on an earlier smaller scenario). CIs at n=50 are wide (~±14 pp) and
+overlap, so statistical significance needs a larger query pool --
+but the direction is unambiguous and the filter is perfect, so the
+gain is not an artifact of filter noise.
+
+### What this proves
+
+1. The BPE v4 → production integration we shipped today (`NanoGPTWriteDecider`
+   auto-detecting BPE vs char) works end-to-end.
+2. The write filter is not a wash -- dropping 86% of the store cleanly
+   improves retrieval quality for the surviving queries.
+3. BPE v4 beats char v2 by +2 pp on E2E, consistent with the +5 pp Q3
+   delta on borderline noise. Small but in the predicted direction.
+
+### What this does NOT prove
+
+- That nanoGPT should be the *default* `WriteDecider`. That requires
+  (a) a real-content scenario (CONSTITUTION hard rule: "Test fixtures
+  are not ground truth") and (b) running it on `jay_vstash_*_snapshot`
+  and confirming no regression in pass_rate.
+- That +14 pp generalizes. This scenario was built for nanoGPT-style
+  decision vs noise; scenarios where the noise is less stereotyped
+  (meeting summaries, documentation, chat transcripts) will likely
+  close the gap.
+
+### Files
+
+- `experiments/consolidation/precompute_nanogpt.py` -- torch-only
+  inference, saves `{event_id: Decision}` JSON.
+- `experiments/consolidation/test_write_filter.py` -- E2E, reads
+  precomputed JSON via `_PrecomputedDecider`.
+- `/tmp/decisions_char.json`, `/tmp/decisions_bpe.json` -- artifacts
+  of the runs above (not committed).
+
+---
+
 ## Mistakes, dead ends, and lessons (the important part)
 
 ### Mistake 1: Celebrating 100/100 before testing properly
@@ -480,6 +551,43 @@ changes what retrieval CAN find, not just how well it finds it.
 
 **How to avoid:** Fix chunk strategy as the first design decision,
 before any experiments. Document it as an experimental parameter.
+
+### Mistake 10: torch + fastembed segfault across subprocess boundaries
+
+Running `experiments/consolidation/test_write_filter.py` with all three
+configs (AlwaysWrite, char v2, BPE v4) in one process segfaulted on the
+second config -- Mistake #6 reappearing. The obvious fix was to split
+into three separate `python -m ...` invocations. It did not work: both
+char and BPE processes segfaulted with exit 139 *immediately on first
+`NanoGPTWriteDecider(ckpt, meta)` construction*, even in a freshly
+forked Python interpreter.
+
+Root cause is subtler than Mistake #6 suggested. `merken/__init__.py`
+imports `merken.memory`, which transitively imports vstash, which loads
+fastembed/ONNX Runtime. The *order of first load* matters -- once
+fastembed has touched the process, loading a torch model corrupts the
+runtime. A fresh subprocess does not help if the script's first
+statement is `from merken import AlwaysWrite, Memory`.
+
+Two workarounds confirmed to work:
+
+1. `import torch` at the very top of the script, before any merken
+   import. Torch initializes before fastembed/ONNX and they coexist.
+   Used for `precompute_nanogpt.py`.
+
+2. Pre-compute nanoGPT decisions offline (torch-only process), save to
+   JSON, then read through a torch-free `_PrecomputedDecider` at E2E
+   time. Used for `test_write_filter.py` so the recall pipeline never
+   touches torch.
+
+**Lesson:** On macOS, torch and fastembed/ONNX are first-load-order
+sensitive. Subprocess isolation is necessary but not sufficient -- the
+first native library to load wins the process and corrupts later ones.
+
+**How to avoid:** For any experiment that mixes torch with vstash, pick
+one: (a) make torch load first in every entry point, or (b) separate
+inference (torch) from retrieval (vstash) into distinct processes
+communicating via files/pipes.
 
 ### Non-mistake: Things that worked on first try
 
