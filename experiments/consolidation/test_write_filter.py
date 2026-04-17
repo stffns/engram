@@ -3,8 +3,22 @@
 Compares retrieval accuracy with and without the nanoGPT noise filter.
 If the filter correctly removes noise, the store is cleaner and
 retrieval should improve.
+
+IMPORTANT: torch (nanoGPT) and fastembed/ONNX (vstash) cannot safely
+coexist in a single Python process on macOS -- after a nanoGPT config
+runs, teardown leaks semaphores and the next config segfaults
+(notes/nanogpt-training-log.md, Mistake #6). Run one config per
+invocation:
+
+    PYTHONPATH=... python -m experiments.consolidation.test_write_filter --config always
+    PYTHONPATH=... python -m experiments.consolidation.test_write_filter --config char
+    PYTHONPATH=... python -m experiments.consolidation.test_write_filter --config bpe
+
+Each invocation prints a one-line `RESULT:` row; aggregate them manually
+(or via `run_write_filter.sh`).
 """
 
+import argparse
 import json
 import os
 import tempfile
@@ -16,7 +30,8 @@ import tiktoken
 from merken import AlwaysWrite, Memory
 
 NANOGPT_DIR = Path(__file__).parent.parent.parent.parent / "nanoGPT"
-SCENARIO = Path(__file__).parent.parent / "loop_quality" / "scenarios" / "knowledge_update_50topics.json"
+SCENARIO = (Path(__file__).parent.parent / "loop_quality"
+            / "scenarios" / "knowledge_update_50topics.json")
 DEFAULT_MODEL = "gemini-2.0-flash"
 
 _ENCODER = tiktoken.get_encoding("cl100k_base")
@@ -70,10 +85,6 @@ def run_config(config_name, events, queries, write_decider, top_k=5):
                 skipped += 1
         ingest_time = time.perf_counter() - t0
 
-        # Count by type
-        signal_written = sum(1 for e in events if e["topic"] != "noise"
-                           and any(r.written for r in [m.remember.__func__] if False))
-
         judge = make_judge()
         correct = 0
         total = len(queries)
@@ -100,7 +111,67 @@ def run_config(config_name, events, queries, write_decider, top_k=5):
     }
 
 
+class _PrecomputedDecider:
+    """Look up write decisions by event id from a JSON precomputed offline.
+
+    Exists because torch (nanoGPT) and fastembed (vstash) corrupt each
+    other's state in one Python process on macOS -- see
+    notes/nanogpt-training-log.md Mistake #10. Run `precompute_nanogpt.py`
+    first (torch-only process), then the E2E benchmark reads the
+    decisions through this decider (torch-free).
+    """
+
+    def __init__(self, name: str, decisions_path: Path) -> None:
+        data = json.loads(Path(decisions_path).read_text())
+        self.name = name
+        self._meta = data["meta"]
+        self._by_title: dict[str, dict] = data["decisions"]
+
+    def decide(self, event, ctx):
+        from merken.policies import Decision
+        d = self._by_title.get(event.title)
+        if d is None:
+            # No precomputed decision -> default to writing. Keeps recall
+            # pessimistic (we won't silently drop something we never classified).
+            return Decision(
+                write=True, reason="no-precomputed-decision",
+                confidence=0.0, policy=self.name,
+            )
+        return Decision(
+            write=bool(d["write"]), reason=d["reason"],
+            confidence=float(d["confidence"]), policy=self.name,
+        )
+
+
+def _decider_for(config: str, decisions_file: Path | None = None):
+    if config == "always":
+        return "always-write", AlwaysWrite()
+
+    if config == "precomputed":
+        if decisions_file is None:
+            raise SystemExit("--decisions-file required for --config precomputed")
+        name = f"precomputed-{decisions_file.stem}"
+        return name, _PrecomputedDecider(name, decisions_file)
+
+    raise ValueError(f"unknown config: {config}")
+
+
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--config",
+        choices=["always", "precomputed"],
+        required=True,
+        help="Which single config to run in this process.",
+    )
+    parser.add_argument(
+        "--decisions-file",
+        type=Path,
+        default=None,
+        help="Precomputed decisions JSON (required when --config=precomputed).",
+    )
+    args = parser.parse_args()
+
     scenario = load_scenario()
     events = scenario["events"]
     queries = scenario["queries"]
@@ -111,42 +182,18 @@ def main():
     print(f"Events: {len(events)} ({signal_count} signal, {noise_count} noise)")
     print(f"Queries: {len(queries)}")
 
-    # Config 1: AlwaysWrite (baseline)
-    print("\n=== AlwaysWrite (baseline) ===")
-    r1 = run_config("always-write", events, queries, AlwaysWrite())
-    print(f"Written: {r1['written']}, Skipped: {r1['skipped']}")
-    print(f"Accuracy: {r1['correct']}/{r1['total']} ({r1['accuracy']:.0%})")
-
-    # Config 2: nanoGPT classifier
-    ckpt = NANOGPT_DIR / "out-merken" / "ckpt.pt"
-    meta = NANOGPT_DIR / "data" / "merken" / "meta.pkl"
-
-    if not ckpt.exists():
-        print(f"\nCheckpoint not found: {ckpt}")
-        return
-
-    from merken.classifiers.nanogpt import NanoGPTWriteDecider
-
-    print("\n=== NanoGPT Write Filter ===")
-    decider = NanoGPTWriteDecider(ckpt, meta, confidence_threshold=0.5)
-    r2 = run_config("nanogpt-filter", events, queries, decider)
-    print(f"Written: {r2['written']}, Skipped: {r2['skipped']}")
-    print(f"Accuracy: {r2['correct']}/{r2['total']} ({r2['accuracy']:.0%})")
-
-    # Summary
-    print(f"\n{'='*60}")
-    print(f"{'Config':<20} {'Written':>8} {'Skipped':>8} {'Accuracy':>10}")
-    print(f"{'-'*60}")
-    print(f"{'always-write':<20} {r1['written']:>8} {r1['skipped']:>8} {r1['accuracy']:>9.0%}")
-    print(f"{'nanogpt-filter':<20} {r2['written']:>8} {r2['skipped']:>8} {r2['accuracy']:>9.0%}")
-    print(f"{'='*60}")
-
-    # Noise filtering analysis
-    print(f"\nIdeal: write {signal_count} signal, skip {noise_count} noise")
-    print(f"nanoGPT: wrote {r2['written']}, skipped {r2['skipped']}")
-    if r2['written'] < len(events):
-        reduction = (1 - r2['written'] / len(events)) * 100
-        print(f"Store reduction: {reduction:.0f}%")
+    name, decider = _decider_for(args.config, args.decisions_file)
+    print(f"\n=== {name} ===")
+    r = run_config(name, events, queries, decider)
+    print(f"Written: {r['written']}, Skipped: {r['skipped']}")
+    print(f"Accuracy: {r['correct']}/{r['total']} ({r['accuracy']:.0%})")
+    reduction = (1 - r["written"] / len(events)) * 100 if len(events) else 0
+    # Stable one-line output for bash aggregation.
+    print(
+        f"RESULT: config={name} written={r['written']} skipped={r['skipped']} "
+        f"accuracy={r['accuracy']:.4f} correct={r['correct']} total={r['total']} "
+        f"reduction={reduction:.1f}"
+    )
 
 
 if __name__ == "__main__":
