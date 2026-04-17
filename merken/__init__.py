@@ -8,10 +8,10 @@ from merken.consolidation import ConsolidationResult, Fact
 from merken.memory import ForgetResult, Memory, RememberResult
 from merken.policies import (
     AlwaysWrite,
-    ContentTypePriorDecider,
     ConsolidateContext,
     ConsolidateDecider,
     ConsolidationDecision,
+    ContentTypePriorDecider,
     Decision,
     Event,
     ForgetConsolidated,
@@ -21,8 +21,8 @@ from merken.policies import (
     ForgetDecision,
     ForgetSuperseded,
     HeuristicWriteDecider,
-    LayerRequest,
     LayeredRecaller,
+    LayerRequest,
     NeverConsolidate,
     NeverForget,
     PeriodicConsolidator,
@@ -30,6 +30,7 @@ from merken.policies import (
     RecallDecider,
     RecallPlan,
     SemanticOnlyRecaller,
+    ShadowWriteDecider,
     WriteContext,
     WriteDecider,
 )
@@ -64,6 +65,7 @@ __all__ = [
     "RecallPlan",
     "RememberResult",
     "SemanticOnlyRecaller",
+    "ShadowWriteDecider",
     "WriteContext",
     "WriteDecider",
     "__version__",

@@ -12,7 +12,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from merken.consolidation import Fact, fact_fingerprint
 from experiments.loop_quality.runner import (
     _compute_cluster_purity,
     _compute_topic_coverage,
@@ -23,9 +22,9 @@ from experiments.loop_quality.runner import (
 from experiments.loop_quality.scenario import (
     Scenario,
     ScenarioEvent,
-    ScenarioQuery,
     load_scenario,
 )
+from merken.consolidation import Fact, fact_fingerprint
 
 FIXTURE_DIR = (
     Path(__file__).parent.parent
@@ -208,12 +207,15 @@ def test_runner_completes_on_every_scenario(
     assert 0.0 <= result.topic_coverage <= 1.0
     assert result.queries_total == len(scenario.queries)
     assert len(result.query_outcomes) == len(scenario.queries)
-    # At least one query must pass — if the loop can't answer *any*
-    # question on a scenario, that's a regression worth alarming on.
-    assert result.queries_passing >= 1, (
-        f"no queries passed on {scenario.name} — merken regressed? "
-        f"outcomes: {result.query_outcomes}"
-    )
+    # Scenarios can legitimately have zero queries -- filter-only or
+    # classifier-only fixtures (e.g. markdown_tables_held_out) exercise
+    # write-side behavior without retrieval. Only enforce the
+    # "at-least-one-query-passes" invariant when there ARE queries.
+    if scenario.queries:
+        assert result.queries_passing >= 1, (
+            f"no queries passed on {scenario.name} — merken regressed? "
+            f"outcomes: {result.query_outcomes}"
+        )
 
 
 def test_format_result_is_human_readable(tmp_path: Path) -> None:

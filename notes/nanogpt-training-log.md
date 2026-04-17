@@ -594,6 +594,53 @@ for the markdown-NOISE regression vs v4.
 
 ---
 
+## Shadow mode: bootstrap the training set instead of synthesizing it (2026-04-17)
+
+Three sessions of synthetic-data iteration have landed the filter at a
+provable architectural limit: each augmentation fixes one blind spot
+and opens another, because the model is surface-pattern-matching and
+the data distribution we build for it is always a proxy for Jay's
+actual decision-making. The real signal lives in the audit log, but
+the current default (`HeuristicWriteDecider`) rarely skips -- so the
+audit is 58 "write: True" rows and zero "write: False". There is no
+ground-truth label set to train on.
+
+Shadow mode attacks the bootstrapping problem directly. A new
+`ShadowWriteDecider` runs two deciders side by side: the primary is
+authoritative and controls writes; the shadow only annotates the
+audit reason with its prediction and whether the two agreed.
+`Memory(write_decider=ShadowWriteDecider(HeuristicWriteDecider(),
+NanoGPTWriteDecider(...)))` gives us:
+
+- Zero behavior change for writes (primary wins, always).
+- Every event tagged in the audit with shadow-agree or shadow-disagree
+  plus the shadow's confidence.
+- `merken audit | grep shadow_disagree` surfaces the flagged events.
+- User-reviewed disagreements become the labeled training set the
+  filter has always needed.
+
+Reason format (appended to the primary's reason):
+
+    |shadow_agree:<shadow.policy>=<write|skip>:<conf>
+    |shadow_disagree:<shadow.policy>=<write|skip>:<conf>
+    |shadow_error:<ExceptionClass>    (shadow failure; never blocks)
+
+The intended graduation path: run shadow mode in real usage, wait for
+~200 disagreements, have Jay review and label them, retrain v6 on
+those labels, measure against v4 on the four scenarios we already
+have. If v6 > v4 on `markdown_tables_held_out`, the augmentation
+generalized; if not, the architecture itself is the ceiling and the
+next move is a regression head / larger model / entirely different
+approach.
+
+Shadow mode is strictly additive. It does not commit us to anything:
+if the disagreements show the shadow is usefully corrective, we
+graduate. If they show the shadow is random, we delete the class and
+move on with `HeuristicWriteDecider` permanently. Either outcome is a
+cheap experiment.
+
+---
+
 ## Mistakes, dead ends, and lessons (the important part)
 
 ### Mistake 1: Celebrating 100/100 before testing properly
