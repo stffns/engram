@@ -30,8 +30,8 @@ import tiktoken
 from merken import AlwaysWrite, Memory
 
 NANOGPT_DIR = Path(__file__).parent.parent.parent.parent / "nanoGPT"
-SCENARIO = (Path(__file__).parent.parent / "loop_quality"
-            / "scenarios" / "knowledge_update_50topics.json")
+SCENARIO_DIR = Path(__file__).parent.parent / "loop_quality" / "scenarios"
+DEFAULT_SCENARIO = SCENARIO_DIR / "knowledge_update_50topics.json"
 DEFAULT_MODEL = "gemini-2.0-flash"
 
 _ENCODER = tiktoken.get_encoding("cl100k_base")
@@ -41,8 +41,8 @@ def _count_tokens(text: str) -> int:
     return len(_ENCODER.encode(text))
 
 
-def load_scenario():
-    with open(SCENARIO) as f:
+def load_scenario(path: Path = DEFAULT_SCENARIO):
+    with open(path) as f:
         return json.load(f)
 
 
@@ -170,9 +170,18 @@ def main():
         default=None,
         help="Precomputed decisions JSON (required when --config=precomputed).",
     )
+    parser.add_argument(
+        "--scenario",
+        type=Path,
+        default=DEFAULT_SCENARIO,
+        help="Scenario JSON path (accepts a bare filename under loop_quality/scenarios).",
+    )
     args = parser.parse_args()
+    scenario_path = args.scenario
+    if not scenario_path.exists() and not scenario_path.is_absolute():
+        scenario_path = SCENARIO_DIR / scenario_path
 
-    scenario = load_scenario()
+    scenario = load_scenario(scenario_path)
     events = scenario["events"]
     queries = scenario["queries"]
 

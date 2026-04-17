@@ -406,6 +406,83 @@ gain is not an artifact of filter noise.
 
 ---
 
+## Real-content validation on jay_vstash_2026_04_09_snapshot (2026-04-17)
+
+Same pipeline on organic content (20 events across 6 topics: MedLocal
+clinical/meta, vstash notes, merken design, daily review, kafka
+meeting; 4 queries). The scenario has NO "noise" topic -- every event
+is legitimate content. The question: does the filter kill real events?
+
+### Filter quality (offline, no noise to false-positive on)
+
+| Model   | n_written | filter recall | dropped |
+|---------|-----------|---------------|---------|
+| char v2 | 12 / 20   | 60%           | 8 real events |
+| BPE v4  | 19 / 20   | 95%           | 1 real event  |
+
+**Char v2 dropped 7 substantial MedLocal/vstash notes** (e.g., "MedLocal
+Demo — Petequias/Meningococcemia", "vstash — Upstream Improvement
+Ideas", "MedLocal — Ventaja Diferenciadora: Decision Tables"). These
+are real decisions, design notes, and incident reports. Character-level
+training on "Replaced X with Y" patterns does not generalize to
+markdown-structured prose.
+
+**BPE v4 dropped only one event** -- the "merken — Open Questions
+Resolved" table. Shared failure mode between both models: bullet-dense
+markdown tables trip the classifier. Hypothesis: training data had no
+such structures; the model's "DECISION verb + detail" heuristic
+doesn't match "| Question | Decision |" table syntax.
+
+### E2E (Gemini Flash, 4 queries)
+
+| Config       | Written | E2E Accuracy |
+|--------------|---------|--------------|
+| always-write | 20      | 1/4 = 25%    |
+| char v2      | 12      | 1/4 = 25%    |
+| BPE v4       | 19      | 1/4 = 25%    |
+
+At n=4 the E2E metric cannot discriminate. All three configs miss
+the same three queries -- they're retrieval-limited (short queries
+against long markdown docs at top_k=5), not filter-limited. The
+filter-quality numbers above are the load-bearing signal, not E2E
+accuracy at this scale.
+
+### Conclusions
+
+1. **Char v2 is NOT a safe default.** Dropping 40% of real organic
+   content is a disqualifier regardless of E2E numbers. The
+   CONSTITUTION hard rule "Test fixtures are not ground truth" exists
+   for exactly this: the 100/100 on knowledge_update_50topics was
+   ground truth for stereotyped-noise detection, not for "does this
+   event contain a decision?" in markdown-structured prose.
+
+2. **BPE v4 is closer but not proven safe.** 95% filter recall means
+   we'd still lose ~1 in 20 organic events. That's better than char
+   v2 by a factor of 8, but a user noticing "my medical case notes
+   keep disappearing" would be an immediate trust break.
+
+3. **The +14 pp on knowledge_update_50topics did NOT replicate.** This
+   is the key generalization failure: noise that *looks* like the
+   training noise is trivially filtered, but the filter does not
+   understand "decision-ness", it understands a surface pattern.
+
+4. **Markdown tables are a systematic blind spot.** Both models fail
+   on the "Open Questions Resolved" event -- this is independent of
+   tokenization. Training-data coverage of structured content is the
+   next intervention.
+
+### What's next
+
+- Do NOT flip the default to nanoGPT. Keep `HeuristicWriteDecider`.
+- If nanoGPT is to graduate, the training data needs organic content
+  samples (real notes, markdown docs, decision logs), not just
+  synthetic "Replaced X with Y" + "Sprint planning" pairs.
+- A useful intermediate: use nanoGPT BPE v4 as a *flag* (route flagged
+  events to a secondary path / ask user), not a silent filter. That
+  captures the signal without risking trust-breaking drops.
+
+---
+
 ## Mistakes, dead ends, and lessons (the important part)
 
 ### Mistake 1: Celebrating 100/100 before testing properly
