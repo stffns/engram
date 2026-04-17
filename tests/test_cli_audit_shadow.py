@@ -7,7 +7,11 @@ tests pin the parsing helpers (``_parse_audit_row`` and
 
 from __future__ import annotations
 
+from pathlib import Path
+
+from merken import AlwaysWrite, Memory, ShadowWriteDecider
 from merken.cli import _parse_audit_row, _shadow_tag_from_reason
+from merken.policies import Decision, Event, WriteContext
 
 
 def test_parse_audit_row_extracts_fields() -> None:
@@ -60,3 +64,38 @@ def test_shadow_tag_error_has_no_label() -> None:
 def test_shadow_tag_absent_returns_none() -> None:
     assert _shadow_tag_from_reason("novel") is None
     assert _shadow_tag_from_reason("too_short:<8") is None
+
+
+class _AlwaysSkipShadow:
+    name = "stub"
+
+    def decide(self, event: Event, ctx: WriteContext) -> Decision:  # noqa: ARG002
+        return Decision(False, "stub_skip", 0.9, self.name)
+
+
+def test_labels_roundtrip_via_cli_helpers(tmp_path: Path) -> None:
+    """Smoke: a label written via Memory.remember_label is retrievable
+    through Memory.search_labels with the title we expect the CLI to
+    parse.
+    """
+    with Memory(
+        project="labels_cli",
+        db=tmp_path / "labels.db",
+        write_decider=ShadowWriteDecider(AlwaysWrite(), _AlwaysSkipShadow()),
+    ) as mem:
+        mem.remember(
+            "A reasonable event for testing the labels CLI path.",
+            title="lbl_evt1",
+        )
+        mem.remember_label(
+            event_title="lbl_evt1",
+            body='{"decision": "NOISE", "confidence": 0.75, '
+            '"rationale": "stub rationale", "backend": "stub-oracle", '
+            '"event_text_preview": "A reasonable event..."}',
+        )
+
+        rows = mem.search_labels(top_k=20)
+        titles = [getattr(r, "title", "") or "" for r in rows]
+        assert "label:lbl_evt1" in titles, (
+            "labels written via remember_label must be surfaced by search_labels"
+        )

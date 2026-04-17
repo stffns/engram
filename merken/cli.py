@@ -433,6 +433,68 @@ def cmd_audit(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_labels(args: argparse.Namespace) -> int:
+    """List oracular labels produced by ``merken audit --label-with``.
+
+    Browses the project's ``merken_labels`` collection with optional
+    filters by decision (DECISION / NOISE / UNCERTAIN) and an FTS
+    query. One line per label in the default format; ``--json`` for
+    structured output.
+    """
+    query = args.query or "label:"
+    with Memory(project=args.project, db=_resolve_db(args)) as mem:
+        rows = mem.search_labels(query=query, top_k=args.top_k)
+
+    # Each label body is a JSON blob written by label_disagreements.
+    # Parse and optionally filter client-side.
+    parsed = []
+    for r in rows:
+        title = getattr(r, "title", "") or ""
+        if not title.startswith("label:"):
+            continue
+        event_title = title.removeprefix("label:")
+        try:
+            payload = json.loads(getattr(r, "text", "") or "{}")
+        except Exception:
+            payload = {}
+        if args.decision and payload.get("decision") != args.decision.upper():
+            continue
+        parsed.append({
+            "event_title": event_title,
+            "decision": payload.get("decision", "UNKNOWN"),
+            "confidence": payload.get("confidence"),
+            "backend": payload.get("backend"),
+            "rationale": payload.get("rationale"),
+            "event_text_preview": payload.get("event_text_preview", ""),
+        })
+
+    if args.json:
+        print(_json_dump(parsed))
+        return 0
+
+    if not parsed:
+        print(
+            f"(no labels{f' for decision={args.decision.upper()}' if args.decision else ''})"
+        )
+        return 0
+
+    for row in parsed:
+        decision = row["decision"]
+        conf = row["confidence"]
+        conf_str = f"{conf:.2f}" if isinstance(conf, (int, float)) else "-"
+        rationale = (row["rationale"] or "")[:100]
+        print(
+            f"• {row['event_title'][:55]:55}  "
+            f"[{decision:9}] conf={conf_str}  {row['backend'] or ''}"
+        )
+        if rationale:
+            print(f"    {rationale}")
+        preview = (row["event_text_preview"] or "").replace("\n", " ")[:120]
+        if preview:
+            print(f"    event: {preview}")
+    return 0
+
+
 def cmd_tombstones(args: argparse.Namespace) -> int:
     query = args.query or "tombstone"
     with Memory(project=args.project, db=_resolve_db(args)) as mem:
@@ -692,6 +754,30 @@ def build_parser() -> argparse.ArgumentParser:
     )
     tomb.add_argument("--top-k", type=int, default=20)
     tomb.set_defaults(func=cmd_tombstones)
+
+    lbl = sub.add_parser(
+        "labels",
+        help="list oracular labels from `merken audit --label-with`",
+        description=(
+            "Browse the project's merken_labels collection. Each row "
+            "is one disagreement that an oracle classified as "
+            "DECISION / NOISE / UNCERTAIN. Use --decision to filter."
+        ),
+    )
+    lbl.add_argument(
+        "query",
+        nargs="?",
+        default=None,
+        help="free-text query; default matches every label row",
+    )
+    lbl.add_argument("--top-k", type=int, default=50)
+    lbl.add_argument(
+        "--decision",
+        choices=("DECISION", "NOISE", "UNCERTAIN"),
+        default=None,
+        help="filter to one decision class",
+    )
+    lbl.set_defaults(func=cmd_labels)
 
     st = sub.add_parser("status", help="project summary (db, collection, layer counts)")
     st.set_defaults(func=cmd_status)
