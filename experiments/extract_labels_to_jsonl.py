@@ -53,9 +53,13 @@ MERKEN_DBS_DIR = Path.home() / ".merken"
 def iter_labels_from_db(db_path: Path):
     """Yield (raw_title, raw_body_text, project) tuples from a project DB.
 
-    Reads the documents/chunks join directly. We don't go through
-    ``merken.Memory`` here -- this script is pure ETL and should not
-    pay the fastembed load cost just to copy text out.
+    Reads documents and chunks separately, then concatenates chunk
+    text per document in ``seq`` order. A single label document may
+    span multiple chunks if vstash's chunker split it; joining raw
+    would yield partial JSON rows that ``json.loads`` would reject.
+
+    We don't go through ``merken.Memory`` here -- this script is pure
+    ETL and should not pay the fastembed load cost to copy text out.
     """
     project = db_path.stem
     try:
@@ -64,21 +68,34 @@ def iter_labels_from_db(db_path: Path):
         return
     try:
         cur = con.cursor()
+        # Fetch ordered (doc_id, title, chunk_text, seq) then group.
         rows = cur.execute(
             """
-            SELECT d.title, c.text
+            SELECT d.id, d.title, c.text, c.seq, d.added_at
             FROM documents d
             JOIN chunks c ON c.doc_id = d.id
             WHERE d.collection = 'merken_labels'
-            ORDER BY d.added_at
+            ORDER BY d.added_at, d.id, c.seq
             """
         ).fetchall()
     except sqlite3.OperationalError:
         con.close()
         return
     con.close()
-    for title, text in rows:
-        yield title, text, project
+
+    current_id: str | None = None
+    current_title = ""
+    current_parts: list[str] = []
+    for doc_id, title, chunk_text, _seq, _added in rows:
+        if doc_id != current_id:
+            if current_id is not None:
+                yield current_title, "".join(current_parts), project
+            current_id = doc_id
+            current_title = title or ""
+            current_parts = []
+        current_parts.append(chunk_text or "")
+    if current_id is not None:
+        yield current_title, "".join(current_parts), project
 
 
 def parse_label_body(body: str) -> dict | None:

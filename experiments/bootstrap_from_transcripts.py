@@ -64,13 +64,11 @@ from merken.policies.types import Event, WriteContext
 TRANSCRIPTS_ROOT = Path.home() / ".claude" / "projects"
 MERKEN_DBS_DIR = Path.home() / ".merken"
 
-DEFAULT_CKPT = "/Users/jaysonsteffens/Desktop/Personal/Projects/nanoGPT/out-merken-bpe-v6/ckpt.pt"
-DEFAULT_META = "/Users/jaysonsteffens/Desktop/Personal/Projects/nanoGPT/data/merken_bpe_v6/meta.pkl"
-
-# Claude Code encodes project dirs as a dash-joined absolute path. The
-# merken project name is the final path segment (matches what
-# `basename $(pwd)` produces in the live hook).
-_PROJECT_DIR_RE = re.compile(r"^-.*-([^-]+)$")
+# No hardcoded fallback: users must pass --ckpt/--meta or set the env
+# vars that the live shadow-mode hook already uses
+# (MERKEN_SHADOW_NANOGPT_CKPT / MERKEN_SHADOW_NANOGPT_META).
+DEFAULT_CKPT = os.environ.get("MERKEN_SHADOW_NANOGPT_CKPT")
+DEFAULT_META = os.environ.get("MERKEN_SHADOW_NANOGPT_META")
 
 
 def infer_project_from_dir(transcript_dir: Path) -> str:
@@ -176,7 +174,6 @@ def process_project(
         "files": 0,
         "candidates": 0,
         "dup_in_run": 0,
-        "primary_skipped": 0,
         "agree_write": 0,
         "agree_skip": 0,
         "disagree_shadow_skip": 0,
@@ -250,7 +247,13 @@ def process_project(
                     "shadow_wrote": sdec.write,
                     "primary_reason": pdec.reason,
                     "shadow_reason": sdec.reason,
-                    "event_text_preview": text[:500],
+                    # Store the full candidate text, not a 500-char
+                    # preview. The oracle saw up to 2000 chars and we
+                    # want the training extract to include the same
+                    # context the oracle ruled on. Field name stays
+                    # `event_text_preview` for schema compat with the
+                    # live labeling path.
+                    "event_text_preview": text,
                     "transcript_file": transcript.name,
                     "source": "bootstrap_from_transcripts",
                 },
@@ -282,6 +285,12 @@ def discover_project_dirs(wanted: list[str] | None) -> list[Path]:
     dir and any worktree-style variants ending in ``-engram``.
     """
     out: list[Path] = []
+    if not TRANSCRIPTS_ROOT.exists():
+        print(
+            f"transcripts root missing: {TRANSCRIPTS_ROOT}. "
+            f"Claude Code has not written any transcripts yet."
+        )
+        return out
     for sub in sorted(TRANSCRIPTS_ROOT.iterdir()):
         if not sub.is_dir():
             continue
@@ -325,6 +334,14 @@ def main() -> int:
         print("no project transcript dirs matched; nothing to do.")
         return 1
 
+    if not args.ckpt or not args.meta:
+        print(
+            "nanoGPT checkpoint/meta path missing. Pass --ckpt / --meta "
+            "or set MERKEN_SHADOW_NANOGPT_CKPT / "
+            "MERKEN_SHADOW_NANOGPT_META (same vars the hook uses)."
+        )
+        return 2
+
     print(f"loading nanoGPT v6 from {args.ckpt}")
     shadow = NanoGPTWriteDecider(args.ckpt, args.meta)
 
@@ -347,7 +364,6 @@ def main() -> int:
         "files": 0,
         "candidates": 0,
         "dup_in_run": 0,
-        "primary_skipped": 0,
         "agree_write": 0,
         "agree_skip": 0,
         "disagree_shadow_skip": 0,

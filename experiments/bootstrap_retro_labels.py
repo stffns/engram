@@ -63,8 +63,10 @@ from merken.policies.types import Event, WriteContext
 
 MERKEN_DBS_DIR = Path.home() / ".merken"
 
-DEFAULT_CKPT = "/Users/jaysonsteffens/Desktop/Personal/Projects/nanoGPT/out-merken-bpe-v6/ckpt.pt"
-DEFAULT_META = "/Users/jaysonsteffens/Desktop/Personal/Projects/nanoGPT/data/merken_bpe_v6/meta.pkl"
+# No hardcoded fallback: users must pass --ckpt/--meta or set the same
+# env vars the live shadow-mode hook reads.
+DEFAULT_CKPT = os.environ.get("MERKEN_SHADOW_NANOGPT_CKPT")
+DEFAULT_META = os.environ.get("MERKEN_SHADOW_NANOGPT_META")
 
 
 def find_project_dbs(wanted: list[str] | None) -> list[Path]:
@@ -244,6 +246,14 @@ def main() -> int:
     if not projects:
         print("no projects matched; nothing to do.")
         return 1
+
+    if not args.ckpt or not args.meta:
+        print(
+            "nanoGPT checkpoint/meta path missing. Pass --ckpt / --meta "
+            "or set MERKEN_SHADOW_NANOGPT_CKPT / "
+            "MERKEN_SHADOW_NANOGPT_META (same vars the hook uses)."
+        )
+        return 2
 
     print(f"loading nanoGPT v6 from {args.ckpt}")
     decider = NanoGPTWriteDecider(args.ckpt, args.meta)
