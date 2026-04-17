@@ -140,8 +140,14 @@ def format_audit_row(event: Event, decision: Decision) -> tuple[str, str]:
     The body is plain text on purpose: it has to be human-readable when an
     operator runs ``mem.audit("why was this dropped")``, and it has to be
     indexable by both vstash's vector and FTS paths.
+
+    The title includes microseconds *and* the event title so that two
+    audit rows produced within the same second (common in batch
+    ingestion) do not collide. Earlier versions used second-precision
+    only, which silently dropped audit rows when the same policy
+    produced identical reasons in quick succession.
     """
-    ts = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    ts = datetime.now(timezone.utc).isoformat(timespec="microseconds")
     preview = " ".join(event.text.split())[:_PREVIEW_CHARS]
 
     body = (
@@ -157,5 +163,6 @@ def format_audit_row(event: Event, decision: Decision) -> tuple[str, str]:
         f"event_text_preview: {preview}\n"
     )
 
-    title = f"audit:should_remember:{decision.reason}:{ts}"
+    title_suffix = f":{event.title}" if event.title else ""
+    title = f"audit:should_remember:{decision.reason}:{ts}{title_suffix}"
     return title, body

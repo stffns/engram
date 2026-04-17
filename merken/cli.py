@@ -230,6 +230,45 @@ _SHADOW_FLAG_TO_MARKER = {
 }
 
 
+def _build_label_backend(name: str):
+    """Construct a ``LabelBackend`` from a CLI string identifier."""
+    if name == "gemini":
+        from merken.labeling import GeminiLabelBackend
+        return GeminiLabelBackend()
+    raise SystemExit(f"unknown --label-with backend: {name!r}")
+
+
+def _run_labeling(args: argparse.Namespace) -> int:
+    from merken.labeling import label_disagreements
+
+    backend = _build_label_backend(args.label_with)
+    print(f"oracle: {backend.name}")
+
+    counts = {"labeled": 0, "skipped": 0, "error": 0}
+    with Memory(project=args.project, db=_resolve_db(args)) as mem:
+        for status, event_title, label, detail in label_disagreements(
+            mem, backend, limit=args.limit
+        ):
+            counts[status] = counts.get(status, 0) + 1
+            if status == "labeled" and label is not None:
+                print(
+                    f"✓ {event_title[:60]:<60}  "
+                    f"{label.decision:<9}  conf={label.confidence:.2f}  "
+                    f"{label.rationale[:80]}"
+                )
+            elif status == "error":
+                print(f"✗ {event_title[:60]:<60}  {detail[:80]}")
+            # "skipped" stays silent to keep the output compact.
+
+    print()
+    print(
+        f"labeled={counts['labeled']}  "
+        f"skipped={counts['skipped']}  "
+        f"error={counts['error']}"
+    )
+    return 0 if counts["error"] == 0 else 1
+
+
 def _parse_audit_row(text: str) -> dict[str, str]:
     """Parse the ``key: value`` block emitted by ``format_audit_row``."""
     fields: dict[str, str] = {}
@@ -268,6 +307,12 @@ def cmd_audit(args: argparse.Namespace) -> int:
         if getattr(args, flag, False):
             shadow_filter = marker
             break
+
+    # --label-with implies --shadow-disagree (only disagreements can
+    # become training labels) and runs the labeling loop instead of
+    # just printing.
+    if getattr(args, "label_with", None):
+        return _run_labeling(args)
 
     query = shadow_filter or args.query or "should_"
 
@@ -531,6 +576,22 @@ def build_parser() -> argparse.ArgumentParser:
         "--shadow-error",
         action="store_true",
         help="surface events where the shadow decider raised (primary unaffected)",
+    )
+    aud.add_argument(
+        "--label-with",
+        choices=("gemini",),
+        default=None,
+        help=(
+            "run oracular labeling on unlabeled shadow_disagree rows with the "
+            "chosen backend. Labels are stored in the merken_labels "
+            "collection; re-running is safe."
+        ),
+    )
+    aud.add_argument(
+        "--limit",
+        type=int,
+        default=None,
+        help="max new labels per --label-with run (default: all)",
     )
     aud.set_defaults(func=cmd_audit)
 
