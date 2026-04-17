@@ -54,7 +54,14 @@ select = ["E", "F", "I", "UP", "B", "SIM"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-ra"
+# `nanogpt` tests require torch and segfault when run in the same
+# process as vstash/fastembed (PyTorch + ONNX Runtime conflict on
+# macOS; see notes/nanogpt-training-log.md "Mistake 6"). Opt in with
+# `pytest -m nanogpt tests/test_nanogpt_classifier.py`.
+addopts = "-ra -m 'not nanogpt'"
+markers = [
+    "nanogpt: tests that load a trained nanoGPT checkpoint (torch-heavy, opt-in)",
+]
 # pytest-asyncio is not used by merken but is installed in the
 # developer's environment. Pin the fixture scope to silence its
 # default-unset deprecation warning.
