@@ -641,6 +641,180 @@ cheap experiment.
 
 ---
 
+## v6: markdown-NOISE synthesis breaks the blind spot (2026-04-17)
+
+v5 regressed on `markdown_tables_held_out` because NOISE training was
+100% single-paragraph flat text; the model had no reference for
+table-formatted NOISE. v6 addresses this by adding 30 Gemini-
+generated markdown-table NOISE samples (schedule, status_snapshot,
+toc, pricing, log, roster categories in domains absent from the
+held-out scenario).
+
+Training: same architecture as v4/v5, 2500 iters, plateau at ~iter
+2300, best ckpt saved automatically.
+
+### Eval across 4 scenarios
+
+| Scenario                          | v4      | v5      | v6           |
+|-----------------------------------|---------|---------|--------------|
+| markdown_tables_held_out recall   | 100%    | 100%    | 100%         |
+| markdown_tables_held_out FPR      | 100%    | 100%    | **66.7%**    |
+| organic_val_held_out recall       | 100%    | 100%    | 100%         |
+| jay_vstash_snapshot recall        | 95%     | 100%    | 100%         |
+| knowledge_update_50topics recall  | 100%    | 100%    | **99.3%**    |
+| knowledge_update_50topics FPR     | 0%      | 0%      | 0%           |
+
+### What v6 caught (vs v5)
+
+Two of 6 NOISE tables correctly skipped:
+- `noise_daily_ops_standup` (P(D)=0.154, P(N)=0.846) -- clear noise
+- `noise_meeting_roster` (P(D)=0.363, P(N)=0.637) -- v4 was borderline
+  here (0.516/0.484), v6 firms it up to the correct side.
+
+### What v6 missed
+
+Four NOISE tables still written:
+- `noise_sprint_burndown_snapshot`, `noise_ticket_triage_summary`,
+  `noise_capacity_snapshot`, `noise_oncall_handoff_log`.
+
+All share operational vocabulary with real decisions ("incidents",
+"capacity", "triage", "handoff"). Token-level cues are insufficient
+to distinguish them from substantive incident post-mortems. A
+single-round training-data top-up is not enough for this tier of
+NOISE; more samples with operational language but routine intent
+would help, OR the architecture itself needs help (richer features,
+bigger model, hybrid with a gate).
+
+### What v6 broke
+
+One synthetic knowledge_update event misclassified: "Manual Nessus
+scans quarterly. Results emailed to security team." P(D)=0.465,
+P(N)=0.535. Honestly borderline content (procedural status dressed
+as a decision). Not a systematic regression -- 149/150 still written
+correctly.
+
+### Summary
+
+**v6 is net better than v4/v5 on the measured scenarios.** +33 pp
+on markdown blind spot, -0.67 pp on the synthetic baseline, zero
+regression on organic recall. First retraining round where the
+augmentation clearly helped without a matching regression.
+
+**v6 is still not usable as a silent filter.** 66.7% FPR on
+table-formatted NOISE means 4 of every 6 routine status tables
+would be kept. That's better than 100% but not production-safe.
+
+**Honest next step:** ship v6 as an upgraded shadow backend (via the
+existing `MERKEN_SHADOW_NANOGPT_CKPT`), keep collecting oracular
+labels for real Jay content, retrain on that real distribution
+before the next comparison. Synthetic augmentation has diminishing
+returns at this point.
+
+---
+
+## Graduation criteria: when to flip MERKEN_PRIMARY (2026-04-17)
+
+`MERKEN_PRIMARY=nanogpt` chains ``ChainedWriteDecider(Heuristic,
+nanoGPT)`` so the classifier decides writes for anything that
+passes the hygiene gates. Flipping this is the moment nanoGPT stops
+being a shadow observer and starts affecting what Jay can find in
+recall. The decision deserves numeric criteria, not vibes.
+
+A candidate `vN` graduates only if **all five** hold:
+
+1. **Filter recall on `organic_val_held_out` >= 100%.** The 7
+   held-out medical / vstash notes are non-negotiable; dropping any
+   of them is a trust-break on real content. (Measured offline via
+   `precompute_nanogpt.py`.)
+
+2. **Filter recall on `jay_vstash_2026_04_09_snapshot` >= 95%.**
+   Allows v4-level "drop 1 of 20" but forbids worse. Includes
+   training-set overlap so this is a memorize-or-match bar, not a
+   generalization bar.
+
+3. **No regression vs the previous graduated version on the four
+   scenario filter numbers.** Each of recall / FPR on
+   `knowledge_update_50topics`, `jay_vstash_snapshot`,
+   `organic_val_held_out`, `markdown_tables_held_out` must be >=
+   the previous baseline.
+
+4. **Agreement with the oracle on >= 95% of N_labels>=200 labeled
+   disagreements.** Oracle = Gemini 2.0 Flash via
+   `merken audit --label-with gemini`. This is the only real-
+   distribution bar -- synthetic recall numbers by themselves are
+   not enough (v5's "100% rescues markdown table" was memorization).
+
+5. **`markdown_tables_held_out` FPR <= 50%.** Explicit ceiling on
+   the blind spot. v6 is at 66.7%; graduating at that rate writes 4
+   of every 6 routine status tables, unacceptable.
+
+A graduation run MUST re-measure all four scenarios AND run the
+oracular comparison before flipping the env var. Suggested flow:
+
+    MERKEN_SHADOW=nanogpt ...    # accumulate labels
+    merken audit --label-with gemini --limit 50    # ... over days/weeks
+    # When ~200 labels exist:
+    PYTHONPATH=. python -m experiments.consolidation.precompute_nanogpt \
+      --model bpe_v<N> --scenario <each of 4> ...
+    # Cross-check oracle agreement via a small script over merken_labels.
+    # Only if ALL criteria pass: update hook env from MERKEN_SHADOW to MERKEN_PRIMARY.
+
+**Reversing** is cheap: unset `MERKEN_PRIMARY`, set
+`MERKEN_SHADOW` again. All historical audit rows remain valid. Do
+not conflate "the model was once graduated" with "the model will
+always be graduated" -- the bar above is a live check, not a
+lifetime certificate.
+
+---
+
+## Gemma 3 270M-IT sanity (2026-04-17) -- backend runs, signal doesn't
+
+Ran `LLMWriteDecider(model_name='google/gemma-3-270m-it',
+device='cpu')` over four canonical events.
+
+Load: 4.67 s one-time. Inference: 200-310 ms / event on CPU
+(acceptable for the write path if the model actually worked).
+
+Per-event:
+
+| Event (summary)                  | P(D) | P(N) | raw_mass | latency |
+|----------------------------------|------|------|----------|---------|
+| Real decision ("Replaced ...")   | 0.989| 0.011| 0.124    | 207 ms  |
+| Sprint-planning noise            | 0.965| 0.035| 0.217    | 188 ms  |
+| Markdown ADR (decision table)    | 0.919| 0.081| 0.274    | 310 ms  |
+| Markdown ops standup (noise tbl) | 0.972| 0.028| 0.269    | 251 ms  |
+
+**Observation: `raw_mass` (= P(DECISION_tok) + P(NOISE_tok)) is only
+12-27%.** Gemma's continuation after "Label:" puts most of its
+probability on *other* tokens (whitespace, formatting, even random
+words). The two class tokens are NOT the natural continuation the
+model wants to produce, so the post-normalized P(D) ends up near
+1.0 for almost everything.
+
+Consequence: Gemma 3 270M zero-shot via two-token logit scoring
+classifies every event as DECISION. It cannot be a drop-in shadow
+or primary backend today.
+
+**Why we're not giving up on the LLM branch:**
+- Larger Gemma (2B, 7B) is likely to discriminate -- small-model
+  instruction following is the bottleneck, not the idea.
+- Few-shot prompting or chat-template wrapping would likely lift
+  the class tokens to the top of the distribution.
+- Full-string likelihood comparison (score entire " DECISION" vs
+  " NOISE" strings) sidesteps the "what's the natural first
+  token" problem.
+
+**What we keep:**
+- `LLMWriteDecider` + env activation stays, unchanged. The abstraction
+  is fine; only this specific small-model + simple-scoring combo
+  failed.
+- `MERKEN_SHADOW=llm` is still the right contract: point it at a
+  stronger backend when one is available.
+- nanoGPT BPE v6 stays as the default shadow classifier until a
+  better pipeline lands.
+
+---
+
 ## Mistakes, dead ends, and lessons (the important part)
 
 ### Mistake 1: Celebrating 100/100 before testing properly

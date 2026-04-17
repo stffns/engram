@@ -41,6 +41,8 @@ MODEL_PATHS = {
             NANOGPT_DIR / "data" / "merken_bpe" / "meta.pkl"),
     "bpe_v5": (NANOGPT_DIR / "out-merken-bpe-v5" / "ckpt.pt",
                NANOGPT_DIR / "data" / "merken_bpe_v5" / "meta.pkl"),
+    "bpe_v6": (NANOGPT_DIR / "out-merken-bpe-v6" / "ckpt.pt",
+               NANOGPT_DIR / "data" / "merken_bpe_v6" / "meta.pkl"),
 }
 
 
