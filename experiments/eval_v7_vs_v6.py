@@ -33,6 +33,8 @@ V6_CKPT = NANOGPT / "out-merken-bpe-v6" / "ckpt.pt"
 V6_META = NANOGPT / "data" / "merken_bpe_v6" / "meta.pkl"
 V7_CKPT = NANOGPT / "out-merken-bpe-v7" / "ckpt.pt"
 V7_META = NANOGPT / "data" / "merken_bpe_v7" / "meta.pkl"
+V8_CKPT = NANOGPT / "out-merken-bpe-v8" / "ckpt.pt"
+V8_META = NANOGPT / "data" / "merken_bpe_v8" / "meta.pkl"
 
 
 def scenario_pairs(path: Path):
@@ -110,6 +112,7 @@ def run_eval(name: str, decider: NanoGPTWriteDecider, pairs: list[tuple[str, boo
 def main() -> int:
     v6 = NanoGPTWriteDecider(str(V6_CKPT), str(V6_META))
     v7 = NanoGPTWriteDecider(str(V7_CKPT), str(V7_META))
+    v8 = NanoGPTWriteDecider(str(V8_CKPT), str(V8_META))
 
     scenarios = [
         ("markdown_tables_held_out", SCEN / "markdown_tables_held_out.json"),
@@ -118,65 +121,69 @@ def main() -> int:
         ("knowledge_update_50t", SCEN / "knowledge_update_50topics.json"),
     ]
 
-    print(f"{'scenario':<30} {'n':>5} {'n_dec':>6} {'n_noi':>6} "
-          f"{'agree_v6':>10} {'agree_v7':>10} {'delta':>7}")
-    print("-" * 85)
+    print(f"{'scenario':<28} {'n':>5} {'n_dec':>6} {'n_noi':>6} "
+          f"{'v6':>7} {'v7':>7} {'v8':>7}")
+    print("-" * 80)
 
-    total_v6_correct = 0
-    total_v7_correct = 0
+    tot = {6: 0, 7: 0, 8: 0}
     total_n = 0
 
     for name, path in scenarios:
         if not path.exists():
-            print(f"{name:<30} MISSING {path}")
+            print(f"{name:<28} MISSING {path}")
             continue
         pairs = list(scenario_pairs(path))
         r6 = run_eval(name, v6, pairs)
         r7 = run_eval(name, v7, pairs)
-        delta = r7["agreement"] - r6["agreement"]
+        r8 = run_eval(name, v8, pairs)
         print(
-            f"{name:<30} {r6['n']:>5} {r6['n_dec']:>6} {r6['n_noi']:>6} "
-            f"{r6['agreement']*100:>9.1f}% {r7['agreement']*100:>9.1f}% "
-            f"{delta*100:>+6.1f}pp"
+            f"{name:<28} {r6['n']:>5} {r6['n_dec']:>6} {r6['n_noi']:>6} "
+            f"{r6['agreement']*100:>6.1f}% {r7['agreement']*100:>6.1f}% "
+            f"{r8['agreement']*100:>6.1f}%"
         )
-        total_v6_correct += int(r6["agreement"] * r6["n"])
-        total_v7_correct += int(r7["agreement"] * r7["n"])
+        tot[6] += int(r6["agreement"] * r6["n"])
+        tot[7] += int(r7["agreement"] * r7["n"])
+        tot[8] += int(r8["agreement"] * r8["n"])
         total_n += r6["n"]
 
     # Held-out subsample of labels (20%)
     ho_pairs = labels_held_out_pairs()
-    r6 = run_eval("labels_20pct_subsample", v6, ho_pairs)
-    r7 = run_eval("labels_20pct_subsample", v7, ho_pairs)
-    delta = r7["agreement"] - r6["agreement"]
+    r6 = run_eval("labels_20pct", v6, ho_pairs)
+    r7 = run_eval("labels_20pct", v7, ho_pairs)
+    r8 = run_eval("labels_20pct", v8, ho_pairs)
     print(
-        f"{'labels_20pct_subsample (v7 may have seen some)':<30} "
+        f"{'labels_20pct (v7/v8 contam)':<28} "
         f"{r6['n']:>5} {r6['n_dec']:>6} {r6['n_noi']:>6} "
-        f"{r6['agreement']*100:>9.1f}% {r7['agreement']*100:>9.1f}% "
-        f"{delta*100:>+6.1f}pp"
+        f"{r6['agreement']*100:>6.1f}% {r7['agreement']*100:>6.1f}% "
+        f"{r8['agreement']*100:>6.1f}%"
     )
 
-    # Combined over scenario-level held-outs only (cleanest comparison)
     print()
     print(f"weighted avg over 4 held-out scenarios: "
-          f"v6={total_v6_correct/total_n*100:.1f}%  "
-          f"v7={total_v7_correct/total_n*100:.1f}%")
+          f"v6={tot[6]/total_n*100:.1f}%  "
+          f"v7={tot[7]/total_n*100:.1f}%  "
+          f"v8={tot[8]/total_n*100:.1f}%")
 
     # Detail per scenario: DEC/NOI recall + FPR
     print()
-    print("Per-scenario detail (v6 / v7):")
+    print("Per-scenario detail (v6 / v7 / v8):")
     for name, path in scenarios:
         if not path.exists():
             continue
         pairs = list(scenario_pairs(path))
         r6 = run_eval(name, v6, pairs)
         r7 = run_eval(name, v7, pairs)
+        r8 = run_eval(name, v8, pairs)
         print(f"  {name}")
         print(f"    DEC_recall:   {r6['dec_recall']*100:>5.1f}%  / "
-              f"{r7['dec_recall']*100:>5.1f}%")
+              f"{r7['dec_recall']*100:>5.1f}%  / "
+              f"{r8['dec_recall']*100:>5.1f}%")
         print(f"    NOI_recall:   {r6['noi_recall']*100:>5.1f}%  / "
-              f"{r7['noi_recall']*100:>5.1f}%")
+              f"{r7['noi_recall']*100:>5.1f}%  / "
+              f"{r8['noi_recall']*100:>5.1f}%")
         print(f"    FPR (NOI->W): {r6['fpr']*100:>5.1f}%  / "
-              f"{r7['fpr']*100:>5.1f}%")
+              f"{r7['fpr']*100:>5.1f}%  / "
+              f"{r8['fpr']*100:>5.1f}%")
 
     return 0
 
