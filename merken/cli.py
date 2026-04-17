@@ -38,7 +38,6 @@ Not in v1 (deferred):
 from __future__ import annotations
 
 import argparse
-import dataclasses
 import json
 import os
 import sys
@@ -224,23 +223,96 @@ def cmd_forget(args: argparse.Namespace) -> int:
     return 0
 
 
+_SHADOW_FLAG_TO_MARKER = {
+    "shadow_disagree": "shadow_disagree",
+    "shadow_agree": "shadow_agree",
+    "shadow_error": "shadow_error",
+}
+
+
+def _parse_audit_row(text: str) -> dict[str, str]:
+    """Parse the ``key: value`` block emitted by ``format_audit_row``."""
+    fields: dict[str, str] = {}
+    for raw in (text or "").split("\n"):
+        line = raw.strip()
+        if not line or ":" not in line:
+            continue
+        key, _, value = line.partition(":")
+        fields[key.strip()] = value.strip()
+    return fields
+
+
+def _shadow_tag_from_reason(reason: str) -> tuple[str, str, str] | None:
+    """Extract (marker, shadow_label, shadow_conf) from a reason string.
+
+    Reason format (ShadowWriteDecider):
+    ``{primary}|shadow_{agree|disagree|error}:<policy>=<label>:<conf>``.
+    Returns None if no shadow tag is present.
+    """
+    if "|shadow_" not in reason:
+        return None
+    _, _, tag = reason.partition("|shadow_")
+    marker, _, rest = tag.partition(":")
+    marker = "shadow_" + marker
+    if marker == "shadow_error":
+        return (marker, "", rest)
+    _, _, label_conf = rest.partition("=")
+    label, _, conf = label_conf.partition(":")
+    return (marker, label, conf)
+
+
 def cmd_audit(args: argparse.Namespace) -> int:
-    query = args.query or "should_"
+    # Shadow filters are mutually exclusive with --query; they override.
+    shadow_filter = None
+    for flag, marker in _SHADOW_FLAG_TO_MARKER.items():
+        if getattr(args, flag, False):
+            shadow_filter = marker
+            break
+
+    query = shadow_filter or args.query or "should_"
+
     with Memory(project=args.project, db=_resolve_db(args)) as mem:
         rows = mem.audit(query=query, top_k=args.top_k)
 
+    # FTS on underscored tokens can over-match adjacent tokens; drop
+    # rows that don't actually carry the requested marker.
+    if shadow_filter:
+        rows = [r for r in rows if shadow_filter in (r.text or "")]
+
     if args.json:
         print(_json_dump([_hit_payload(r) for r in rows]))
-    else:
-        if not rows:
-            print("(no audit rows)")
+        return 0
+
+    if not rows:
+        label = shadow_filter if shadow_filter else "audit rows"
+        print(f"(no {label} found)")
+        return 0
+
+    for r in rows:
+        if shadow_filter:
+            fields = _parse_audit_row(r.text or "")
+            reason = fields.get("reason", "")
+            tag = _shadow_tag_from_reason(reason)
+            title = fields.get("event_title") or "(no title)"
+            preview = fields.get("event_text_preview", "")[:140]
+            timestamp = fields.get("timestamp", "")
+            if tag is None:
+                print(f"• {title[:80]}  {timestamp}")
+                print(f"    {preview}")
+                continue
+            marker, label, conf = tag
+            if marker == "shadow_error":
+                verdict = f"shadow_error:{label or conf}"
+            else:
+                verdict = f"{marker}:{label} ({conf})"
+            print(f"• {title[:60]}  [{verdict}]  {timestamp}")
+            print(f"    {preview}")
         else:
-            for r in rows:
-                print(f"• {(r.title or '(no title)')[:80]}")
-                for line in (r.text or "").split("\n")[:5]:
-                    stripped = line.strip()
-                    if stripped:
-                        print(f"    {stripped[:100]}")
+            print(f"• {(r.title or '(no title)')[:80]}")
+            for line in (r.text or "").split("\n")[:5]:
+                stripped = line.strip()
+                if stripped:
+                    print(f"    {stripped[:100]}")
     return 0
 
 
@@ -285,7 +357,7 @@ def cmd_status(args: argparse.Namespace) -> int:
     else:
         print(f"project:     {args.project}")
         print(f"db:          {db}")
-        print(f"collection:  default")
+        print("collection:  default")
         print(f"total:       {sum(layers.values())}")
         if layers:
             for layer, n in sorted(layers.items(), key=lambda x: (-x[1], x[0])):
@@ -445,6 +517,21 @@ def build_parser() -> argparse.ArgumentParser:
         help="free-text query; default matches every should_* decision",
     )
     aud.add_argument("--top-k", type=int, default=20)
+    aud.add_argument(
+        "--shadow-disagree",
+        action="store_true",
+        help="surface events where the shadow decider disagreed with the primary",
+    )
+    aud.add_argument(
+        "--shadow-agree",
+        action="store_true",
+        help="surface events where the shadow decider agreed with the primary",
+    )
+    aud.add_argument(
+        "--shadow-error",
+        action="store_true",
+        help="surface events where the shadow decider raised (primary unaffected)",
+    )
     aud.set_defaults(func=cmd_audit)
 
     tomb = sub.add_parser("tombstones", help="query forgotten events")
