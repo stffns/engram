@@ -767,6 +767,73 @@ lifetime certificate.
 
 ---
 
+## Gemma 3 1B-IT: LLM backend becomes real (2026-04-17)
+
+Second pass at the LLM shadow path, after 270M proved too weak.
+
+### Model: google/gemma-3-1b-it (2 GB)
+
+Three prompt iterations on the same 12 events of
+`markdown_tables_held_out` + organic_val + jay_vstash scenarios:
+
+| Prompt        | markdown recall | markdown FPR |
+|---------------|-----------------|--------------|
+| Zero-shot plain "Event: X Label:" | (see 270M) | (12-27% raw_mass, useless) |
+| Chat template zero-shot            | 50%            | 0% (very conservative) |
+| Chat template + few-shot multi-turn| 100%           | 66.7% (tied with v6) |
+| **Chat template + few-shot single-turn** | **100%** | **16.7%** (5/6 skipped) |
+
+Single-turn wins because small LMs treat multi-turn few-shot as "past
+conversations" less relevant to the current query. Packing
+instructions + examples + new event into one user message primes
+more effectively. Fix landed in ``merken/classifiers/llm.py``:
+DEFAULT_INSTRUCTIONS + DEFAULT_FEWSHOT, single-turn chat template
+prompt.
+
+### Final eval (single-turn chat+fewshot)
+
+| Scenario                   | recall | FPR   | latency/event |
+|----------------------------|--------|-------|---------------|
+| markdown_tables_held_out   | 100%   | 16.7% | 3.75 s        |
+| organic_val_held_out       | 100%   | --    | 5.82 s        |
+| jay_vstash_snapshot        | 100%   | --    | 6.22 s        |
+
+### vs nanoGPT v6
+
+On the markdown blind spot specifically:
+- v6: 2/6 NOISE caught (66.7% FPR)
+- Gemma 1B: 5/6 NOISE caught (16.7% FPR)
+- Recall parity (100% on real DECISIONs) in both.
+
+The one NOISE table Gemma 1B still writes is the sprint_burndown
+example, which is materially similar to an example in the few-shot
+prompt -- an in-distribution miss.
+
+### Cost
+
+- Latency: 3-6 s / event on CPU. 100-1000x slower than nanoGPT.
+- Memory: ~2 GB resident while the model is held.
+- Disk: 2 GB one-time.
+
+### Role
+
+Usable as a **shadow backend**
+(``MERKEN_SHADOW=llm``/``MERKEN_SHADOW_LLM_MODEL=google/gemma-3-1b-it``).
+Not usable as primary (``MERKEN_PRIMARY``) because the 3-6 s
+latency kills the write path. Complementary profile to nanoGPT:
+nanoGPT fast-and-shallow, Gemma slow-and-sharp. An ensemble with
+nanoGPT on every event and Gemma only on disagreements is the next
+natural experiment.
+
+### Things NOT tried yet
+
+- Gemma 3 4B-IT (8.6 GB disk, likely 15-30s/event on CPU; might be
+  too slow for any live role).
+- SmolLM / Qwen / Phi mini-class models.
+- Ensembling nanoGPT v6 + Gemma 1B at decision time.
+
+---
+
 ## Gemma 3 270M-IT sanity (2026-04-17) -- backend runs, signal doesn't
 
 Ran `LLMWriteDecider(model_name='google/gemma-3-270m-it',
