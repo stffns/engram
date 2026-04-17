@@ -537,6 +537,61 @@ markdown-tables-specific held-out scenario (see "What's next below").
   pure memorization and a different intervention (features,
   architecture, richer synthetic tables) is needed.
 
+### markdown_tables_held_out (2026-04-17) -- augmentation made it worse
+
+Built a 12-event scenario of markdown tables (6 DECISION -- ADR with
+scoring matrix, engine selection, biolab gate cutoffs, rollout plan,
+satellite slot allocation, firmware feature freeze; 6 NOISE --
+daily ops standup, meeting roster, sprint burndown, ticket triage,
+capacity snapshot, oncall handoff). Content uses tech stacks absent
+from training (aviation, game dev, bio lab, satellite, firmware).
+
+Filter recall / FPR:
+
+| Model | recall (6 sig) | FPR (6 noise) |
+|-------|----------------|---------------|
+| v4    | 100%           | 100%          |
+| v5    | 100%           | 100%          |
+
+Both models write all 12 events. The filter is completely blind to
+markdown-table NOISE. But the per-event confidences tell a sharper
+story:
+
+- **v4** had one borderline call: `noise_meeting_roster` at
+  P(D)=0.516, P(N)=0.484. With `confidence_threshold=0.6` this event
+  would have been correctly skipped -- the model sensed *something*
+  off.
+- **v5** plows through with >=0.94 P(D) on every event, including all
+  6 NOISE tables. The organic augmentation reinforced
+  "markdown = DECISION" into a near-deterministic rule and erased
+  the only residual noise signal v4 had.
+
+**Conclusion: v5 is worse than v4 on markdown NOISE detection.** The
+augmentation didn't generalize the filter; it specialized it harder
+toward "long structured markdown = keep". That's net negative if your
+real noise includes routine status tables.
+
+**Root cause:** The NOISE training set is 100% single-paragraph flat
+text ("Sprint planning: infra team..."). The model has no reference
+for what a table-formatted NOISE looks like. Adding 68 more
+markdown-DECISION examples without any markdown-NOISE examples tips
+the decision boundary further in the wrong direction.
+
+**What this points at:**
+
+- **v6 must add markdown-formatted NOISE samples.** The scenario above
+  can seed the NOISE side (6 examples) but more are needed -- routine
+  status snapshots, handoff summaries, attendance rosters, etc. Not
+  drawn from `~/.merken/*.db` because by definition those were all
+  kept.
+- Alternative: accept that the single-filter architecture has
+  irreducible blind spots, and route high-confidence markdown through
+  a secondary check (LLM judge, heuristic pattern).
+- Empirically the safest default remains `HeuristicWriteDecider`.
+
+**Do NOT graduate v5.** The synthetic-scenario win does not make up
+for the markdown-NOISE regression vs v4.
+
 ---
 
 ## Mistakes, dead ends, and lessons (the important part)
