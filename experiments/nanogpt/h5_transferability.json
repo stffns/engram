@@ -1,0 +1,149 @@
+{
+  "datasets": {
+    "jay_1520": {
+      "has_code_fence": {
+        "ece": 0.10703333333333333,
+        "signed_bias": -0.10703333333333333,
+        "n": 60
+      },
+      "has_inline_code": {
+        "ece": 0.10287450199203184,
+        "signed_bias": -0.05138047808764941,
+        "n": 502
+      },
+      "has_markdown_table": {
+        "ece": 0.18412658227848103,
+        "signed_bias": -0.18412658227848103,
+        "n": 79
+      },
+      "has_numbers": {
+        "ece": 0.1041948051948052,
+        "signed_bias": -0.06196623376623375,
+        "n": 385
+      },
+      "has_file_paths": {
+        "ece": 0.08390052356020938,
+        "signed_bias": 0.025722513089005205,
+        "n": 191
+      },
+      "short": {
+        "ece": 0.16816427432216904,
+        "signed_bias": 0.14785805422647524,
+        "n": 1254
+      },
+      "long": {
+        "ece": 0.04451282051282049,
+        "signed_bias": -0.04451282051282049,
+        "n": 78
+      },
+      "plain_prose": {
+        "ece": 0.19142493638676844,
+        "signed_bias": 0.19142493638676844,
+        "n": 786
+      },
+      "all": {
+        "ece": 0.1202092105263158,
+        "signed_bias": 0.08957368421052632,
+        "n": 1520
+      }
+    },
+    "capybara_288": {
+      "has_code_fence": {
+        "ece": 0.10900000000000004,
+        "signed_bias": -0.10900000000000004,
+        "n": 2
+      },
+      "has_inline_code": {
+        "ece": 0.1648,
+        "signed_bias": -0.1648,
+        "n": 5
+      },
+      "has_markdown_table": {
+        "ece": null,
+        "signed_bias": null,
+        "n": null
+      },
+      "has_numbers": {
+        "ece": 0.10157500000000007,
+        "signed_bias": -0.09412500000000006,
+        "n": 40
+      },
+      "has_file_paths": {
+        "ece": null,
+        "signed_bias": null,
+        "n": null
+      },
+      "short": {
+        "ece": 0.14899509803921568,
+        "signed_bias": -0.14899509803921568,
+        "n": 204
+      },
+      "long": {
+        "ece": 0.19499999999999995,
+        "signed_bias": -0.19499999999999995,
+        "n": 1
+      },
+      "plain_prose": {
+        "ece": 0.12759504132231403,
+        "signed_bias": -0.12759504132231403,
+        "n": 242
+      },
+      "all": {
+        "ece": 0.12352264808362376,
+        "signed_bias": -0.12352264808362376,
+        "n": 287
+      }
+    },
+    "slimorca_200": {
+      "has_code_fence": {
+        "ece": null,
+        "signed_bias": null,
+        "n": null
+      },
+      "has_inline_code": {
+        "ece": null,
+        "signed_bias": null,
+        "n": null
+      },
+      "has_markdown_table": {
+        "ece": null,
+        "signed_bias": null,
+        "n": null
+      },
+      "has_numbers": {
+        "ece": 0.060705882352941096,
+        "signed_bias": -0.060705882352941096,
+        "n": 34
+      },
+      "has_file_paths": {
+        "ece": null,
+        "signed_bias": null,
+        "n": null
+      },
+      "short": {
+        "ece": 0.11651538461538462,
+        "signed_bias": -0.07431538461538463,
+        "n": 130
+      },
+      "long": {
+        "ece": 0.06899999999999995,
+        "signed_bias": -0.06899999999999995,
+        "n": 1
+      },
+      "plain_prose": {
+        "ece": 0.08195121951219514,
+        "signed_bias": -0.07768292682926828,
+        "n": 164
+      },
+      "all": {
+        "ece": 0.07692929292929296,
+        "signed_bias": -0.07476767676767676,
+        "n": 198
+      }
+    }
+  },
+  "spearman_vs_jay": {
+    "capybara_288": -0.3333333333333333,
+    "slimorca_200": 0.19047619047619047
+  }
+}
