@@ -4,6 +4,26 @@ Curated record of every trained version of the nanoGPT write filter.
 Each row is an architecture+dataset pair, its held-out scores, and
 the lesson learned.
 
+## Milestones by version (at-a-glance)
+
+| Version | Date | Key hito | Shipping status |
+|---------|------|----------|-----------------|
+| v4 | 2026-04-17 early | First shippable: 100% DEC recall, 100% markdown FPR | historical |
+| v5 | 2026-04-17 early | Regression: organic-DEC augment without NOI balance pushed markdown FPR to 100% | rolled back |
+| v6 | 2026-04-17 mid | Markdown-NOISE synthesis -> 66.7% FPR. Prior shadow default. 84.7% oracle agreement on skip-set | superseded |
+| **v7** | **2026-04-17 late** | **First to clear markdown blind spot (FPR 0%). Real-label training. Graduated shadow baseline** | **live shadow** |
+| v8 | 2026-04-17 late | Negative result: binary + balance + starter-oversample together broke markdown FPR (0 -> 100%) | archived |
+
+**Post-graduation characterization (2026-04-18 session):** see
+[CONFUSION_MATRIX.md](CONFUSION_MATRIX.md) for v7's full confusion
+matrix (80.9% real accuracy, 98.4% DEC recall, 26.8% NOI recall,
+7.7% real store reduction -- not the 86% synthetic benchmarks
+suggested), P(D) distribution analysis (v7 shows emergent uncertainty
+detection: 29% events in ambiguous bucket on real data vs 2.8% on
+synthetic), and post-hoc calibration (temperature scaling T=1.559
+brings clean-set ECE from 0.119 to 0.052 -- latent calibration
+recoverable without retraining).
+
 ## Graduation status (as of 2026-04-17)
 
 **v7 is the graduated baseline.** First model to cross

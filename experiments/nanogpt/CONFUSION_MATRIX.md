@@ -177,18 +177,66 @@ Benchmark Gap."*
 All five scripts are idempotent and depend only on the JSONL
 artifacts already committed / gitignored.
 
-## 7. Post-hoc calibration via Platt scaling (DONE)
+## 7. Post-hoc calibration (DONE, with contamination-aware revision)
 
-Script: `experiments/calibrate_v7_platt.py`.
+Script: `experiments/calibrate_v7_platt.py`. Two runs:
 
-Applied temperature scaling and Platt scaling on an 80/20 stratified
-split of the 1520 (P(D), oracle_label) pairs. Train 1216, test 304.
+**Contaminated (--include-contaminated, n=1520):** the 1026 shadow_skip
+labels were used in v7 training (prepare.py v7 ingests them as
+`DECISION:transcript:v1`). Including them in the calibration fit means
+v7 outputs reflect memorization, not generalization. This is the
+wrong way to measure calibration.
 
-| method | params | test ECE | signed bias | verdict |
-|---|---|---:|---:|---|
-| baseline (raw v7) | -- | 0.140 | +0.090 | mildly miscalibrated |
-| temperature | T=1.472 | 0.135 | +0.101 | no meaningful change |
-| **Platt** | **a=0.700, b=-0.659** | **0.080** | **+0.004** | reasonably calibrated |
+**Clean (default, n=494 agree_write only):** these texts were never
+in the training set (agree_write events are the complement of the
+disagreement set that the bootstrap labeled and trained on). Proper
+held-out calibration fit.
+
+Stratified 80/20 split each time. Numbers on the test split:
+
+| data | method | params | test ECE | signed bias |
+|---|---|---|---:|---:|
+| contaminated | baseline | -- | 0.140 | +0.090 |
+| contaminated | temperature | T=1.472 | 0.135 | +0.101 |
+| contaminated | Platt | a=0.700, b=-0.659 | 0.080 | +0.004 |
+| **clean** | **baseline** | -- | **0.119** | **+0.119** |
+| **clean** | **temperature** | **T=1.559** | **0.052** | **+0.047** |
+| clean | Platt | a=0.945, b=-0.817 | 0.071 | +0.035 |
+
+Two findings that matter:
+
+1. **The clean baseline signed bias (+0.119) is WORSE than the
+   contaminated one (+0.090).** Contamination masked the bias --
+   memorized points were accurate, which pulled the overall number
+   down. The true v7 over-confidence is larger than the first
+   experiment suggested.
+
+2. **Temperature scaling wins on clean data.** On contaminated data
+   the miscalibration looked asymmetric (mid-range worse than
+   extremes), requiring Platt's 2 parameters. On clean data the bias
+   is mostly global over-confidence -- one scalar T=1.559 pulls the
+   distribution toward the diagonal. Parsimony: a single-parameter
+   fix works.
+
+### Coverage caveat
+
+The clean calibration set is drawn from agree_write events, where v7
+gave **P(D) >= 0.6** by construction. All 100 held-out points sit in
+the [0.6, 1.0] bins, so the fitted T is validated for the HIGH P(D)
+regime only. We have no clean data for the low-P(D) regime because
+every low-P(D) real event was already in training (the disagreement
+set that got labeled and fed in).
+
+Closing this gap requires oracling a sample from a non-training
+distribution (e.g. Capybara events where v7 outputs P(D) < 0.3).
+Documented as a follow-up in section 9.
+
+### Old Platt params retained
+
+`experiments/nanogpt/calibration_params.json` is overwritten on each
+run. To keep the contaminated-fit numbers for comparison, the
+contaminated row remains in the table above but no longer in the
+JSON file.
 
 Temperature fails because the miscalibration is asymmetric --
 mid-range is over-confident but extremes are well-calibrated. A

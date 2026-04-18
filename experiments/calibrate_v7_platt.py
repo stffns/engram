@@ -171,7 +171,57 @@ def report_bin_deltas(pre, post, n_bins=10):
         )
 
 
+def collect_clean_pairs(decider: NanoGPTWriteDecider) -> list[tuple[float, int]]:
+    """ONLY agree_write pairs. v7 never saw these texts during training.
+
+    The 1026 shadow_skip labels in merken_labels_v7.jsonl were fed into
+    the v7 training set as DECISION:transcript:v1 examples (see
+    nanoGPT/data/merken_bpe_v7/prepare.py). Using them for calibration
+    means fitting on memorized data -- v7's P(D) reflects lookup, not
+    generalization, and the Platt params will overfit the mapping.
+
+    The agree_write sample was reservoir-drawn AFTER v7 training, from
+    events where v7 and primary already agreed to write. Those texts
+    never entered the training set.
+    """
+    ctx = WriteContext(project="calib")
+    pairs: list[tuple[float, int]] = []
+    if not LABELS_WRITE.exists():
+        return pairs
+    for line in LABELS_WRITE.open():
+        try:
+            r = json.loads(line)
+        except Exception:
+            continue
+        label = r.get("label")
+        if label == "DECISION":
+            y = 1
+        elif label == "NOISE":
+            y = 0
+        else:
+            continue
+        text = (r.get("text") or "").strip()
+        if not text:
+            continue
+        d = decider.decide(Event(text=text), ctx)
+        p = parse_pd(d.reason)
+        if p is None:
+            continue
+        pairs.append((p, y))
+    return pairs
+
+
 def main() -> int:
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--include-contaminated",
+        action="store_true",
+        help="Include the 1026 shadow_skip labels that v7 trained on. "
+        "Default: clean set (agree_write only, never seen by v7).",
+    )
+    args = parser.parse_args()
+
     ckpt = os.environ.get("MERKEN_SHADOW_NANOGPT_CKPT")
     meta = os.environ.get("MERKEN_SHADOW_NANOGPT_META")
     if not ckpt or not meta:
@@ -179,8 +229,14 @@ def main() -> int:
 
     print("loading v7 + collecting (P(D), oracle) pairs...")
     v7 = NanoGPTWriteDecider(ckpt, meta)
-    pairs = collect_pairs(v7)
-    print(f"total pairs: {len(pairs)}")
+    if args.include_contaminated:
+        pairs = collect_pairs(v7)
+        print(f"total pairs (CONTAMINATED): {len(pairs)}  "
+              f"-- v7 saw the 1026 skip-set texts during training")
+    else:
+        pairs = collect_clean_pairs(v7)
+        print(f"total pairs (CLEAN agree_write only): {len(pairs)}  "
+              f"-- v7 never saw these texts during training")
 
     # Stratified 80/20 split to keep class balance in train/test.
     rng = random.Random(42)
