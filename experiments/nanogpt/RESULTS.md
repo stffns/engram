@@ -24,6 +24,27 @@ synthetic), and post-hoc calibration (temperature scaling T=1.559
 brings clean-set ECE from 0.119 to 0.052 -- latent calibration
 recoverable without retraining).
 
+**Cross-version calibration (experiments/cross_version_calibration.py):**
+
+| Model | n | ECE | signed bias | Mean P(D) | profile |
+|-------|--:|----:|------------:|----------:|---------|
+| v6 (all held-out) | 1520 | 0.159 | +0.135 | 0.500 | bimodal -- confident NOI or confident DEC, no middle |
+| v7 full (mixed) | 1520 | 0.120 | +0.090 | 0.455 | more distributed, mid-range over-confident but extremes tight |
+| v7 clean (agree_write) | 494 | 0.100 | +0.100 | 0.905 | HIGH-P(D) regime only |
+
+Real-label training reduces miscalibration ~25% (ECE 0.159 -> 0.120)
+and redistributes probability mass out of the extremes. v6 places 524
+of 1520 events in [0.9, 1.0) (confident DEC, actual DEC rate only
+81.3%) and 372 in [0.0, 0.1) -- it's essentially a 2-class confident
+voter, not an uncertainty estimator. v7 keeps 343 in [0.9, 1.0) and
+376 in [0.0, 0.1) but also has 410 in [0.3, 0.6) -- real middle mass.
+
+Uncertainty detection is therefore NOT a consequence of the 4-layer
+architecture alone; it emerges only with real-content training data.
+This is evidence that the "latent calibration" claim about v7
+depends on v7's training distribution, not the tiny-Transformer
+recipe in isolation.
+
 ## Graduation status (as of 2026-04-17)
 
 **v7 is the graduated baseline.** First model to cross

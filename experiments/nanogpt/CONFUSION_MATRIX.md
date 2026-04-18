@@ -218,18 +218,64 @@ Two findings that matter:
    distribution toward the diagonal. Parsimony: a single-parameter
    fix works.
 
-### Coverage caveat
+### Coverage caveat: HIGH-only (what we had)
 
-The clean calibration set is drawn from agree_write events, where v7
-gave **P(D) >= 0.6** by construction. All 100 held-out points sit in
-the [0.6, 1.0] bins, so the fitted T is validated for the HIGH P(D)
-regime only. We have no clean data for the low-P(D) regime because
-every low-P(D) real event was already in training (the disagreement
-set that got labeled and fed in).
+The agree_write clean set covers v7 P(D) >= 0.6 by construction. The
+T=1.559 fit is validated for the HIGH regime only.
 
-Closing this gap requires oracling a sample from a non-training
-distribution (e.g. Capybara events where v7 outputs P(D) < 0.3).
-Documented as a follow-up in section 9.
+### Closing the gap: LOW P(D) on Capybara, and what it revealed
+
+Oracled 100 Capybara chunks filtered to v7 P(D) < 0.3 (script
+`experiments/oracle_public_dataset.py --filter-pd-low 0.0
+--filter-pd-high 0.3`). v7 mean P(D) on these 100 was 0.118 -- very
+confident NOISE. Gemini disagreed hard: 69 DECISION, 29 NOISE, 2
+UNCERTAIN. That's a 69% DEC rate where v7 asserted ~12% DEC.
+
+Combined clean set (agree_write + Capybara LOW, n=592):
+
+| method | params | test ECE | signed bias |
+|---|---|---:|---:|
+| baseline | -- | 0.145 | -0.032 |
+| temperature | T=2.428 | 0.168 | -0.125 |
+| Platt | a=0.226, b=+0.947 | 0.177 | -0.005 |
+
+**Calibration got WORSE, not better.** Both scaling methods regressed
+ECE relative to baseline. Why: the two subsets have opposite bias
+directions.
+
+- HIGH regime (agree_write, Jay transcripts): v7 over-confident in
+  DEC by ~+0.10.
+- LOW regime (Capybara, public IT data): v7 under-confident in DEC
+  by ~-0.57 (predicts ~0.12, actual ~0.69).
+
+A 1- or 2-parameter post-hoc fit cannot correct two biases that go
+in opposite directions. Each method tried to compromise and ended up
+worsening both regions.
+
+**Root cause:** the Capybara LOW regime is a cross-distribution
+probe. v7 was trained on Jay's transcripts; when it sees Capybara
+content its P(D) defaults to "low" (the visual patterns look like
+filler to v7) but the actual content is substantive IT response (~70%
+DEC by oracle). That's not miscalibration of v7's probabilistic
+reasoning -- it's distribution mismatch between training and the
+probe data.
+
+### Revised claim
+
+Within-distribution calibration: **recoverable.** Temperature T=1.559
+brings in-dist ECE to 0.052 on agree_write (see
+`--exclude-capybara-low` to reproduce).
+
+Cross-distribution calibration: **not recoverable with post-hoc
+scaling.** Opposite bias directions on unrelated distributions
+cannot be fixed by a scalar transform. Either requires domain-
+specific scaling parameters OR retraining with diverse-domain data
+in the mix.
+
+This is additional evidence for the "latent calibration" framing:
+v7 has meaningful probabilities WITHIN its training domain. Outside
+that domain it doesn't have calibration to recover, and post-hoc
+methods can't invent it.
 
 ### Old Platt params retained
 

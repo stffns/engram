@@ -25,6 +25,8 @@ distribution gap between curated-IT and noisy-agent content.
 
 from __future__ import annotations
 
+import torch  # noqa: F401 (Mistake #10 if --filter-pd-range used)
+
 import argparse
 import hashlib
 import json
@@ -145,7 +147,52 @@ def main() -> int:
     parser.add_argument("--out", default=None,
                         help="Output JSONL path. Default derived from dataset.")
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument(
+        "--filter-pd-low",
+        type=float,
+        default=None,
+        help="Keep only events where v7 P(D) >= this value. Use with "
+        "--filter-pd-high for a bin-specific probe (e.g. 0.0 / 0.3 for "
+        "LOW-calibration sampling).",
+    )
+    parser.add_argument(
+        "--filter-pd-high",
+        type=float,
+        default=None,
+        help="Upper bound (exclusive) for v7 P(D) filter.",
+    )
+    parser.add_argument(
+        "--ckpt",
+        default=os.environ.get("MERKEN_SHADOW_NANOGPT_CKPT"),
+        help="nanoGPT v7 ckpt path (required when --filter-pd-* is used).",
+    )
+    parser.add_argument(
+        "--meta",
+        default=os.environ.get("MERKEN_SHADOW_NANOGPT_META"),
+        help="nanoGPT v7 meta path (required when --filter-pd-* is used).",
+    )
     args = parser.parse_args()
+
+    filter_by_pd = args.filter_pd_low is not None or args.filter_pd_high is not None
+    decider = None
+    if filter_by_pd:
+        if not args.ckpt or not args.meta:
+            raise SystemExit(
+                "--filter-pd-* requires --ckpt / --meta (or env vars "
+                "MERKEN_SHADOW_NANOGPT_CKPT / _META)."
+            )
+        from merken.classifiers.nanogpt import NanoGPTWriteDecider
+        from merken.policies.types import Event, WriteContext
+        print(f"loading v7 for P(D) filter: {args.ckpt}")
+        decider = NanoGPTWriteDecider(args.ckpt, args.meta)
+        _pd_ctx = WriteContext(project="filter")
+        lo = args.filter_pd_low if args.filter_pd_low is not None else 0.0
+        hi = args.filter_pd_high if args.filter_pd_high is not None else 1.01
+
+        def pd_of(text: str) -> float | None:
+            d = decider.decide(Event(text=text), _pd_ctx)
+            m = re.search(r"P\(D\)=([\d.]+)", d.reason or "")
+            return float(m.group(1)) if m else None
 
     if args.dataset not in EXTRACTORS:
         raise SystemExit(
@@ -165,9 +212,32 @@ def main() -> int:
     )
     print(f"loaded {len(ds)} rows; extracting chunks...")
 
-    stream = extractor(ds)
-    sample = reservoir_sample(stream, args.n, args.seed)
-    print(f"reservoir filled with {len(sample)} chunks")
+    raw_stream = extractor(ds)
+    if filter_by_pd:
+        def filtered():
+            kept = 0
+            seen = 0
+            for src, text in raw_stream:
+                seen += 1
+                p = pd_of(text)
+                if p is None:
+                    continue
+                if lo <= p < hi:
+                    kept += 1
+                    yield src, text, p
+                if seen % 500 == 0:
+                    print(f"  scanned {seen}, kept {kept} in P(D) [{lo}, {hi})")
+        # For filtered stream we also want to keep P(D) in the record.
+        stream_list = list(filtered())
+        rng = random.Random(args.seed)
+        rng.shuffle(stream_list)
+        sample_raw = stream_list[: args.n]
+        sample = [(s, t) for s, t, _ in sample_raw]
+        pd_lookup = {content_hash(t): p for s, t, p in sample_raw}
+    else:
+        sample = reservoir_sample(raw_stream, args.n, args.seed)
+        pd_lookup = {}
+    print(f"final sample size: {len(sample)}")
 
     # source distribution in the sample
     from collections import Counter
@@ -226,6 +296,8 @@ def main() -> int:
                 "backend": label.backend,
                 "source": "oracle_public_dataset",
             }
+            if pd_lookup.get(h) is not None:
+                rec["v7_pd"] = pd_lookup[h]
             out.write(json.dumps(rec, ensure_ascii=False) + "\n")
             counts["labeled"] += 1
             counts[label.decision] = counts.get(label.decision, 0) + 1

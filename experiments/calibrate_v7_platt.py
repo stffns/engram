@@ -46,6 +46,7 @@ from merken.policies.types import Event, WriteContext
 REPO = Path("/Users/jaysonsteffens/Desktop/Personal/Projects/engram")
 LABELS_SKIP = REPO / "data" / "merken_labels_v7.jsonl"
 LABELS_WRITE = REPO / "data" / "merken_labels_agree_write.jsonl"
+LABELS_CAPY_LOW = REPO / "data" / "merken_labels_capybara_lowpd.jsonl"
 
 EPS = 1e-6
 
@@ -171,43 +172,54 @@ def report_bin_deltas(pre, post, n_bins=10):
         )
 
 
-def collect_clean_pairs(decider: NanoGPTWriteDecider) -> list[tuple[float, int]]:
-    """ONLY agree_write pairs. v7 never saw these texts during training.
+def collect_clean_pairs(decider: NanoGPTWriteDecider, include_capybara_low: bool = True):
+    """Clean held-out calibration data: agree_write + Capybara LOW P(D).
 
-    The 1026 shadow_skip labels in merken_labels_v7.jsonl were fed into
-    the v7 training set as DECISION:transcript:v1 examples (see
-    nanoGPT/data/merken_bpe_v7/prepare.py). Using them for calibration
-    means fitting on memorized data -- v7's P(D) reflects lookup, not
-    generalization, and the Platt params will overfit the mapping.
+    v7 never saw these texts during training. agree_write covers HIGH
+    P(D) region (>= 0.6 by construction). Capybara LOW covers LOW P(D)
+    region (< 0.3 by oracle_public_dataset's --filter-pd-* flag). Both
+    combined give full-range calibration coverage.
 
-    The agree_write sample was reservoir-drawn AFTER v7 training, from
-    events where v7 and primary already agreed to write. Those texts
-    never entered the training set.
+    The Capybara subset is different-distribution (public IT data, not
+    Jay transcripts). That introduces domain shift; for calibration
+    purposes this is a stress test -- if v7's logit-to-P(D) mapping
+    transfers across distributions, the model is genuinely
+    probabilistic rather than distribution-specific.
+
+    The 1026 shadow_skip labels are NOT included here (contaminated --
+    v7 trained on them).
     """
     ctx = WriteContext(project="calib")
     pairs: list[tuple[float, int]] = []
-    if not LABELS_WRITE.exists():
-        return pairs
-    for line in LABELS_WRITE.open():
-        try:
-            r = json.loads(line)
-        except Exception:
-            continue
-        label = r.get("label")
-        if label == "DECISION":
-            y = 1
-        elif label == "NOISE":
-            y = 0
-        else:
-            continue
-        text = (r.get("text") or "").strip()
-        if not text:
-            continue
-        d = decider.decide(Event(text=text), ctx)
-        p = parse_pd(d.reason)
-        if p is None:
-            continue
-        pairs.append((p, y))
+
+    def ingest_jsonl(path: Path, text_field: str = "text"):
+        if not path.exists():
+            return
+        for line in path.open():
+            try:
+                r = json.loads(line)
+            except Exception:
+                continue
+            label = r.get("label")
+            if label == "DECISION":
+                y = 1
+            elif label == "NOISE":
+                y = 0
+            else:
+                continue
+            text = (r.get(text_field) or "").strip()
+            if not text:
+                continue
+            d = decider.decide(Event(text=text), ctx)
+            p = parse_pd(d.reason)
+            if p is None:
+                continue
+            pairs.append((p, y))
+
+    ingest_jsonl(LABELS_WRITE)
+    if include_capybara_low:
+        ingest_jsonl(LABELS_CAPY_LOW)
+
     return pairs
 
 
@@ -217,8 +229,12 @@ def main() -> int:
     parser.add_argument(
         "--include-contaminated",
         action="store_true",
-        help="Include the 1026 shadow_skip labels that v7 trained on. "
-        "Default: clean set (agree_write only, never seen by v7).",
+        help="Include the 1026 shadow_skip labels that v7 trained on.",
+    )
+    parser.add_argument(
+        "--exclude-capybara-low",
+        action="store_true",
+        help="Drop the 100 Capybara LOW-P(D) cross-distribution events.",
     )
     args = parser.parse_args()
 
@@ -234,8 +250,11 @@ def main() -> int:
         print(f"total pairs (CONTAMINATED): {len(pairs)}  "
               f"-- v7 saw the 1026 skip-set texts during training")
     else:
-        pairs = collect_clean_pairs(v7)
-        print(f"total pairs (CLEAN agree_write only): {len(pairs)}  "
+        pairs = collect_clean_pairs(
+            v7, include_capybara_low=not args.exclude_capybara_low
+        )
+        label = "agree_write only" if args.exclude_capybara_low else "agree_write + Capybara LOW"
+        print(f"total pairs (CLEAN, {label}): {len(pairs)}  "
               f"-- v7 never saw these texts during training")
 
     # Stratified 80/20 split to keep class balance in train/test.
