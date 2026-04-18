@@ -1,3 +1,4 @@
+# ruff: noqa: I001, E402
 """Does v7's calibration depend on content type (code vs prose vs table)?
 
 For each of the 1520 oracled events we tag the content structure,
@@ -34,7 +35,7 @@ from merken.classifiers.nanogpt import NanoGPTWriteDecider
 from merken.policies.types import Event, WriteContext
 
 
-REPO = Path("/Users/jaysonsteffens/Desktop/Personal/Projects/engram")
+REPO = Path(__file__).resolve().parent.parent
 LABELS_SKIP = REPO / "data" / "merken_labels_v7.jsonl"
 LABELS_WRITE = REPO / "data" / "merken_labels_agree_write.jsonl"
 

@@ -1,3 +1,4 @@
+# ruff: noqa: I001, E402
 """Oracle a sample of agree_write cases to close v7's confusion matrix.
 
 The bootstrap pipeline only labeled disagreement cases (shadow said
@@ -12,8 +13,10 @@ This script:
 1. Re-replays Claude Code transcripts exactly as bootstrap_from_transcripts
    did, using the same primary (HeuristicWriteDecider) and shadow
    (NanoGPTWriteDecider v7) and finding cases where BOTH say WRITE.
-2. Samples up to N agree_write events uniformly across projects
-   (reservoir sampling) so no project dominates.
+2. Reservoir-samples up to N agree_write events. The sample is
+   uniform OVER EVENTS (Algorithm R), so projects with more events
+   contribute more to the sample. If you need strict per-project
+   stratification, post-filter the output by `project` field.
 3. Oracles each with Gemini 2.0 Flash using the SAME strict prompt
    that relabeled the DECISION pile -- consistency matters for
    combining with the existing 1026 labels in downstream metrics.
@@ -36,7 +39,6 @@ import hashlib
 import json
 import os
 import random
-import re
 from pathlib import Path
 
 from google import genai
@@ -171,7 +173,10 @@ def build_gemini_client(model: str = "gemini-2.0-flash"):
 
 
 def label_one(client, model: str, text: str):
-    prompt = STRICT_PROMPT.format(text=text[:3000])
+    # Using .replace instead of .format because raw transcript text
+    # routinely contains `{` / `}` (JSON, f-strings, code). Those would
+    # be interpreted as format placeholders and raise KeyError.
+    prompt = STRICT_PROMPT.replace("{text}", text[:3000])
     resp = client.models.generate_content(model=model, contents=prompt)
     return _parse_backend_response(resp.text or "", model)
 

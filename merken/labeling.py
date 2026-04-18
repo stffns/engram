@@ -137,7 +137,11 @@ class GeminiLabelBackend:
         self.name = model
 
     def label(self, text: str) -> Label:
-        prompt = _PROMPT.format(text=text[:3000])
+        # .replace instead of .format: raw text routinely contains
+        # literal `{` / `}` (JSON, code, f-strings). Those would be
+        # read as format placeholders and raise KeyError, causing
+        # labeling to fail silently for structured content.
+        prompt = _PROMPT.replace("{text}", text[:3000])
         resp = self._client.models.generate_content(
             model=self.name, contents=prompt
         )

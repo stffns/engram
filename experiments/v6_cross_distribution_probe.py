@@ -1,3 +1,4 @@
+# ruff: noqa: I001, E402
 """Does v6 show the same cross-distribution drift as v7?
 
 v7 produced LOW P(D) on Capybara content but Gemini labeled 69% of
@@ -30,8 +31,11 @@ from merken.classifiers.nanogpt import NanoGPTWriteDecider
 from merken.policies.types import Event, WriteContext
 
 
-REPO = Path("/Users/jaysonsteffens/Desktop/Personal/Projects/engram")
-NANOGPT = Path("/Users/jaysonsteffens/Desktop/Personal/Projects/nanoGPT")
+REPO = Path(__file__).resolve().parent.parent
+NANOGPT = Path(
+    os.environ.get("NANOGPT_REPO")
+    or (REPO.parent / "nanoGPT")
+)
 V6_CKPT = NANOGPT / "out-merken-bpe-v6" / "ckpt.pt"
 V6_META = NANOGPT / "data" / "merken_bpe_v6" / "meta.pkl"
 

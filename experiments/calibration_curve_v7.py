@@ -1,3 +1,4 @@
+# ruff: noqa: I001, E402
 """v7 calibration curve: does P(D) track oracle DEC-fraction?
 
 A classifier is "calibrated" when its predicted probability matches
@@ -37,7 +38,7 @@ from merken.classifiers.nanogpt import NanoGPTWriteDecider
 from merken.policies.types import Event, WriteContext
 
 
-REPO = Path("/Users/jaysonsteffens/Desktop/Personal/Projects/engram")
+REPO = Path(__file__).resolve().parent.parent  # engram/experiments/.. -> engram
 LABELS_SKIP = REPO / "data" / "merken_labels_v7.jsonl"
 LABELS_WRITE = REPO / "data" / "merken_labels_agree_write.jsonl"
 

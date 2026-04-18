@@ -1,3 +1,4 @@
+# ruff: noqa: I001, E402
 """Compare v6 and v7 calibration on the same 1520 oracled events.
 
 We already know v7's calibration profile (ECE ~0.12 contaminated,
@@ -33,8 +34,12 @@ from merken.classifiers.nanogpt import NanoGPTWriteDecider
 from merken.policies.types import Event, WriteContext
 
 
-REPO = Path("/Users/jaysonsteffens/Desktop/Personal/Projects/engram")
-NANOGPT = Path("/Users/jaysonsteffens/Desktop/Personal/Projects/nanoGPT")
+REPO = Path(__file__).resolve().parent.parent
+# nanoGPT is expected as a sibling checkout of engram. Override via env.
+NANOGPT = Path(
+    os.environ.get("NANOGPT_REPO")
+    or (REPO.parent / "nanoGPT")
+)
 LABELS_SKIP = REPO / "data" / "merken_labels_v7.jsonl"
 LABELS_WRITE = REPO / "data" / "merken_labels_agree_write.jsonl"
 

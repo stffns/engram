@@ -1,3 +1,4 @@
+# ruff: noqa: I001, E402
 """Does v7 behave differently on real vs synthetic vs public data?
 
 H1 (emergent uncertainty): v7 recognizes ambiguous content and assigns
@@ -37,7 +38,7 @@ from merken.classifiers.nanogpt import NanoGPTWriteDecider
 from merken.policies.types import Event, WriteContext
 
 
-REPO = Path("/Users/jaysonsteffens/Desktop/Personal/Projects/engram")
+REPO = Path(__file__).resolve().parent.parent  # engram/experiments/.. -> engram
 LABELS_SKIP = REPO / "data" / "merken_labels_v7.jsonl"
 LABELS_WRITE = REPO / "data" / "merken_labels_agree_write.jsonl"
 LABELS_CAPYBARA = REPO / "data" / "merken_labels_ldjnr_capybara.jsonl"

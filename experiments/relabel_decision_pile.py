@@ -112,7 +112,8 @@ class StrictGeminiBackend:
         self._model = model
 
     def label(self, text: str) -> Label:
-        prompt = STRICT_PROMPT.format(text=text[:3000])
+        # .replace (not .format) so `{` / `}` in raw text don't trigger KeyError.
+        prompt = STRICT_PROMPT.replace("{text}", text[:3000])
         resp = self._client.models.generate_content(
             model=self._model, contents=prompt
         )

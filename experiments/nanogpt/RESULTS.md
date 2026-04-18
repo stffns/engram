@@ -95,7 +95,13 @@ last criterion (#4 at >=95%) is cleared via fresh labels.
   (p50=116, p90=305, max=557) while only 0.7% of NOISE do. At 128 the
   model could not see the payload of almost half the decisions.
 
-| Scenario | v6 | v7 | delta |
+Scores below are per-event **agreement** (% of events where the model
+decision matches the scenario ground truth). For markdown_tables
+specifically, agreement == 1 - FPR because all the NOI events are
+markdown tables and the DEC events are all recalled; see Per-scenario
+detail for the decomposition.
+
+| Scenario | v6 agreement | v7 agreement | delta |
 |---|---:|---:|---:|
 | markdown_tables_held_out | 66.7% | **100%** | **+33.3pp** |
 | organic_val_held_out | 100% | 100% | +0.0 |

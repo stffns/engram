@@ -1,3 +1,4 @@
+# ruff: noqa: I001, E402
 """Evaluate nanoGPT v7 vs v6 on held-out scenarios + the transcript labels.
 
 Writes a side-by-side table. Four held-out evals are properly
@@ -17,6 +18,7 @@ from __future__ import annotations
 import torch  # noqa: F401 (first, Mistake #10)
 
 import json
+import os
 import random
 from pathlib import Path
 
@@ -24,8 +26,11 @@ from merken.classifiers.nanogpt import NanoGPTWriteDecider
 from merken.policies.types import Event, WriteContext
 
 
-ENGRAM = Path("/Users/jaysonsteffens/Desktop/Personal/Projects/engram")
-NANOGPT = Path("/Users/jaysonsteffens/Desktop/Personal/Projects/nanoGPT")
+ENGRAM = Path(__file__).resolve().parent.parent
+NANOGPT = Path(
+    os.environ.get("NANOGPT_REPO")
+    or (ENGRAM.parent / "nanoGPT")
+)
 SCEN = ENGRAM / "experiments" / "loop_quality" / "scenarios"
 LABELS = ENGRAM / "data" / "merken_labels_v7.jsonl"
 
@@ -93,13 +98,15 @@ def run_eval(name: str, decider: NanoGPTWriteDecider, pairs: list[tuple[str, boo
             else:
                 tn += 1
     total = tp + tn + fp + fn
-    agreement = (tp + tn) / total if total else 0.0
+    correct = tp + tn
+    agreement = correct / total if total else 0.0
     dec_recall = tp / (tp + fn) if (tp + fn) else 0.0
     noi_recall = tn / (tn + fp) if (tn + fp) else 0.0
     fpr = fp / (fp + tn) if (fp + tn) else 0.0
     return {
         "name": name,
         "n": total,
+        "correct": correct,  # integer TP+TN, safe for weighted avg
         "n_dec": tp + fn,
         "n_noi": tn + fp,
         "agreement": agreement,
@@ -141,9 +148,11 @@ def main() -> int:
             f"{r6['agreement']*100:>6.1f}% {r7['agreement']*100:>6.1f}% "
             f"{r8['agreement']*100:>6.1f}%"
         )
-        tot[6] += int(r6["agreement"] * r6["n"])
-        tot[7] += int(r7["agreement"] * r7["n"])
-        tot[8] += int(r8["agreement"] * r8["n"])
+        # Track integer correct counts to avoid float rounding
+        # artifacts in the weighted average.
+        tot[6] += r6["correct"]
+        tot[7] += r7["correct"]
+        tot[8] += r8["correct"]
         total_n += r6["n"]
 
     # Held-out subsample of labels (20%)

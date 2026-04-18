@@ -1,3 +1,4 @@
+# ruff: noqa: I001, E402
 """Post-hoc calibration of v7 via temperature scaling + Platt scaling.
 
 Starting point (from calibration_curve_v7.py):
@@ -43,7 +44,7 @@ from merken.classifiers.nanogpt import NanoGPTWriteDecider
 from merken.policies.types import Event, WriteContext
 
 
-REPO = Path("/Users/jaysonsteffens/Desktop/Personal/Projects/engram")
+REPO = Path(__file__).resolve().parent.parent
 LABELS_SKIP = REPO / "data" / "merken_labels_v7.jsonl"
 LABELS_WRITE = REPO / "data" / "merken_labels_agree_write.jsonl"
 LABELS_CAPY_LOW = REPO / "data" / "merken_labels_capybara_lowpd.jsonl"

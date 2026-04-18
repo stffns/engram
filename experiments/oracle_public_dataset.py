@@ -1,3 +1,4 @@
+# ruff: noqa: I001, E402
 """Oracle a sample of assistant text from a public HuggingFace dataset.
 
 Motivation: all our labeled data (1026 shadow_skip + 500 agree_write)
@@ -10,9 +11,10 @@ give us diversity across tasks and styles at negligible cost.
 Default: `LDJnr/Capybara`, a 16k multi-turn conversation dataset. Each
 conversation has a `source` tag (domain) and a list of
 `{input, output}` turns. We extract the `output` field (assistant
-text), split long outputs into paragraphs >=50 chars, sample N items
-with reservoir sampling for uniform distribution across all sources,
-and oracle each with the same strict prompt used for Jay's labels.
+text), split long outputs into paragraphs >=50 chars, reservoir-sample
+N items, and oracle each with the same strict prompt used for Jay's
+labels. The reservoir is uniform OVER EVENTS (not over sources), so
+heavily represented sources will dominate the sample.
 
 Other datasets can be swapped via --dataset / --split / --text-path.
 
@@ -302,7 +304,9 @@ def main() -> int:
                 counts["skipped_done"] += 1
                 continue
             try:
-                prompt = STRICT_PROMPT.format(text=text[:3000])
+                # .replace (not .format) so `{` / `}` in raw text
+                # don't trigger KeyError.
+                prompt = STRICT_PROMPT.replace("{text}", text[:3000])
                 resp = client.models.generate_content(
                     model=args.model, contents=prompt
                 )
@@ -325,6 +329,7 @@ def main() -> int:
             }
             if pd_lookup.get(h) is not None:
                 rec["v7_pd"] = pd_lookup[h]
+            done_hashes.add(h)  # dedup within this run too
             out.write(json.dumps(rec, ensure_ascii=False) + "\n")
             counts["labeled"] += 1
             counts[label.decision] = counts.get(label.decision, 0) + 1
