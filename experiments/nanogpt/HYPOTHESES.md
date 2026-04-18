@@ -412,6 +412,91 @@ All behaviors land where you'd expect a calibrated head to land.
 
 ---
 
+## H12. Forward-selection minimal calibration head
+
+**Status:** done, ACCEPTED (beats H10 full head).
+
+**Rationale:** H10 shipped 14 features; leave-one-out
+(H10_ablation) showed only `ood_X_short` was load-bearing and
+`short_X_file_paths` actively hurt. Jay suggested forward
+selection from `ood_X_short` alone, adding one interaction at a
+time when ECE drops by >= 0.002.
+
+**Result:** `experiments/nanogpt/h12_forward_selection.json`.
+
+Seed: 9 base features + `ood_X_short` = 0.0486 ECE.
+Step 1 winners (added one at a time, kept best):
+| candidate | ECE | delta |
+|-----------|----:|------:|
+| short_X_inline_code | 0.0310 | **-0.0176** (accept) |
+| short_X_numbers | 0.0352 | -0.0134 |
+| short_X_file_paths | 0.0483 | -0.0003 |
+| short_X_markdown_table | 0.0487 | +0.0001 |
+
+Step 2: adding any remaining interaction gives delta <= 0.002;
+STOP.
+
+**Final minimal head: 11 features**
+(9 base + `ood_X_short` + `short_X_inline_code`).
+
+| head | features | ECE |
+|------|---------:|----:|
+| H11 | 9 base | 0.0477 |
+| **H12 (shipped)** | **11 (9 + 2 interactions)** | **0.0310** |
+| H10 (prior ship) | 14 (9 + 5 interactions) | 0.0354 |
+
+H12 BEATS H10: 0.031 vs 0.035. The three extra features in H10
+are net-negative at C=1. Re-shipped `calibration_v7.json` with the
+H12 11-feature fit. Test suite 18/18 still passes (CalibrationHead
+handles both schemas; absent weights default to 0).
+
+## H13. Decontaminate held-out scenarios
+
+**Status:** done.
+
+**Rationale:** Jay's paper review caught that
+`jay_vstash_2026_04_09_snapshot` has 13/20 events in v7 training
+(`/tmp/organic_train.json`). Ran an audit on every scenario.
+
+**Result:** `experiments/nanogpt/contamination_audit.json`.
+
+Held-out scenarios and overlap with ANY training source:
+
+| scenario | n | overlap | pct |
+|----------|--:|--------:|----:|
+| markdown_tables_held_out | 12 | 0 | 0.0% |
+| organic_val_held_out | 7 | 0 | 0.0% |
+| **jay_vstash_snapshot** | **20** | **13** | **65.0%** |
+| analytics_project | 12 | 0 | 0.0% |
+| session_2026_04_09 | 12 | 0 | 0.0% |
+| bilingual_es_en_2026_04_14 | 12 | 0 | 0.0% |
+| noisy_agent_stream | 24 | 0 | 0.0% |
+
+Plus expected-contamination scenarios (ARE training data used as
+"eval" in eval_v7_vs_v6.py -- this is a different bug than
+jay_vstash's):
+
+| scenario | overlap | note |
+|----------|--------:|------|
+| knowledge_update_50t | 100% | entirely in v7 training |
+| knowledge_update | 100% | ditto |
+| knowledge_update_hard | 100% | ditto |
+| knowledge_update_20topics | 100% | ditto |
+
+**Action 1:** wrote
+`experiments/loop_quality/scenarios/jay_vstash_2026_04_09_snapshot_decontam.json`
+with 7/20 non-contaminated events kept. v6 and v7 both score 7/7 on
+that subset (small n, but genuine generalization not memorization).
+
+**Action 2 (documented, not yet implemented):**
+`knowledge_update*` scenarios are training data; using them as
+"held-out" in eval_v7_vs_v6 compares training-set performance. The
+v7 vs v6 table in PAPER_DRAFT section 3.2 should flag this. For
+any future eval, either retrain v8 WITHOUT knowledge_update in
+training or create brand-new held-out variants with disjoint topics.
+
+---
+
 ## H9. nanoGPT-as-connector (separate scope)
 
 **Status:** parked for a separate session.

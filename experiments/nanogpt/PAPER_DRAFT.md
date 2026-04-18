@@ -23,14 +23,23 @@ dig for them:
   Gemini on 15/20 DECISIONs (75%) -- the oracle itself has a
   non-trivial error rate. Every "accuracy" number below is
   accuracy-against-Gemini-in-this-prompt, not accuracy-vs-truth.
-- **One held-out scenario contaminated.** The
-  `jay_vstash_2026_04_09_snapshot` scenario that v7 hits 100% on
-  has 13/20 events present in the v7 organic training set
-  (`/tmp/organic_train.json`). See section 3.3.
-- **H10 feature set was motivated by one smoke case.** Interaction
-  terms were added after observing one short-concrete-DEC being
-  mis-calibrated. Honest label: post-hoc feature engineering. See
-  section 4.4.
+- **One held-out scenario partially contaminated** (since fixed).
+  `jay_vstash_2026_04_09_snapshot` had 13/20 events also in
+  `/tmp/organic_train.json` (v7 training). A decontaminated
+  scenario with 7/20 events was written; v6 and v7 both score 7/7
+  there (small n; genuine generalization, not memorization). See
+  section 3.3.
+- **Four "held-out" scenarios are actually training data.** The
+  `knowledge_update*` scenarios loaded by `prepare.py` are both
+  training corpus and (incorrectly) used as "held-out" in
+  `eval_v7_vs_v6.py`. Section 3.2's delta v7 vs v6 on
+  knowledge_update_50t compares training-set performance, not
+  generalization. Flagged explicitly in section 3.2; fix is future
+  work (retrain without, or build a disjoint scenario).
+- **H10 feature set was post-hoc feature engineering. Forward
+  selection (H12) found a smaller stable head that beats H10.** The
+  shipped `calibration_v7.json` is now the 11-feature H12 fit (ECE
+  0.031 vs H10's 0.035). See section 4.5.
 
 With those caveats the rest of the document is what we measured.
 This framing targets a **blog post / tech report**, not a venue

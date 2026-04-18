@@ -1,0 +1,59 @@
+{
+  "h11_ece": 0.04766307437253882,
+  "h10_ece": 0.03543727464886015,
+  "history": [
+    {
+      "step": 0,
+      "added": "ood_X_short (seed)",
+      "features": [
+        "logit_P(D)",
+        "has_code_fence",
+        "has_inline_code",
+        "has_markdown_table",
+        "has_numbers",
+        "has_file_paths",
+        "is_short",
+        "is_long",
+        "is_ood",
+        "ood_X_short"
+      ],
+      "ece": 0.04858356632362283
+    },
+    {
+      "step": 1,
+      "added": "short_X_inline_code",
+      "features": [
+        "logit_P(D)",
+        "has_code_fence",
+        "has_inline_code",
+        "has_markdown_table",
+        "has_numbers",
+        "has_file_paths",
+        "is_short",
+        "is_long",
+        "is_ood",
+        "ood_X_short",
+        "short_X_inline_code"
+      ],
+      "ece": 0.030997312370495134
+    }
+  ],
+  "final_features": [
+    "logit_P(D)",
+    "has_code_fence",
+    "has_inline_code",
+    "has_markdown_table",
+    "has_numbers",
+    "has_file_paths",
+    "is_short",
+    "is_long",
+    "is_ood",
+    "ood_X_short",
+    "short_X_inline_code"
+  ],
+  "final_ece": 0.030997312370495134,
+  "kept_interactions": [
+    "ood_X_short",
+    "short_X_inline_code"
+  ]
+}

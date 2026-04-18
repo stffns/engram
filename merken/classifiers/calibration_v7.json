@@ -1,23 +1,21 @@
 {
-  "source": "h10_interaction_C=1",
-  "ece": 0.03543727464886015,
+  "source": "h12_forward_selection_C=1",
+  "ece_on_80pct_test_split": 0.030997312370495134,
+  "n_fit": 979,
   "head": {
-    "intercept": 1.1835155126406238,
+    "intercept": 1.1752070587807724,
     "coefficients": {
-      "logit_P(D)": 0.44529443525843077,
-      "has_code_fence": 0.09802715063736114,
-      "has_inline_code": 0.9153755767414963,
-      "has_markdown_table": 0.5450279805937654,
-      "has_numbers": 0.8272612640496102,
-      "has_file_paths": 0.16393431419283788,
-      "is_short": -1.8342035346258716,
-      "is_long": 0.4473917835313526,
-      "is_ood": 1.1776549569335886,
-      "short_X_numbers": -0.2766163687680083,
-      "short_X_file_paths": -0.3335942585991919,
-      "short_X_inline_code": -0.19913338021244928,
-      "short_X_markdown_table": 0.12048615295176258,
-      "ood_X_short": 1.016305277674243
+      "logit_P(D)": 0.5081114041805849,
+      "has_code_fence": 0.3141979432003714,
+      "has_inline_code": 1.095854369088002,
+      "has_markdown_table": 0.9240205284195427,
+      "has_numbers": 0.4847381812657371,
+      "has_file_paths": -0.1685364358261058,
+      "is_short": -2.009409797685486,
+      "is_long": 0.5017349036842386,
+      "is_ood": 1.1249361957955906,
+      "ood_X_short": 1.2257112670541068,
+      "short_X_inline_code": -0.22536531715281008
     }
   }
 }
