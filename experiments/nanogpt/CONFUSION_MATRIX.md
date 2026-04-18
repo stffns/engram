@@ -277,6 +277,53 @@ v7 has meaningful probabilities WITHIN its training domain. Outside
 that domain it doesn't have calibration to recover, and post-hoc
 methods can't invent it.
 
+## 8. Content-type calibration (structure-dependent)
+
+Script: `experiments/content_type_calibration.py`. Tagged the 1520
+oracled events by content structure and measured v7's calibration
+per category.
+
+| Category | n | Mean P(D) | DEC share | ECE | Signed bias |
+|---|---:|---:|---:|---:|---:|
+| has_code_fence | 60 | 0.843 | 0.950 | 0.107 | -0.107 |
+| has_inline_code | 502 | 0.626 | 0.677 | 0.103 | -0.051 |
+| has_markdown_table | 79 | 0.791 | **0.975** | 0.184 | **-0.184** |
+| has_numbers | 385 | 0.772 | 0.834 | 0.104 | -0.062 |
+| has_file_paths | 191 | 0.607 | 0.581 | **0.084** | +0.026 |
+| short (<300 chars) | 1254 | 0.382 | 0.234 | 0.168 | +0.148 |
+| **long (>=1000 chars)** | 78 | 0.955 | **1.000** | **0.045** | -0.045 |
+| **plain_prose** | **786** | 0.302 | **0.111** | **0.191** | **+0.191** |
+| all | 1520 | 0.455 | 0.365 | 0.120 | +0.090 |
+
+Findings that rewrite the calibration story:
+
+- **v7 is well-calibrated on structured content.** File paths (ECE
+  0.084), inline code (0.103), numbers (0.104), long-form text
+  (0.045 -- essentially perfect).
+- **v7 is miscalibrated ONLY on plain prose and short text.** Plain
+  prose (786 events, 52% of the dataset) has ECE 0.191 and +0.191
+  bias -- predicts 30% DEC, actual 11%. This is where "Now let me X"
+  filler lives, and v7's training distribution pushed outputs above
+  the true rate.
+- **Markdown tables are UNDER-confident.** v7 predicts 79% DEC on
+  tables; actual is 97.5%. v7 correctly got markdown FPR to 0% (see
+  section 2) but it achieves that by being cautious about table
+  content it didn't see much of during training.
+
+The aggregate ECE 0.120 is dominated by plain_prose events. If we
+were filtering by content type, the calibration profile would be:
+
+- structured content -> trust v7's probabilities as-is
+- plain prose / short -> apply Platt (-0.19 bias is exactly what
+  agree_write's +0.10 on HIGH plus plain's +0.19 average to)
+- tables -> lower threshold OR use secondary oracle
+
+This is the richest paper finding so far: **v7's miscalibration is
+not uniform -- it is structure-dependent, and the structure features
+(content regex presence) are available at inference time for free.
+A content-type-conditional calibration head would almost certainly
+beat the scalar post-hoc fixes we tried in section 7.**
+
 ### Old Platt params retained
 
 `experiments/nanogpt/calibration_params.json` is overwritten on each

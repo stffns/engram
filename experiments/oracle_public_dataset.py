@@ -106,8 +106,35 @@ def extract_capybara_chunks(ds, min_len: int = 50, max_len: int = 2000):
                 yield source, chunk
 
 
+def extract_slimorca_chunks(ds, min_len: int = 50, max_len: int = 2000):
+    """Yield (source, text) chunks from SlimOrca 'gpt' turns.
+
+    SlimOrca rows have `conversations`: list of turns with `from` in
+    {system, human, gpt} and `value`. We only want gpt outputs,
+    split by paragraph.
+    """
+    for row in ds:
+        conv = row.get("conversations") or []
+        for turn in conv:
+            if not isinstance(turn, dict):
+                continue
+            if turn.get("from") != "gpt":
+                continue
+            out = turn.get("value") or ""
+            if not isinstance(out, str):
+                continue
+            for chunk in re.split(r"\n\n+", out):
+                chunk = chunk.strip()
+                if len(chunk) < min_len:
+                    continue
+                if len(chunk) > max_len:
+                    chunk = chunk[:max_len]
+                yield "SlimOrca", chunk
+
+
 EXTRACTORS = {
     "LDJnr/Capybara": extract_capybara_chunks,
+    "Open-Orca/SlimOrca": extract_slimorca_chunks,
 }
 
 
