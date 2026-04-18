@@ -89,41 +89,70 @@ def main() -> int:
 
     print(f"Joined {len(pairs)} events with v7 P(D) + Gemini label.\n")
 
-    # 10-bin calibration table
+    # Reliability diagram: 10 bins on P(D), compare mean confidence to
+    # actual accuracy (fraction of DEC in the bin).
     bins = [(i / 10, (i + 1) / 10) for i in range(10)]
     ece = 0.0
     total = len(pairs)
-    print(f"{'bin':<12} {'n':>6} {'mean_P(D)':>12} {'actual_DEC':>13} {'gap':>8}")
-    print("-" * 60)
+
+    print("Reliability diagram (confidence vs. oracle accuracy):")
+    print(f"{'bin':<12} {'n':>5} {'conf=mean_P(D)':>16} {'acc=actual_DEC':>16} "
+          f"{'gap':>7} {'verdict':>13}")
+    print("-" * 78)
     for lo, hi in bins:
         in_bin = [(p, l) for p, l in pairs if lo <= p < (hi if hi < 1.0 else 1.01)]
         n = len(in_bin)
         if n == 0:
-            print(f"[{lo:.1f}, {hi:.1f})   {n:>6}   -            -           -")
+            print(f"[{lo:.1f}, {hi:.1f})   {n:>5}   -                -                -       -")
             continue
-        mean_pd = sum(p for p, _ in in_bin) / n
-        actual_dec = sum(1 for _, l in in_bin if l == "DECISION") / n
-        gap = abs(mean_pd - actual_dec)
+        conf = sum(p for p, _ in in_bin) / n
+        acc = sum(1 for _, l in in_bin if l == "DECISION") / n
+        gap = abs(conf - acc)
+        signed = conf - acc  # positive -> over-confident
         ece += (n / total) * gap
-        stars_pred = "P" + "=" * int(mean_pd * 30)
-        stars_act = "A" + "#" * int(actual_dec * 30)
+        if n < 10:
+            verdict = "small_n"
+        elif abs(signed) < 0.05:
+            verdict = "calibrated"
+        elif signed > 0:
+            verdict = "over-confident"
+        else:
+            verdict = "under-confident"
         print(
-            f"[{lo:.1f}, {hi:.1f})   {n:>6}   {mean_pd:>10.3f}   "
-            f"{actual_dec:>11.3f}   {gap:>6.3f}"
+            f"[{lo:.1f}, {hi:.1f})   {n:>5}   {conf:>14.3f}   "
+            f"{acc:>14.3f}   {gap:>5.3f}   {verdict:>13}"
         )
-        print(f"                             pred: {stars_pred}")
-        print(f"                             act:  {stars_act}")
 
     print()
-    print(f"Expected Calibration Error (ECE): {ece:.3f}")
+    print(
+        "ECE = sum_b (n_b / N) * |conf_b - acc_b|\n"
+        f"    = {ece:.3f}  over N={total} labeled events"
+    )
     if ece < 0.05:
-        print("  -> WELL CALIBRATED")
+        verdict = "WELL CALIBRATED"
     elif ece < 0.10:
-        print("  -> REASONABLY CALIBRATED")
+        verdict = "REASONABLY CALIBRATED"
     elif ece < 0.15:
-        print("  -> MILDLY MISCALIBRATED")
+        verdict = "MILDLY MISCALIBRATED"
     else:
-        print("  -> POORLY CALIBRATED (outputs are unreliable probabilities)")
+        verdict = "POORLY CALIBRATED"
+    print(f"Verdict: {verdict}")
+
+    # Direction of miscalibration: average signed gap weighted by bin size.
+    signed_ece = 0.0
+    for lo, hi in bins:
+        in_bin = [(p, l) for p, l in pairs if lo <= p < (hi if hi < 1.0 else 1.01)]
+        n = len(in_bin)
+        if n == 0:
+            continue
+        conf = sum(p for p, _ in in_bin) / n
+        acc = sum(1 for _, l in in_bin if l == "DECISION") / n
+        signed_ece += (n / total) * (conf - acc)
+    print(
+        f"\nSigned calibration bias: {signed_ece:+.3f}\n"
+        f"  positive -> v7 is OVER-confident in DEC (says more than reality)\n"
+        f"  negative -> v7 is UNDER-confident in DEC (humble, says less)"
+    )
 
     return 0
 

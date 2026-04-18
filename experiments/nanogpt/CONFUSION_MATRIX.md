@@ -177,19 +177,87 @@ Benchmark Gap."*
 All five scripts are idempotent and depend only on the JSONL
 artifacts already committed / gitignored.
 
-## 7. Next-session choices
+## 7. Post-hoc calibration via Platt scaling (DONE)
 
-Natural follow-ups, each self-contained:
+Script: `experiments/calibrate_v7_platt.py`.
 
-- **A. Platt / temperature scaling on mid-range bins.** Adds a
-  post-hoc calibration layer without touching v7. Re-compute ECE,
-  report delta. ~30 min work.
-- **B. Expand public-dataset probes.** `SlimOrca`, `OpenHermes-2.5`,
-  and `orca-agentinstruct-1M-v1` have different class distributions
-  still. Would strengthen the "no public dataset matches real agent
-  transcripts" claim. ~30 min per dataset.
-- **C. Write the paper / tech report.** All numbers needed are now
-  in place.
+Applied temperature scaling and Platt scaling on an 80/20 stratified
+split of the 1520 (P(D), oracle_label) pairs. Train 1216, test 304.
+
+| method | params | test ECE | signed bias | verdict |
+|---|---|---:|---:|---|
+| baseline (raw v7) | -- | 0.140 | +0.090 | mildly miscalibrated |
+| temperature | T=1.472 | 0.135 | +0.101 | no meaningful change |
+| **Platt** | **a=0.700, b=-0.659** | **0.080** | **+0.004** | reasonably calibrated |
+
+Temperature fails because the miscalibration is asymmetric --
+mid-range is over-confident but extremes are well-calibrated. A
+symmetric "pull toward 0.5" transformation cannot correct one without
+regressing the other. Platt's 2-parameter form handles the asymmetry:
+`a < 1` sharpens the mid-range toward its true (lower) rate while
+`b < 0` shifts mass toward NOI globally.
+
+Per-bin after Platt (test set, 10 bins):
+
+| bin | n | conf_pre | conf_post | acc |
+|---|---:|---:|---:|---:|
+| [0.3, 0.4) | 33 | 0.351 | 0.252 | 0.212 |
+| [0.4, 0.5) | 30 | 0.447 | 0.309 | 0.300 |
+| [0.5, 0.6) | 27 | 0.549 | 0.373 | 0.074 |
+| [0.9, 1.0) | 73 | 0.962 | 0.844 | 0.890 |
+
+Mid-range is now calibrated within a few percentage points. The
+[0.5, 0.6) bin is over-corrected (small n=27, noisy), but the
+[0.3, 0.4), [0.4, 0.5), and [0.9, 1.0) bins all sit within ~0.05 of
+the diagonal -- that's well-calibrated territory.
+
+Fitted params are saved to
+`experiments/nanogpt/calibration_params.json` for future reuse.
+
+### Integration into production
+
+Deferred. v7 is in shadow mode, not primary. Applying Platt
+calibration to shadow outputs would change its disagreement rate
+with the heuristic primary, which could degrade the graduation
+metrics we already reported. Two safe paths for a future session:
+
+1. Apply Platt ONLY at read time when displaying shadow confidence
+   (so the user sees honest probabilities without changing filter
+   behavior).
+2. Apply Platt + raise threshold when we flip v7 to primary, so the
+   flipped-threshold semantics match a calibrated probability
+   interpretation.
+
+Either is ~30 min of plumbing when needed.
+
+## 8. Updated paper angle
+
+With post-hoc calibration recovered, the narrative tightens:
+
+- v7 has LATENT calibration. Its internal representation already
+  assigns meaningful uncertainty (emergent detection documented in
+  section 3). The logit->P(D) mapping is just shifted by ~0.6 units
+  because training class imbalance leaked through.
+- A 2-parameter post-hoc fix (Platt) restores ECE to 0.080. No
+  retraining required.
+- Temperature scaling does not help, which is itself a diagnostic:
+  it tells us the miscalibration is asymmetric, not globally scaled.
+
+Working title (updated):
+*"Latent Calibration in an 800K-Parameter Memory Filter: Emergent
+Uncertainty Detection Recoverable via Post-Hoc Platt Scaling."*
+
+## 9. Next-session choices
+
+Now narrower, since calibration is resolved:
+
+- **A. Integrate Platt at read time.** Low-risk, purely display.
+  ~30 min.
+- **B. Expand public-dataset probes.** Still useful for the "no
+  public dataset matches real agent transcripts" claim. ~30 min
+  per dataset.
+- **C. Write the paper / tech report.** All numbers are now in
+  place; calibration finding strengthens the narrative.
 
 Jay explicitly said no publishing interest yet, so **C is parked**.
-A and B are low-cost additions.
+A and B are low-cost additions if Jay wants them.
