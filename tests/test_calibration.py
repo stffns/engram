@@ -100,8 +100,16 @@ def test_decider_without_calibrator_emits_baseline_reason():
     assert math.isclose(d.confidence, 0.72)
 
 
+SHIPPED_HEAD_PATH = (
+    Path(__file__).resolve().parent.parent
+    / "merken" / "classifiers" / "calibration_v7.json"
+)
+
+
 def test_resolve_calibrator_from_env_default(monkeypatch):
     """`_resolve_calibrator` returns the shipped head when env=default."""
+    if not SHIPPED_HEAD_PATH.exists():
+        pytest.skip("calibration_v7.json not shipped in this checkout")
     from merken._shadow import _resolve_calibrator
 
     monkeypatch.setenv("MERKEN_SHADOW_NANOGPT_CALIBRATOR", "default")
@@ -135,6 +143,21 @@ def test_resolve_calibrator_from_env_explicit_path(tmp_path, monkeypatch):
     assert head is not None
     assert math.isclose(head.intercept, 0.1)
     assert math.isclose(head.w_logit, 0.9)
+
+
+def test_resolve_calibrator_raises_on_missing_file(monkeypatch, tmp_path):
+    """Bad path should propagate, not silently return None.
+
+    Matches the "loud failure" contract documented in
+    merken/_shadow.py: _build_classifier logs + degrades gracefully,
+    but _resolve_calibrator itself raises so callers can decide.
+    """
+    from merken._shadow import _resolve_calibrator
+
+    bogus = tmp_path / "does_not_exist.json"
+    monkeypatch.setenv("MERKEN_SHADOW_NANOGPT_CALIBRATOR", str(bogus))
+    with pytest.raises(FileNotFoundError):
+        _resolve_calibrator("SHADOW")
 
 
 def test_from_json_rejects_non_finite_weights(tmp_path: Path):

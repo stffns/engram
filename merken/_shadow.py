@@ -36,10 +36,13 @@ Supported backends (shared between SHADOW and PRIMARY):
       ``Decision.reason`` includes ``P_cal=x.xxx`` and
       ``Decision.confidence`` reports the calibrated value. Does NOT
       change pass/fail -- threshold stays on raw P(D). Accepts:
-        * ``default`` -> use shipped
+        * ``default`` or ``shipped`` -> use shipped
           ``merken/classifiers/calibration_v7.json``.
         * any filesystem path -> load that JSON instead.
         * unset -> no calibration (raw P(D) shown).
+      Calibrator load errors (bad path, malformed JSON) print a
+      warning to stderr; the classifier still loads without
+      calibration.
 - ``llm``
     + ``MERKEN_<role>_LLM_MODEL=google/gemma-3-270m-it``
     + ``MERKEN_<role>_LLM_DEVICE=cpu`` (optional, default ``cpu``)
@@ -79,30 +82,38 @@ def _resolve_calibrator(role: str):
 
     ``MERKEN_<role>_NANOGPT_CALIBRATOR`` values:
       - unset / empty -> None (no calibration)
-      - ``default`` (or ``shipped``) -> use
+      - ``default`` or ``shipped`` -> use
         ``merken/classifiers/calibration_v7.json``
       - any other value -> treat as a filesystem path to a JSON head
 
-    Errors loading the JSON raise; they are NOT silently swallowed.
-    We prefer a loud failure so a typoed path never silently
-    degrades into "no calibration".
+    Errors loading the JSON raise; the caller can decide whether to
+    propagate or degrade gracefully. ``_build_classifier`` explicitly
+    catches + logs so a typoed calibrator path produces a visible
+    stderr warning rather than silently disabling calibration.
     """
+    from pathlib import Path
+
     raw = (os.environ.get(f"MERKEN_{role}_NANOGPT_CALIBRATOR") or "").strip()
     if not raw:
         return None
     from merken.classifiers.calibration import CalibrationHead
 
     if raw.lower() in ("default", "shipped"):
-        from pathlib import Path
         path = Path(__file__).resolve().parent / "classifiers" / "calibration_v7.json"
     else:
-        from pathlib import Path
         path = Path(raw)
     return CalibrationHead.from_json(path, source=f"{role}_env")
 
 
 def _build_classifier(kind: str, role: str):
-    """Construct the classifier for ``role`` (``SHADOW`` / ``PRIMARY``)."""
+    """Construct the classifier for ``role`` (``SHADOW`` / ``PRIMARY``).
+
+    Calibrator load errors are caught here and printed to stderr so
+    the classifier itself still loads. ``Memory._default_write_decider``
+    catches every exception from this function as a fail-safe (model
+    missing -> heuristic), so a calibrator misconfig would otherwise
+    silently disable the whole classifier -- not what we want.
+    """
     if kind == "nanogpt":
         from merken.classifiers.nanogpt import NanoGPTWriteDecider
 
@@ -113,7 +124,18 @@ def _build_classifier(kind: str, role: str):
                 f"MERKEN_{role}=nanogpt requires MERKEN_{role}_NANOGPT_CKPT "
                 f"and MERKEN_{role}_NANOGPT_META env vars."
             )
-        calibrator = _resolve_calibrator(role)
+        try:
+            calibrator = _resolve_calibrator(role)
+        except Exception as e:
+            import sys
+            print(
+                f"merken: failed to load {role} calibrator "
+                f"(MERKEN_{role}_NANOGPT_CALIBRATOR): "
+                f"{type(e).__name__}: {e}. "
+                f"Continuing without calibration.",
+                file=sys.stderr,
+            )
+            calibrator = None
         return NanoGPTWriteDecider(ckpt, meta, calibrator=calibrator)
 
     if kind == "llm":

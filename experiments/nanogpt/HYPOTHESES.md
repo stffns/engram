@@ -131,11 +131,13 @@ and `confidence` field surface the calibrated value.
 
 **Decision taken:** ship as opt-in. Two ways to enable:
 
-1. Programmatic:
+1. Programmatic (resolve the path from the installed package so
+   the example works regardless of current working directory):
    ```python
-   head = CalibrationHead.from_json(
-       "merken/classifiers/calibration_v7.json"
-   )
+   from pathlib import Path
+   import merken.classifiers
+   head_path = Path(merken.classifiers.__file__).parent / "calibration_v7.json"
+   head = CalibrationHead.from_json(head_path)
    decider = NanoGPTWriteDecider(ckpt, meta, calibrator=head)
    ```
 2. Env-var driven, works with `Memory` without code changes:
