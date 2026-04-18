@@ -1,0 +1,90 @@
+{
+  "h11_ece": 0.04766307437253882,
+  "h10_ece": 0.03543727464886015,
+  "history": [
+    {
+      "step": 0,
+      "added": "ood_X_short (seed)",
+      "features": [
+        "logit_P(D)",
+        "has_code_fence",
+        "has_inline_code",
+        "has_markdown_table",
+        "has_numbers",
+        "has_file_paths",
+        "is_short",
+        "is_long",
+        "is_ood",
+        "ood_X_short"
+      ],
+      "ece": 0.04858356632362283
+    },
+    {
+      "step": 1,
+      "added": "short_X_inline_code",
+      "features": [
+        "logit_P(D)",
+        "has_code_fence",
+        "has_inline_code",
+        "has_markdown_table",
+        "has_numbers",
+        "has_file_paths",
+        "is_short",
+        "is_long",
+        "is_ood",
+        "ood_X_short",
+        "short_X_inline_code"
+      ],
+      "ece": 0.030997312370495134
+    }
+  ],
+  "final_features": [
+    "logit_P(D)",
+    "has_code_fence",
+    "has_inline_code",
+    "has_markdown_table",
+    "has_numbers",
+    "has_file_paths",
+    "is_short",
+    "is_long",
+    "is_ood",
+    "ood_X_short",
+    "short_X_inline_code"
+  ],
+  "final_ece": 0.030997312370495134,
+  "final_intercept": 1.2793713804285616,
+  "final_coefficients": {
+    "logit_P(D)": 0.44400120812477645,
+    "has_code_fence": 0.12326178350432387,
+    "has_inline_code": 0.9638607967611833,
+    "has_markdown_table": 0.5799910508853431,
+    "has_numbers": 0.6040449628178735,
+    "has_file_paths": -0.06794169536196924,
+    "is_short": -1.9462721718651224,
+    "is_long": 0.49498220913544155,
+    "is_ood": 1.1388437051540572,
+    "ood_X_short": 1.0668900216917572,
+    "short_X_inline_code": -0.25862115647145406
+  },
+  "kept_interactions": [
+    "ood_X_short",
+    "short_X_inline_code"
+  ],
+  "provenance": {
+    "split_seed": 42,
+    "C": 1.0,
+    "n_bins": 10,
+    "min_improvement_threshold": 0.002,
+    "sklearn_max_iter": 5000,
+    "stratified_80_20_split": true,
+    "base_feature_count": 9,
+    "interaction_pool": [
+      "short_X_numbers",
+      "short_X_file_paths",
+      "short_X_inline_code",
+      "short_X_markdown_table",
+      "ood_X_short"
+    ]
+  },
+  "caveat": "Single-seed 80/20 split on ~980 events; ECE at this sample size has non-trivial variance (~0.005 typical swing across seeds). The qualitative story -- ood_X_short + short_X_inline_code are the load-bearing interactions -- is robust across the leave-one-out ablation (h10_interaction_ablation.json). A multi-seed / k-fold version would tighten the exact ECE number and is a reasonable follow-up."
+}

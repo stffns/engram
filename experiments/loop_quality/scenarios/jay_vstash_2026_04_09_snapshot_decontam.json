@@ -1,0 +1,67 @@
+{
+  "name": "jay_vstash_2026_04_09_snapshot_decontam",
+  "description": "DECONTAMINATED subset of jay_vstash_2026_04_09_snapshot. Original had 20 events; 13 of them were also in a training source loaded by prepare.py. Kept 7 non-contaminated events for honest held-out evaluation. Derived by experiments/contamination_audit.py.",
+  "events": [
+    {
+      "id": "2026-04-07__vstash_debug_playbook_docume",
+      "text": "# vstash — Debug Playbook: \"Está en la DB pero no surge\" (April 7, 2026)\n\n## Paso 1: miss_analysis() primero — siempre\n```python\nstore.miss_analysis(query=\"organofosforados intoxicación\", expected_doc=\"who_pesticide_poisoning\")\n```\nRetorna en qué etapa del pipeline se eliminó: vector cutoff, FTS stem mismatch,\nRRF dropout, MMR penalty, o distance cutoff.\n\n## Paso 2: Revisar relevance tier\n- Si tier=\"low\" → best_distance > 0.95 → embedder cross-lingual probablemente fallando\n- Probar query en inglés: si funciona → confirmar cross-lingual issue\n\n## Paso 3: Diagnóstico FTS\n- Si vector search retorna vacío pero el término está en el doc:\n  * Activar pase FTS-only raw (sin stemming)\n  * Verificar stem del término: \"organofosforados\" → ¿qué produce Porter?\n\n## Paso 4: Pipeline de 4 pases para emergency cross-lingual\n1. Hybrid RRF normal\n2. Vector-only con distance cutoff relajado (5x)\n3. FTS-only con términos expandidos al inglés\n4. FTS-only raw sin stemming — safety net literal\n\n## Paso 5: Parámetros a ajustar\n- top_k: subir a 8-10 para casos que cruzan múltiples protocolos\n- mmr_lambda: subir a 0.7-0.8 para corpus de docs cortos\n- distance cutoff: relajar para queries largas (>50 palabras)\n\n## Regla de oro\nSi miss_analysis dice \"MMR penalty\" y el doc tiene 1 solo chunk → bug conocido,\nsubir mmr_lambda o desactivar MMR para ese query.",
+      "topic": "vstash_notes"
+    },
+    {
+      "id": "2026-04-07__vstash_upstream_improvements",
+      "text": "# vstash — Upstream Improvement Ideas (April 7, 2026)\n\n## Fuente: debugging MedLocal organofosforados case\n\n1. **Exponer vec_weight/fts_weight en Memory.search()**\n   Hoy hay que hackear _store.search() para ver los pesos adaptativos.\n   API pública debería retornarlos en SearchResult o como parámetro debug=True.\n\n2. **fts_only=True o Memory.fts_search() como first-class**\n   El 4to pase FTS-only raw es un patrón real de producción.\n   Hoy no existe como API — hay que construirlo encima.\n\n3. **Bug/UX: MMR elimina single-chunk docs**\n   Un documento con un solo chunk no debería ser penalizado por MMR.\n   Fix sugerido: skip MMR penalty si doc tiene solo 1 chunk en el pool.\n\n4. **Default mmr_lambda más alto para corpus focalizados**\n   Para corpus de documentos cortos y específicos (protocolos, papers),\n   lambda=0.5 es demasiado agresivo. Sugerir lambda=0.7-0.8 como default\n   o auto-detectar basado en avg chunks per doc.\n\n5. **Adaptive RRF que reaccione cuando vector pool está vacío**\n   Si cross-lingual falla y vector search retorna 0 resultados,\n   RRF debería auto-elevar peso FTS a 1.0 en lugar de retornar vacío.\n   Auto-fixearía el caso organofosforados sin intervención manual.\n\n6. **Documentar debilidad de paraphrase-multilingual para dominio clínico**\n   El modelo de embedding falla en terminología médica técnica cross-lingual.\n   Necesita nota explícita en docs + recomendación de keyword expansion.\n\n7. **Elevar miss_analysis() — CLI, web debug, auto-log**\n   Hoy es Python API solamente. Debería ser:\n   - CLI: `vstash miss \"query\" \"expected_doc\"`\n   - Auto-log cuando relevance=low en modo debug\n   - Integrado en MCP como tool separado",
+      "topic": "vstash_notes"
+    },
+    {
+      "id": "2026-04-07__vstash_non-obvious_behaviors",
+      "text": "# vstash — Non-Obvious Behaviors (Descubiertos via MedLocal, April 7, 2026)\n\n## 1. Embedder cross-lingual falla silenciosamente\nQuery en español → embedding español. Docs en inglés → embedding inglés.\nCosine distance alta → vector search no encuentra nada. Sin warning, sin error.\nWorkaround: keyword expansion al inglés antes de embedding.\n\n## 2. MMR elimina single-chunk docs\nDocumentos con un solo chunk compiten mal en MMR intra-document.\nEl único chunk puede ser eliminado por la penalización de redundancia.\nPara corpus de documentos focalizados (protocolos cortos), mmr_lambda default\nes demasiado agresivo.\n\n## 3. RRF score compression\nCuando muchos documentos son relevantes, RRF comprime scores a rango estrecho.\nTop-k no diferencia bien protocolos críticos de secundarios.\nWorkaround: aumentar top_k y filtrar por relevance tier post-retrieval.\n\n## 4. Memory.search() no expone vec_weight/fts_weight\nLos pesos adaptativos IDF cambian por query pero no son visibles en la API pública.\nPara debuggear hay que acceder a _store.search() directamente — es un hack.\n\n## 5. Porter stemmer falla con términos médicos en español\n\"Organofosforados\" → stem inesperado → FTS5 no encuentra match aunque el término\nesté literalmente en el documento. Silencioso, sin warning.",
+      "topic": "vstash_notes"
+    },
+    {
+      "id": "2026-04-07__medlocal_demo_intoxicación_o",
+      "text": "# MedLocal — Demo: Intoxicación por Organofosforados (April 7, 2026)\n\n## Caso: Fumigador de papas, exposición a pesticidas\nQuery: \"Hombre 35 años, fumigando papas 2 horas. Náusea, sudoración, visión borrosa, pupilas muy pequeñas (punta de alfiler). Huele a químico/gasolina. ¿Qué hago primero?\"\n\n## Assessment: Intoxicación por Organofosforados\n- Signos SLUDGE detectados correctamente\n- Fuente: WHO: Organophosphate / Pesticide Poisoning — EMERGENCY\n- Retrieved protocols (8) ## Respuesta clínica correcta\n1. REFERIR INMEDIATAMENTE\n2. Protección del CHW: guantes, área de aire fresco\n3. Descontaminación: retirar TODA la ropa, lavar piel/cabello 15 minutos\n4. Irrigación ocular si hay exposición\n5. Atropina 1-2mg IV o IM, repetir cada 5-10 min hasta secar secreciones\n6. Mantener vía aérea, posición de recuperación si inconsciente\n7. Contraindicaciones correctas: NO morfina, NO aminofilina, NO succinilcolina, NO inducir vómito ## Por qué es demo fuerte\n- Caso de vida o muerte real (contexto agrícola — CHW target real)\n- Protocoló la protección del rescatador antes del paciente (orden correcto)\n- Dosis exacta con frecuencia de repetición (protocolo WHO)\n- Contraindicaciones específicas sin alucinaciones\n- \"Offline\" visible en UI — sin internet en campo agrícola",
+      "topic": "medlocal_clinical"
+    },
+    {
+      "id": "2026-04-07__medlocal_demo_detección_visu",
+      "text": "# MedLocal — Demo: Detección Visual de Medicamentos (April 7, 2026)\n\n## Caso: Motrin Infantil + bebé 2 meses\n\nQuery: foto de caja Motrin Infantil + \"Cuanto le debo dar al bebe de 2 meses?\"\n\n### VISUAL FINDINGS\n- No se observan hallazgos clínicos en la imagen\n- PRINTED TEXT detectado: \"Infantil Motrin. Ibuprofeno 2g / 100mL. Suspensión. Niños de 2 a 12 años. Para Fiebre, Dolor e Inflamación. Sabores: Frutas. No contiene alcohol.\"\n\n### Assessment: Control de temperatura/dolor en lactante\n- Ibuprofeno contraindicado en menores de 6 meses según protocolo\n- NO administrar — redirige a Paracetamol\n- Solicita peso del bebé para calcular dosis de Paracetamol ### Por qué es el demo killer\n- OCR de texto impreso en foto real\n- Cruza con protocolo de edad automáticamente\n- Contraindica correctamente sin inventar dosis alternativas\n- Siguiente paso clínico correcto (pesar para dosificar)\n- UI: chip HIGH, VISUAL FINDINGS expandido, Retrieved protocols (5)\n- Este es el caso de uso que los jueces pueden entender inmediatamente",
+      "topic": "medlocal_clinical"
+    },
+    {
+      "id": "2026-04-06__medlocal_demo_neonato_séptic",
+      "text": "# MedLocal Demo — Neonato Séptico: Trampa Cognitiva de Madre Primeriza (April 6, 2026)\n\n## Case (trampa más sofisticada del día)\nBebé 8 días, \"es un ángel, me deja descansar\" — madre no reconoce señales de alarma:\n- 14 horas sin pedir pecho (letargo neonatal)\n- 65 respiraciones/minuto (taquipnea severa)\n- Caliente al tacto (fiebre en neonato)\n- Madre pregunta si darle baño de agua tibia ## Trampas cognitivas en el input\n1. \"Es un ángel\" — normaliza el letargo\n2. \"Me deja descansar mucho\" — refuerzo positivo del peligro\n3. \"Baño de agua tibia\" — intervención peligrosa en neonato séptico\n4. 65 rpm mencionado casualmente — taquipnea severa\n5. 14 horas sin pecho — letargo = alarma crítica ## System Response (post-triage)\n- EMERGENCY + HIGH ✓\n- Assessment: \"Síndrome de Hipertermia/Taquipnea en Recién Nacido\" ✓\n- \"No intentar ningún tratamiento en casa\" ✓ — esquivó baño de agua tibia\n- Acción 3: informar al personal sobre taquipnea (65 rpm) y letargo ✓\n- Sources: Newborn Care WHO + Newborn Resuscitation WHO + Fever Assessment IMCI ✓\n\n## Gap inicial\n- Clasificó HIGH en lugar de EMERGENCY al inicio (fiebre neonatal debería ser EMERGENCY desde el primer mensaje)\n- Con triage: escaló correctamente a EMERGENCY\n\n## Safety verdict: PASSED con triage — gap menor en clasificación inicial",
+      "topic": "medlocal_clinical"
+    },
+    {
+      "id": "2026-04-06__medlocal_demo_meningococcemi",
+      "text": "# MedLocal Demo — Petequias/Meningococcemia: Before/After Protocolo (April 6, 2026)\n\n## BEFORE (sin protocolo meningococcemia)\n- URGENT + HIGH\n- Assessment: \"Posible reacción cutánea/Infección\" — genérico\n- No reconoció tríada de meningitis\n- No escaló a EMERGENCY ## AFTER (con protocolo Meningococcemia WHO)\n- EMERGENCY + HIGH ✓\n- Assessment: \"Meningo-cocemia\" — diagnóstico específico ✓\n- Prueba del vaso como pregunta clave de triage ✓\n- Razonó: \"erupción no blanqueable + fiebre + irritabilidad + fotofobia = señal de peligro inmediata\" ✓\n- Acción 1: REFERENCIA INMEDIATA ✓\n- Acción 2: NO aplicar hidrocortisona — esquivó la trampa de la vecina ✓\n- Acción 3: Ambiente oscuro y tranquilo — reconoció fotofobia ✓\n- Refer Immediately If: púrpura de rápida propagación, shock ✓\n- Source: Meningococcemia Who ✓ ## What This Proves\n- Antes/después perfecto: mismo input, diagnóstico completamente diferente con protocolo\n- La prueba del vaso (no blanqueabilidad) es el discriminador clínico correcto\n- Sistema reconoció fotofobia (\"llora con la luz\") como signo de alarma\n- Trampa de hidrocortisona esquivada con protocolo activo\n\n## Para hackathon writeup\nTercer par before/after después de dermatitis y rabia — demuestra que el conocimiento está en los documentos, no en el modelo",
+      "topic": "medlocal_clinical"
+    }
+  ],
+  "queries": [
+    {
+      "question": "what happened in the Kafka merchant pipeline meeting?",
+      "expect_topic": "kafka_meeting",
+      "expect_contains": [
+        "Kafka"
+      ]
+    },
+    {
+      "question": "what are the merken architecture decisions and v0.1 ideas?",
+      "expect_topic": "merken_design",
+      "expect_contains": []
+    },
+    {
+      "question": "which MedLocal clinical case demos were prepared?",
+      "expect_topic": "medlocal_clinical",
+      "expect_contains": []
+    },
+    {
+      "question": "what vstash upstream improvements or bugs were identified?",
+      "expect_topic": "vstash_notes",
+      "expect_contains": [
+        "vstash"
+      ]
+    }
+  ]
+}

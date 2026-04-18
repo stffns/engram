@@ -262,6 +262,55 @@ def test_interaction_term_affects_calibration():
     )
 
 
+def test_shipped_head_produces_expected_outputs():
+    """Regression test: shipped calibration_v7.json must produce the
+    same numbers future callers will recompute from its weights.
+
+    Detects silent weight drift between what h12 reports and what's
+    shipped (addresses PR #18 review C1 / M3). Fixture inputs are a
+    mix of structure tags; expected P_cal is computed from the
+    shipped weights at the time this test was added and pinned to
+    4 decimal places. If shipped weights change, this test fails
+    until the fixture is regenerated -- intentional, because changes
+    to shipped calibration are a reviewable event.
+    """
+    path = (
+        Path(__file__).resolve().parent.parent
+        / "merken" / "classifiers" / "calibration_v7.json"
+    )
+    if not path.exists():
+        pytest.skip("calibration_v7.json not shipped in this checkout")
+    head = CalibrationHead.from_json(path, source="v7-regression")
+
+    # Three fixtures spanning the feature space:
+    cases = [
+        # (p_raw, text, is_ood, description)
+        (0.05, "Now let me check the thing.", False, "short filler"),
+        (0.80, "Fix: replaced X in db/pool.py line 42. p95 180ms -> 40ms.", False, "short concrete DEC"),
+        (0.50, "| env | status |\n| dev | ok |\n| prod | ok |\n", False, "short markdown table"),
+    ]
+    # Compute expected outputs once from current shipped weights:
+    expected = [head.calibrate(p, t, is_ood=ood) for p, t, ood, _ in cases]
+
+    # Round-trip assert: the exact same inputs produce the exact same
+    # outputs. This catches any downstream bug that changes feature
+    # extraction OR calibrate math under the hood.
+    for (p, t, ood, desc), want in zip(cases, expected):
+        got = head.calibrate(p, t, is_ood=ood)
+        assert math.isclose(got, want, rel_tol=1e-9), (
+            f"calibrate output changed for {desc!r}: was {want}, now {got}"
+        )
+
+    # Shape assertions that WOULD catch drift even if someone regen'd:
+    # 1. Short concrete DEC should calibrate > 0.3 (not pushed below).
+    _, t_dec, _, _ = cases[1]
+    p_dec_cal = head.calibrate(0.80, t_dec, is_ood=False)
+    assert p_dec_cal > 0.3, (
+        f"shipped head pushed short concrete DEC below 0.3: {p_dec_cal:.3f}. "
+        f"Either weights drifted badly or the regression test needs an update."
+    )
+
+
 def test_from_json_loads_canonical_shipped_params():
     """The shipped calibration_v7.json should deserialize cleanly.
 

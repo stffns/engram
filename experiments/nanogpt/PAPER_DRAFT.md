@@ -23,14 +23,30 @@ dig for them:
   Gemini on 15/20 DECISIONs (75%) -- the oracle itself has a
   non-trivial error rate. Every "accuracy" number below is
   accuracy-against-Gemini-in-this-prompt, not accuracy-vs-truth.
-- **One held-out scenario contaminated.** The
-  `jay_vstash_2026_04_09_snapshot` scenario that v7 hits 100% on
-  has 13/20 events present in the v7 organic training set
-  (`/tmp/organic_train.json`). See section 3.3.
-- **H10 feature set was motivated by one smoke case.** Interaction
-  terms were added after observing one short-concrete-DEC being
-  mis-calibrated. Honest label: post-hoc feature engineering. See
-  section 4.4.
+- **One held-out scenario partially contaminated.** Original
+  `jay_vstash_2026_04_09_snapshot` had 13/20 events also in
+  `/tmp/organic_train.json` (v7 training). A decontaminated
+  sibling file with 7/20 events was derived by
+  `experiments/contamination_audit.py`; v6 and v7 both score 7/7
+  there (small n; generalization rather than memorization).
+  `eval_v7_vs_v6.py` still points at the ORIGINAL file so its
+  score matches the historical record; the decontam variant is an
+  opt-in alternative held-out. See section 3.3.
+- **Four "held-out" scenarios are actually training data.** The
+  `knowledge_update*` scenarios loaded by `prepare.py` are both
+  training corpus and (incorrectly) used as "held-out" in
+  `eval_v7_vs_v6.py`. Section 3.2's delta v7 vs v6 on
+  knowledge_update_50t compares training-set performance, not
+  generalization. A pragmatic ablation (v9 in HYPOTHESES.md)
+  retrained v7 without knowledge_update and found the markdown
+  FPR=0% collapses to 50%: v7's markdown capability was propped
+  up by that training content. The correct fix is therefore to
+  drop knowledge_update from EVAL (not training), and to build a
+  disjoint-topic held-out for future v10.
+- **H10 feature set was post-hoc feature engineering. Forward
+  selection (H12) found a smaller stable head that beats H10.** The
+  shipped `calibration_v7.json` is now the 11-feature H12 fit (ECE
+  0.031 vs H10's 0.035). See section 4.5.
 
 With those caveats the rest of the document is what we measured.
 This framing targets a **blog post / tech report**, not a venue
@@ -134,8 +150,8 @@ v7 doubled block_size to 256.
 |----------|-------------:|-------------:|------|
 | markdown_tables_held_out | 66.7% | 100% | held-out by construction |
 | organic_val_held_out | 100% | 100% | |
-| jay_vstash_snapshot | 100% | 100% | **CONTAMINATED (see 3.3)** |
-| knowledge_update_50t | 99.9% | 97.4% | synthetic; v7 dilutes stereotype |
+| jay_vstash_snapshot | 100% | 100% | **CONTAMINATED (see 3.3)** -- use `_decontam` sibling file for honest eval (7 events, both v6 and v7 = 7/7) |
+| ~~knowledge_update_50t~~ | ~~99.9%~~ | ~~97.4%~~ | **TRAINING SET for v4-v7 -- NOT held-out. Included here as a training-set diagnostic, NOT a generalization claim. See 3.3 and the H_v9_pragmatic ablation.** |
 
 ### 3.3 Contamination disclosure
 

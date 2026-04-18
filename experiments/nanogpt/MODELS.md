@@ -17,6 +17,7 @@ directory is lost.
 | v6 | `out-merken-bpe-v6/ckpt.pt` | `config/train_merken_bpe_v6.py` | `data/merken_bpe_v6/` | 10.6 MB | 2026-04-17 12:20 |
 | **v7** | **`out-merken-bpe-v7/ckpt.pt`** | **`config/train_merken_bpe_v7.py`** | **`data/merken_bpe_v7/`** | **10.8 MB** | **2026-04-17 20:04 (graduated)** |
 | v8 | `out-merken-bpe-v8/ckpt.pt` | `config/train_merken_bpe_v8.py` | `data/merken_bpe_v8/` | 10.8 MB | 2026-04-17 20:36 (archived) |
+| v9 | `out-merken-bpe-v9/ckpt.pt` | `config/train_merken_bpe_v9.py` | `data/merken_bpe_v9/` | 10.8 MB | 2026-04-18 10:45 (ablation: v7 recipe minus knowledge_update; REJECTED as replacement, see HYPOTHESES `H_v9_pragmatic`) |
 
 Pre-v3 checkpoints (`out-merken/`, `out-merken-bpe/` pre-rename) exist
 on disk but are superseded and not documented here.
