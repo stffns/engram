@@ -1,0 +1,56 @@
+{
+  "v6": {
+    "n_train": 782,
+    "n_test": 197,
+    "raw_ece": 0.16632487309644675,
+    "head_ece": 0.04729692973702893,
+    "head_delta": -0.11902794335941783,
+    "bimodal_frac": 0.9289340101522843,
+    "middle_frac": 0.015228426395939087,
+    "intercept": 2.107894150460135,
+    "coefficients": {
+      "logit_P(D)": 0.02960663757528752,
+      "has_code_fence": 0.12957405252401724,
+      "has_inline_code": 0.9769096099443481,
+      "has_markdown_table": 0.5199894257768003,
+      "has_numbers": 0.9425603752957578,
+      "has_file_paths": 0.19457691214002557,
+      "is_short": -2.068496523994228,
+      "is_long": 0.4819918503403145,
+      "is_ood": 1.0921788166894224,
+      "short_X_numbers": -0.17972916436164207,
+      "short_X_file_paths": -0.3631470569715209,
+      "short_X_inline_code": -0.24311302778784935,
+      "short_X_markdown_table": 0.08785700969133031,
+      "ood_X_short": 0.6990018768230772
+    }
+  },
+  "v7": {
+    "n_train": 782,
+    "n_test": 197,
+    "raw_ece": 0.05581218274111675,
+    "head_ece": 0.03543727464886015,
+    "head_delta": -0.020374908092256602,
+    "bimodal_frac": 0.5939086294416244,
+    "middle_frac": 0.07614213197969544,
+    "intercept": 1.1835155126406238,
+    "coefficients": {
+      "logit_P(D)": 0.44529443525843077,
+      "has_code_fence": 0.09802715063736114,
+      "has_inline_code": 0.9153755767414963,
+      "has_markdown_table": 0.5450279805937654,
+      "has_numbers": 0.8272612640496102,
+      "has_file_paths": 0.16393431419283788,
+      "is_short": -1.8342035346258716,
+      "is_long": 0.4473917835313526,
+      "is_ood": 1.1776549569335886,
+      "short_X_numbers": -0.2766163687680083,
+      "short_X_file_paths": -0.3335942585991919,
+      "short_X_inline_code": -0.19913338021244928,
+      "short_X_markdown_table": 0.12048615295176258,
+      "ood_X_short": 1.016305277674243
+    }
+  },
+  "delta_v6_minus_v7_head_ece": 0.011859655088168782,
+  "verdict": "NEAR PARITY: v6+head ~ v7+head. The head alone recovers calibration regardless of training. Claim #2 is weaker than stated; the right framing is 'calibration is a post-hoc fit that works on either base model'."
+}
