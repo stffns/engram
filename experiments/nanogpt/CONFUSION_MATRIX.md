@@ -324,6 +324,70 @@ not uniform -- it is structure-dependent, and the structure features
 A content-type-conditional calibration head would almost certainly
 beat the scalar post-hoc fixes we tried in section 7.**
 
+## 9. Cross-dataset DEC-share gap (replicated on SlimOrca)
+
+Oracled 200 Open-Orca/SlimOrca chunks via `oracle_public_dataset.py
+--dataset Open-Orca/SlimOrca`. 172 DECISION / 26 NOISE / 2 UNCERTAIN.
+
+Cross-dataset DEC share now covers three public IT datasets + two
+slices of Jay's real transcripts:
+
+| Dataset | n | DEC share | NOI share |
+|---|---:|---:|---:|
+| Jay shadow_skip (v7 says SKIP) | 1026 | 15.3% | 84.7% |
+| Jay agree_write (v7 says WRITE) | 494 | 80.6% | 19.4% |
+| Capybara uniform | 288 | 94.8% | 4.9% |
+| Capybara LOW P(D) | 100 | 69.0% | 29.0% |
+| SlimOrca uniform | 200 | 86.0% | 13.0% |
+
+Capybara and SlimOrca both sit around 86-95% DEC. No public IT
+dataset we tested has the ~25-30% filler content ratio that Jay's
+real agent transcripts have. This is not a Capybara quirk -- it is a
+property of curated instruction-tuning data in general. Training a
+write filter for agent transcripts on these public datasets would
+starve it of the NOI signal it needs.
+
+### v7 calibration on SlimOrca
+
+| Metric | Value |
+|---|---:|
+| n | 198 |
+| mean P(D) | 0.794 |
+| true DEC | 86.9% |
+| ECE | 0.077 |
+| signed bias | **-0.075** |
+
+v7 is UNDER-confident on SlimOrca. ECE (0.077) is actually better
+than on Jay's full 1520 (0.120) because 144 of 198 SlimOrca events
+sit in [0.8, 1.0) where v7 is well-calibrated. Middle bins however
+flip direction: Jay mid bins are over-confident by +0.16 to +0.36;
+SlimOrca mid bins are under-confident by -0.14 to -0.44.
+
+**Direction of miscalibration flips cross-distribution.** In-domain
+the training prior leaks upward (over-confident DEC on mid-range).
+Cross-domain v7 defaults to "unfamiliar -> NOI" but content is often
+substantial (under-confident DEC). This is precisely why the combined-
+set Platt fit got worse: a single-direction scalar can't resolve
+opposite biases.
+
+## 10. Compact paper summary
+
+- v7 graduated as shadow baseline (section 1; 98% DEC recall, 7.7%
+  real store reduction -- not the 86% synthetic benchmarks suggested).
+- Production-Benchmark Gap is real and quantified (section 2).
+- Uncertainty DETECTION emerges from real-label training; v6 trained
+  on synthetic alone lacks it (cross-version in RESULTS.md).
+- Latent calibration exists WITHIN v7's training distribution;
+  temperature T=1.559 recovers ECE to 0.052 on Jay's HIGH P(D)
+  agree_write set.
+- Calibration is STRUCTURE-dependent within-domain: ECE 0.045 on
+  long text, 0.191 on plain prose, -0.184 on markdown tables.
+- Calibration is DIRECTION-flipped cross-domain: v7 over-confidences
+  in-domain, under-confidences on public IT data. Scalar post-hoc
+  scaling cannot resolve opposite-direction biases simultaneously.
+- Conclusion: a production write filter should apply calibration
+  conditional on (domain, content-structure), not as a single scalar.
+
 ### Old Platt params retained
 
 `experiments/nanogpt/calibration_params.json` is overwritten on each
