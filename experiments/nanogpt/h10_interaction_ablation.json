@@ -1,0 +1,50 @@
+{
+  "full_ece": 0.03543727464886015,
+  "full_coefficients": {
+    "logit_P(D)": 0.44529443525843077,
+    "has_code_fence": 0.09802715063736114,
+    "has_inline_code": 0.9153755767414963,
+    "has_markdown_table": 0.5450279805937654,
+    "has_numbers": 0.8272612640496102,
+    "has_file_paths": 0.16393431419283788,
+    "is_short": -1.8342035346258716,
+    "is_long": 0.4473917835313526,
+    "is_ood": 1.1776549569335886,
+    "short_X_numbers": -0.2766163687680083,
+    "short_X_file_paths": -0.3335942585991919,
+    "short_X_inline_code": -0.19913338021244928,
+    "short_X_markdown_table": 0.12048615295176258,
+    "ood_X_short": 1.016305277674243
+  },
+  "loo": {
+    "short_X_numbers": {
+      "ece": 0.03539728613105276,
+      "delta_vs_full": -3.998851780739193e-05,
+      "weight_in_full": -0.2766163687680083
+    },
+    "short_X_file_paths": {
+      "ece": 0.03115728302504812,
+      "delta_vs_full": -0.00427999162381203,
+      "weight_in_full": -0.3335942585991919
+    },
+    "short_X_inline_code": {
+      "ece": 0.041398961784410646,
+      "delta_vs_full": 0.005961687135550495,
+      "weight_in_full": -0.19913338021244928
+    },
+    "short_X_markdown_table": {
+      "ece": 0.03722230375591078,
+      "delta_vs_full": 0.0017850291070506258,
+      "weight_in_full": 0.12048615295176258
+    },
+    "ood_X_short": {
+      "ece": 0.04393631414118826,
+      "delta_vs_full": 0.008499039492328109,
+      "weight_in_full": 1.016305277674243
+    }
+  },
+  "no_interactions": {
+    "ece": 0.04766307437253882,
+    "delta_vs_full": 0.012225799723678668
+  }
+}

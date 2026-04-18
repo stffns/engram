@@ -40,21 +40,25 @@ evaluation, and a clean held-out that drove no design decisions.
 
 ## Abstract
 
-On held-out synthetic benchmarks a 4-layer 800K-parameter BPE
-transformer achieves 86% store reduction and 100% recall. On real
-Claude Code transcripts from the same author the numbers move:
-real store reduction is **7.7%**, real population-weighted
-accuracy-vs-Gemini is **80.9%**, and the filter is uniformly
-over-confident on short prose and uniformly under-confident on
-out-of-distribution public instruction-tuning data. We document
-this Production-Benchmark Gap and show that **scalar post-hoc
-calibration cannot represent opposite-direction bias across
-domains** -- a structural limit, not a fundamental one; a per-
-distribution head would. An ablation with v6 + our H10 head shows
-that calibration is largely a post-hoc fit that works on either
-base model (v6+head ECE 0.047, v7+head ECE 0.035); real-label
-training redistributes raw output mass (bimodal 93% -> 59%) but
-does NOT confer calibration the head can't recover.
+We measured a 4-layer 800K-parameter BPE write-filter transformer
+on two class distributions: a synthetic scenario with 86% NOI
+prevalence (designed to expose filter behavior on heavy noise) and
+real Claude Code transcripts with ~24% NOI prevalence. Store
+reduction is 86% on synthetic and **7.7% on real**; population-
+weighted accuracy-vs-Gemini is 99.9% on synthetic and **80.9% on
+real**. We document this Production-Benchmark Gap and show that
+**scalar post-hoc calibration cannot represent opposite-direction
+bias across domains** -- a structural limit of scalar methods, not
+of post-hoc calibration in general (a per-distribution head would
+resolve it; we did not fit one). A leave-one-out ablation on our
+14-feature calibration head reveals that the 5 interaction terms
+are mostly not load-bearing: only ``ood_X_short`` contributes
+meaningfully; the interaction we designed from a specific smoke
+case (``short_X_numbers``) contributes zero. An ablation with v6 +
+the same head shows calibration is largely a post-hoc fit that
+works on either base model (v6+head ECE 0.047, v7+head ECE 0.035);
+real-label training redistributes raw output mass (bimodal 93% ->
+59%) but does NOT confer calibration the head can't recover.
 
 ## 1. Setup
 
@@ -176,9 +180,13 @@ measured on a scenario with 86% NOI events. Real distribution is
 real decision (98.4% DEC recall), rarely prunes noise (26.8% NOI
 recall).
 
-Given the oracle ceiling (~80% from manual audit), the 80.9%
-accuracy number sits at the noise floor of Gemini's own reliability.
-We cannot claim v7 is more accurate than Gemini agrees with itself.
+Oracle reliability: the 15/20 (75%) manual audit covers the DEC
+class only. NOI-side human audit was not run. A rough upper bound
+on overall oracle reliability is therefore unverified; if NOI
+accuracy matches DEC at ~75-85%, the pooled upper bound is also
+~75-85%. The 80.9% population-weighted number sits inside that
+band and should not be read as a hard accuracy claim against
+ground truth.
 
 ## 4. Calibration
 
@@ -210,14 +218,29 @@ and on v7 outputs, both at C=1:
 | v7 | 0.056 | 0.035 | -0.020 |
 
 **The head recovers calibration for EITHER base model.** Delta
-between v6+head and v7+head is 0.012, below the "meaningful
-difference" threshold we pre-registered (>0.02). This **falsifies**
-the stronger version of our earlier claim ("uncertainty emerges
-from training, not architecture"). Honest rewrite: real-label
-training **redistributes raw output mass**, but a small post-hoc
-head recovers ECE regardless. What training buys you is
-**interpretable probabilities without a calibration wrapper**, not
-calibration per se.
+between v6+head and v7+head is 0.012.
+
+**Threshold disclosure:** the threshold of 0.02 for "meaningful
+difference" was written into the verdict logic of
+`experiments/v6_with_h10_head_ablation.py` before the script was
+run for the first time, but it was NOT recorded in HYPOTHESES.md
+with a timestamp prior to the experiment. In the weaker sense of
+pre-registration (chosen before seeing the number), 0.02 is
+pre-registered. In the stronger sense (public dated artifact), it
+is post-hoc. Stating this plainly because a hostile reviewer
+would rightly ask.
+
+Regardless of threshold semantics, the 0.012 delta is about half
+the size of the standard "0.05 = well calibrated" gap that
+framed the entire calibration section, so calling it "small" is
+the honest read.
+
+This **falsifies** the stronger version of our earlier claim
+("uncertainty emerges from training, not architecture"). Honest
+rewrite: real-label training **redistributes raw output mass**,
+but a small post-hoc head recovers ECE regardless. What training
+buys you is **interpretable probabilities without a calibration
+wrapper**, not calibration per se.
 
 ### 4.3 Structure-dependent calibration
 
@@ -269,19 +292,58 @@ Honest history of feature selection:
   file_paths, raw 0.857 -> H11 head 0.371 -> desired recovery).
   C=1, ECE 0.035.
 
-**Feature-engineering disclosure:** the 5 interaction terms were
-added AFTER observing the specific smoke case. ECE 0.035 is on a
-clean 80/20 split of the 982-label pool, but the FEATURE DESIGN
-was motivated by one training example. A reviewer would rightly
-want either (a) a held-out-from-design test set, or (b) an ablation
-showing ECE with only 0-5 of the 5 interactions retained.
-Neither was run; documented as H10 caveat, not as part of this
-section's main claim.
+**Feature-engineering disclosure + leave-one-out ablation.** The 5
+interaction terms were added after observing a specific smoke case,
+which is post-hoc feature engineering. We ran a leave-one-out
+ablation
+(`experiments/h10_interaction_ablation.py` +
+`experiments/nanogpt/h10_interaction_ablation.json`) to see how
+load-bearing each interaction actually is:
+
+| configuration | ECE | delta vs full |
+|---------------|----:|---------------:|
+| full (14 features) | 0.0354 | -- |
+| drop `short_X_numbers` | 0.0354 | +0.0000 |
+| drop `short_X_file_paths` | **0.0312** | -0.0043 (IMPROVES) |
+| drop `short_X_markdown_table` | 0.0372 | +0.0018 |
+| drop `short_X_inline_code` | 0.0414 | +0.0060 |
+| drop `ood_X_short` | 0.0439 | +0.0085 |
+| no interactions (9 features, H11) | 0.0477 | +0.0122 |
+
+Two findings that are unkind to the original H10 narrative:
+
+1. **The interaction I introduced to fix the smoke case
+   (`short_X_numbers`) contributes zero**. The smoke case was
+   "short + numbers + file_paths = concrete DEC"; I added
+   `short_X_numbers` to capture exactly that. In the fit it takes
+   weight -0.28 and removing it does not move ECE.
+
+2. **Dropping `short_X_file_paths` improves ECE**. It has weight
+   -0.33 in the full fit, i.e. it actively pushes the fit away
+   from where the smoke case wanted to land. The full head
+   compensates with other terms; a leaner head without this
+   feature is measurably better-calibrated.
+
+3. **Most of the gain over H11 (ECE 0.043 -> 0.035) comes from
+   `ood_X_short` alone** (+0.0085 when dropped). The other four
+   interaction terms net out to ~0.0037 of improvement.
+
+Honest read: the 5-feature interaction set is over-specified for
+this data. A 10-feature head (9 base + `ood_X_short` only) would
+ship the essential signal with less overfitting risk. We have not
+re-shipped the smaller head; the currently-shipped
+`merken/classifiers/calibration_v7.json` still carries the full
+14-feature fit. Proposed follow-up: re-ship with a 10-feature
+minimal head and re-run the ablation against fresh data once
+available.
 
 ### 4.6 Cross-distribution bias is opposite-direction
 
-Combining Jay HIGH-regime labels with Capybara LOW-regime events
-(`experiments/calibrate_v7_platt.py`, n=592): the two subsets have
+Combining the 494 agree_write events from Jay's transcripts
+(where v7 is over-confident DEC by construction: all P(D) >= 0.6)
+with the 98 Capybara events whose v7 P(D) fell below 0.3 (where
+v7 is under-confident; total 592 events)
+(`experiments/calibrate_v7_platt.py`): the two subsets have
 opposite bias signs. A scalar Platt fit REGRESSES ECE from 0.145
 (raw) to 0.177. Temperature scaling also regresses.
 
@@ -386,7 +448,9 @@ To move from N=1 memo to workshop paper, the gap is:
   to close the 157 FN remaining on real DECs without regressing
   markdown FPR.
 
-Estimated: 4-6 weeks of focused work. Not planned.
+Estimated: 4-6 weeks of focused work. Out of scope for this memo;
+potential follow-up if and when multi-user data becomes available
+or if a collaborator wants to drive the venue path.
 
 ## 9. Recommended disposition
 
