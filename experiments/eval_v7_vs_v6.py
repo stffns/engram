@@ -40,6 +40,8 @@ V7_CKPT = NANOGPT / "out-merken-bpe-v7" / "ckpt.pt"
 V7_META = NANOGPT / "data" / "merken_bpe_v7" / "meta.pkl"
 V8_CKPT = NANOGPT / "out-merken-bpe-v8" / "ckpt.pt"
 V8_META = NANOGPT / "data" / "merken_bpe_v8" / "meta.pkl"
+V9_CKPT = NANOGPT / "out-merken-bpe-v9" / "ckpt.pt"
+V9_META = NANOGPT / "data" / "merken_bpe_v9" / "meta.pkl"
 
 
 def scenario_pairs(path: Path):

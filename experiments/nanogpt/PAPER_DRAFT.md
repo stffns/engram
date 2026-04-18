@@ -37,8 +37,12 @@ dig for them:
   training corpus and (incorrectly) used as "held-out" in
   `eval_v7_vs_v6.py`. Section 3.2's delta v7 vs v6 on
   knowledge_update_50t compares training-set performance, not
-  generalization. Flagged explicitly in section 3.2; fix is future
-  work (retrain without, or build a disjoint scenario).
+  generalization. A pragmatic ablation (v9 in HYPOTHESES.md)
+  retrained v7 without knowledge_update and found the markdown
+  FPR=0% collapses to 50%: v7's markdown capability was propped
+  up by that training content. The correct fix is therefore to
+  drop knowledge_update from EVAL (not training), and to build a
+  disjoint-topic held-out for future v10.
 - **H10 feature set was post-hoc feature engineering. Forward
   selection (H12) found a smaller stable head that beats H10.** The
   shipped `calibration_v7.json` is now the 11-feature H12 fit (ECE

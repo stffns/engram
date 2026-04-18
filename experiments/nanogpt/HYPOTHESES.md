@@ -412,6 +412,65 @@ All behaviors land where you'd expect a calibrated head to land.
 
 ---
 
+## H_v9_pragmatic. Retrain v7 without knowledge_update in training
+
+**Status:** done, REJECTED (synthetic training DOES carry signal).
+
+**Rationale:** H13 audit showed `knowledge_update_50t` is 100%
+training data used as "held-out" in eval_v7_vs_v6.py. Obvious fix
+option: retrain v7 without those four scenarios, see if the v7
+markdown FPR=0% / organic_val 100% story holds on a clean training
+mix.
+
+**Dataset:** same as v7 minus knowledge_update (1732 vs 3046
+events: 608 borderline NOISE + 68 organic DEC + 30 markdown NOISE
++ 1026 transcript labels). Same architecture, same max_iters=800,
+same block_size=256.
+
+**Result:** see `experiments/nanogpt/v9_eval.json` (output saved
+inline). v9 BEST val loss 2.60 at step 450 vs v7's 2.35. More
+importantly, on scenarios:
+
+| scenario | v7 | v9 | delta |
+|----------|---:|---:|------:|
+| markdown_tables_held_out | 100% | **75%** | **-25pp** (FPR 0->50%) |
+| organic_val_held_out | 100% | 100% | +0 |
+| jay_vstash_decontam | 100% | 100% | +0 |
+| analytics_project | 67% | 0% | -67pp |
+| session_2026_04_09 | 75% | 25% | -50pp |
+| bilingual_es_en | 92% | 75% | -17pp |
+| noisy_agent_stream | 67% | 21% | -46pp |
+| knowledge_update_50t | 97% | 87% | -10pp (both saw, so not held-out) |
+
+**Honest finding:** v9 confirms v7's markdown FPR = 0% was propped
+up by knowledge_update training content. Drop it, FPR flies back
+to 50%. But the held-out DEC-only small scenarios (organic_val,
+decontam) hold, showing real-transcript labels generalize DEC
+recognition. DEC-only scenarios at larger n regress significantly
+(analytics, session, bilingual, noisy_agent all -17pp to -67pp).
+
+**Interpretation:**
+- The bug is NOT "knowledge_update in training". The bug is
+  "knowledge_update in EVAL". Synthetic noise training provides
+  generalizable noise-recognition signal v7 needs; pulling it
+  removes more than it gains.
+- Correct fix: KEEP knowledge_update in training, DROP it from
+  `eval_v7_vs_v6.py`'s scenario list. Paper section 3.2 should
+  flag knowledge_update_50t as training-set performance and not
+  use it for delta claims.
+
+**v9 is archived as ablation evidence, not shipped as a
+replacement.** v7 remains the shadow baseline.
+
+Action items from this finding:
+- Remove `knowledge_update_50t` from eval_v7_vs_v6.py's scenario
+  list (or rename to make its "training-set performance" nature
+  explicit in the output).
+- Paper section 3.2: add a row separating "honest held-out"
+  scenarios from "training-set diagnostics".
+- Future v10: build a NEW held-out noise-heavy scenario with
+  topics disjoint from knowledge_update.
+
 ## H12. Forward-selection minimal calibration head
 
 **Status:** done, ACCEPTED (beats H10 full head).
