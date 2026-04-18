@@ -150,8 +150,8 @@ v7 doubled block_size to 256.
 |----------|-------------:|-------------:|------|
 | markdown_tables_held_out | 66.7% | 100% | held-out by construction |
 | organic_val_held_out | 100% | 100% | |
-| jay_vstash_snapshot | 100% | 100% | **CONTAMINATED (see 3.3)** |
-| knowledge_update_50t | 99.9% | 97.4% | synthetic; v7 dilutes stereotype |
+| jay_vstash_snapshot | 100% | 100% | **CONTAMINATED (see 3.3)** -- use `_decontam` sibling file for honest eval (7 events, both v6 and v7 = 7/7) |
+| ~~knowledge_update_50t~~ | ~~99.9%~~ | ~~97.4%~~ | **TRAINING SET for v4-v7 -- NOT held-out. Included here as a training-set diagnostic, NOT a generalization claim. See 3.3 and the H_v9_pragmatic ablation.** |
 
 ### 3.3 Contamination disclosure
 

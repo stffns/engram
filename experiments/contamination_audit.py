@@ -64,27 +64,35 @@ TRAINING_SOURCES = {
 }
 
 
+def _norm(text: str) -> str:
+    """Collapse whitespace so minor formatting drift doesn't mask
+    contamination. `\\r\\n` vs `\\n`, trailing spaces, non-breaking
+    spaces, and re-indenting all map to the same canonical string.
+    """
+    return " ".join((text or "").split())
+
+
 def load_scenario_texts(path: Path) -> list[str]:
-    """Return stripped event texts from a scenario JSON."""
+    """Return normalized event texts from a scenario JSON."""
     if not path.exists():
         return []
     data = json.loads(path.read_text(encoding="utf-8"))
-    return [e.get("text", "").strip() for e in data.get("events", []) if e.get("text")]
+    return [_norm(e.get("text", "")) for e in data.get("events", []) if e.get("text")]
 
 
 def load_training_texts(name: str, path: Path) -> set[str]:
-    """Return set of stripped training texts from various source formats."""
+    """Return set of NORMALIZED training texts from various source formats."""
     if not path.exists():
         return set()
-    if name == "organic_train" or name == "markdown_noise_v6" or name == "borderline_noise":
+    if name in {"organic_train", "markdown_noise_v6", "borderline_noise"}:
         try:
             rows = json.loads(path.read_text(encoding="utf-8"))
         except Exception:
             return set()
-        return {r.get("text", "").strip() for r in rows if r.get("text")}
+        return {_norm(r.get("text", "")) for r in rows if r.get("text")}
     if name.startswith("knowledge_update"):
         data = json.loads(path.read_text(encoding="utf-8"))
-        return {e.get("text", "").strip() for e in data.get("events", []) if e.get("text")}
+        return {_norm(e.get("text", "")) for e in data.get("events", []) if e.get("text")}
     if name == "merken_labels_v7_jsonl":
         out = set()
         with path.open(encoding="utf-8") as f:
@@ -93,7 +101,7 @@ def load_training_texts(name: str, path: Path) -> set[str]:
                     r = json.loads(line)
                 except Exception:
                     continue
-                t = (r.get("event_text_preview") or r.get("text") or "").strip()
+                t = _norm(r.get("event_text_preview") or r.get("text") or "")
                 if t:
                     out.add(t)
         return out

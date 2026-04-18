@@ -118,83 +118,113 @@ def run_eval(name: str, decider: NanoGPTWriteDecider, pairs: list[tuple[str, boo
     }
 
 
+def _load_if_present(ckpt: Path, meta: Path):
+    if ckpt.exists() and meta.exists():
+        return NanoGPTWriteDecider(str(ckpt), str(meta))
+    return None
+
+
 def main() -> int:
-    v6 = NanoGPTWriteDecider(str(V6_CKPT), str(V6_META))
-    v7 = NanoGPTWriteDecider(str(V7_CKPT), str(V7_META))
-    v8 = NanoGPTWriteDecider(str(V8_CKPT), str(V8_META))
+    # Optional models guarded so the script runs on machines that
+    # only have a subset of checkpoints on disk.
+    v6 = _load_if_present(V6_CKPT, V6_META)
+    v7 = _load_if_present(V7_CKPT, V7_META)
+    v8 = _load_if_present(V8_CKPT, V8_META)
+    v9 = _load_if_present(V9_CKPT, V9_META)
+    versions = [("v6", v6), ("v7", v7), ("v8", v8), ("v9", v9)]
+    present = [(n, d) for n, d in versions if d is not None]
+    if not present:
+        raise SystemExit("no nanoGPT ckpts found; set NANOGPT_REPO env")
 
     scenarios = [
         ("markdown_tables_held_out", SCEN / "markdown_tables_held_out.json"),
         ("organic_val_held_out", SCEN / "organic_val_held_out.json"),
         ("jay_vstash_snapshot", SCEN / "jay_vstash_2026_04_09_snapshot.json"),
-        ("knowledge_update_50t", SCEN / "knowledge_update_50topics.json"),
+        ("jay_vstash_snapshot_decontam",
+            SCEN / "jay_vstash_2026_04_09_snapshot_decontam.json"),
+        # NOTE: knowledge_update_50t is 100% TRAINING DATA for v4-v7;
+        # reported here as a training-set diagnostic, NOT a held-out.
+        ("knowledge_update_50t (TRAINING)",
+            SCEN / "knowledge_update_50topics.json"),
+        ("analytics_project", SCEN / "analytics_project.json"),
+        ("session_2026_04_09", SCEN / "session_2026_04_09.json"),
+        ("bilingual_es_en_2026_04_14", SCEN / "bilingual_es_en_2026_04_14.json"),
+        ("noisy_agent_stream", SCEN / "noisy_agent_stream.json"),
     ]
 
-    print(f"{'scenario':<28} {'n':>5} {'n_dec':>6} {'n_noi':>6} "
-          f"{'v6':>7} {'v7':>7} {'v8':>7}")
-    print("-" * 80)
+    col_hdr = "".join(f"{name:>8}" for name, _ in present)
+    print(f"{'scenario':<36} {'n':>5} {'n_dec':>6} {'n_noi':>6} {col_hdr}")
+    print("-" * (60 + 8 * len(present)))
 
-    tot = {6: 0, 7: 0, 8: 0}
+    totals = {name: 0 for name, _ in present}
     total_n = 0
+    per_scenario: dict[str, dict] = {}
 
     for name, path in scenarios:
         if not path.exists():
-            print(f"{name:<28} MISSING {path}")
+            print(f"{name:<36} MISSING {path.name}")
             continue
         pairs = list(scenario_pairs(path))
-        r6 = run_eval(name, v6, pairs)
-        r7 = run_eval(name, v7, pairs)
-        r8 = run_eval(name, v8, pairs)
-        print(
-            f"{name:<28} {r6['n']:>5} {r6['n_dec']:>6} {r6['n_noi']:>6} "
-            f"{r6['agreement']*100:>6.1f}% {r7['agreement']*100:>6.1f}% "
-            f"{r8['agreement']*100:>6.1f}%"
-        )
-        # Track integer correct counts to avoid float rounding
-        # artifacts in the weighted average.
-        tot[6] += r6["correct"]
-        tot[7] += r7["correct"]
-        tot[8] += r8["correct"]
-        total_n += r6["n"]
+        rs = {n: run_eval(name, d, pairs) for n, d in present}
+        row = f"{name:<36} {rs[present[0][0]]['n']:>5} {rs[present[0][0]]['n_dec']:>6} {rs[present[0][0]]['n_noi']:>6}"
+        for n, _ in present:
+            row += f"  {rs[n]['agreement']*100:>5.1f}%"
+        print(row)
+        per_scenario[name] = {
+            "n": rs[present[0][0]]["n"],
+            "n_dec": rs[present[0][0]]["n_dec"],
+            "n_noi": rs[present[0][0]]["n_noi"],
+            "per_version": {n: {
+                "agreement": rs[n]["agreement"],
+                "dec_recall": rs[n]["dec_recall"],
+                "noi_recall": rs[n]["noi_recall"],
+                "fpr": rs[n]["fpr"],
+            } for n, _ in present},
+        }
+        # Weighted avg skips training-set and contaminated scenarios to
+        # keep the number meaningful.
+        if not ("TRAINING" in name or "jay_vstash_snapshot" == name):
+            for n, _ in present:
+                totals[n] += rs[n]["correct"]
+            total_n += rs[present[0][0]]["n"]
 
-    # Held-out subsample of labels (20%)
+    # Held-out labels subsample (contaminated for v7/v8/v9 -- diagnostic only)
     ho_pairs = labels_held_out_pairs()
-    r6 = run_eval("labels_20pct", v6, ho_pairs)
-    r7 = run_eval("labels_20pct", v7, ho_pairs)
-    r8 = run_eval("labels_20pct", v8, ho_pairs)
-    print(
-        f"{'labels_20pct (v7/v8 contam)':<28} "
-        f"{r6['n']:>5} {r6['n_dec']:>6} {r6['n_noi']:>6} "
-        f"{r6['agreement']*100:>6.1f}% {r7['agreement']*100:>6.1f}% "
-        f"{r8['agreement']*100:>6.1f}%"
-    )
+    rs_ho = {n: run_eval("labels_20pct", d, ho_pairs) for n, d in present}
+    row = (f"{'labels_20pct (v7/v8/v9 contam)':<36} "
+           f"{rs_ho[present[0][0]]['n']:>5} {rs_ho[present[0][0]]['n_dec']:>6} "
+           f"{rs_ho[present[0][0]]['n_noi']:>6}")
+    for n, _ in present:
+        row += f"  {rs_ho[n]['agreement']*100:>5.1f}%"
+    print(row)
 
     print()
-    print(f"weighted avg over 4 held-out scenarios: "
-          f"v6={tot[6]/total_n*100:.1f}%  "
-          f"v7={tot[7]/total_n*100:.1f}%  "
-          f"v8={tot[8]/total_n*100:.1f}%")
+    weights = "  ".join(
+        f"{n}={totals[n]/total_n*100:.1f}%" for n, _ in present
+    ) if total_n else "(no clean scenarios)"
+    print(f"weighted avg over CLEAN held-out scenarios: {weights}")
 
-    # Detail per scenario: DEC/NOI recall + FPR
-    print()
-    print("Per-scenario detail (v6 / v7 / v8):")
-    for name, path in scenarios:
-        if not path.exists():
-            continue
-        pairs = list(scenario_pairs(path))
-        r6 = run_eval(name, v6, pairs)
-        r7 = run_eval(name, v7, pairs)
-        r8 = run_eval(name, v8, pairs)
-        print(f"  {name}")
-        print(f"    DEC_recall:   {r6['dec_recall']*100:>5.1f}%  / "
-              f"{r7['dec_recall']*100:>5.1f}%  / "
-              f"{r8['dec_recall']*100:>5.1f}%")
-        print(f"    NOI_recall:   {r6['noi_recall']*100:>5.1f}%  / "
-              f"{r7['noi_recall']*100:>5.1f}%  / "
-              f"{r8['noi_recall']*100:>5.1f}%")
-        print(f"    FPR (NOI->W): {r6['fpr']*100:>5.1f}%  / "
-              f"{r7['fpr']*100:>5.1f}%  / "
-              f"{r8['fpr']*100:>5.1f}%")
+    # Save full results to JSON artifact (addresses PR #18 review C2).
+    import json
+    art = {
+        "versions_evaluated": [n for n, _ in present],
+        "scenarios": per_scenario,
+        "labels_20pct_subsample": {n: {
+            "agreement": rs_ho[n]["agreement"],
+            "n": rs_ho[n]["n"],
+        } for n, _ in present},
+        "weighted_avg_clean_holdout": {
+            n: totals[n] / total_n if total_n else None for n, _ in present
+        },
+        "notes": {
+            "knowledge_update_50t": "TRAINING DATA for v4-v7; diagnostic only",
+            "jay_vstash_snapshot": "CONTAMINATED (13/20 in training). Use _decontam",
+            "labels_20pct_subsample": "v7/v8/v9 saw these in training",
+        },
+    }
+    art_path = ENGRAM / "experiments" / "nanogpt" / "eval_v6_to_v9.json"
+    art_path.write_text(json.dumps(art, indent=2))
+    print(f"saved to {art_path}")
 
     return 0
 

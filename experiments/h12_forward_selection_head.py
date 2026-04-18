@@ -258,12 +258,26 @@ def main() -> int:
     print(f"  vs H11 (no interactions):  delta = {cur_ece - h11_ece:+.4f}")
     print(f"  vs H10 (all 5 interactions): delta = {cur_ece - h10_ece:+.4f}")
 
+    # Re-fit on the SAME 80/20 train split and save weights so the
+    # shipped calibration_v7.json matches the reported ECE. Earlier
+    # runs fit on full data and reported split ECE; that's a
+    # credibility bug (PR #18 review C1).
+    final_ece_check, final_intercept, final_coefs = fit_and_eval(
+        rows, current, C=1.0, seed=42
+    )
+    # Defensive check: ECE we just computed must match history last entry.
+    assert abs(final_ece_check - cur_ece) < 1e-9, (
+        f"re-fit ECE {final_ece_check} disagrees with selection-time ECE {cur_ece}"
+    )
+
     out = {
         "h11_ece": h11_ece,
         "h10_ece": h10_ece,
         "history": history,
         "final_features": current,
         "final_ece": cur_ece,
+        "final_intercept": final_intercept,
+        "final_coefficients": final_coefs,
         "kept_interactions": selected,
         # Provenance so future comparisons don't rely on reconstructing.
         "provenance": {

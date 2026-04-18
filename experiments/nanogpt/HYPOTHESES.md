@@ -427,9 +427,9 @@ events: 608 borderline NOISE + 68 organic DEC + 30 markdown NOISE
 + 1026 transcript labels). Same architecture, same max_iters=800,
 same block_size=256.
 
-**Result:** see `experiments/nanogpt/v9_eval.json` (output saved
-inline). v9 BEST val loss 2.60 at step 450 vs v7's 2.35. More
-importantly, on scenarios:
+**Result:** see `experiments/nanogpt/eval_v6_to_v9.json` (emitted
+by `experiments/eval_v7_vs_v6.py`). v9 BEST val loss 2.60 at step
+450 vs v7's 2.35. More importantly, on scenarios:
 
 | scenario | v7 | v9 | delta |
 |----------|---:|---:|------:|

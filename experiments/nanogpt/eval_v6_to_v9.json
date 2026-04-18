@@ -1,0 +1,318 @@
+{
+  "versions_evaluated": [
+    "v6",
+    "v7",
+    "v8",
+    "v9"
+  ],
+  "scenarios": {
+    "markdown_tables_held_out": {
+      "n": 12,
+      "n_dec": 6,
+      "n_noi": 6,
+      "per_version": {
+        "v6": {
+          "agreement": 0.6666666666666666,
+          "dec_recall": 1.0,
+          "noi_recall": 0.3333333333333333,
+          "fpr": 0.6666666666666666
+        },
+        "v7": {
+          "agreement": 1.0,
+          "dec_recall": 1.0,
+          "noi_recall": 1.0,
+          "fpr": 0.0
+        },
+        "v8": {
+          "agreement": 0.5,
+          "dec_recall": 1.0,
+          "noi_recall": 0.0,
+          "fpr": 1.0
+        },
+        "v9": {
+          "agreement": 0.75,
+          "dec_recall": 1.0,
+          "noi_recall": 0.5,
+          "fpr": 0.5
+        }
+      }
+    },
+    "organic_val_held_out": {
+      "n": 7,
+      "n_dec": 7,
+      "n_noi": 0,
+      "per_version": {
+        "v6": {
+          "agreement": 1.0,
+          "dec_recall": 1.0,
+          "noi_recall": 0.0,
+          "fpr": 0.0
+        },
+        "v7": {
+          "agreement": 1.0,
+          "dec_recall": 1.0,
+          "noi_recall": 0.0,
+          "fpr": 0.0
+        },
+        "v8": {
+          "agreement": 1.0,
+          "dec_recall": 1.0,
+          "noi_recall": 0.0,
+          "fpr": 0.0
+        },
+        "v9": {
+          "agreement": 1.0,
+          "dec_recall": 1.0,
+          "noi_recall": 0.0,
+          "fpr": 0.0
+        }
+      }
+    },
+    "jay_vstash_snapshot": {
+      "n": 20,
+      "n_dec": 20,
+      "n_noi": 0,
+      "per_version": {
+        "v6": {
+          "agreement": 1.0,
+          "dec_recall": 1.0,
+          "noi_recall": 0.0,
+          "fpr": 0.0
+        },
+        "v7": {
+          "agreement": 1.0,
+          "dec_recall": 1.0,
+          "noi_recall": 0.0,
+          "fpr": 0.0
+        },
+        "v8": {
+          "agreement": 1.0,
+          "dec_recall": 1.0,
+          "noi_recall": 0.0,
+          "fpr": 0.0
+        },
+        "v9": {
+          "agreement": 1.0,
+          "dec_recall": 1.0,
+          "noi_recall": 0.0,
+          "fpr": 0.0
+        }
+      }
+    },
+    "jay_vstash_snapshot_decontam": {
+      "n": 7,
+      "n_dec": 7,
+      "n_noi": 0,
+      "per_version": {
+        "v6": {
+          "agreement": 1.0,
+          "dec_recall": 1.0,
+          "noi_recall": 0.0,
+          "fpr": 0.0
+        },
+        "v7": {
+          "agreement": 1.0,
+          "dec_recall": 1.0,
+          "noi_recall": 0.0,
+          "fpr": 0.0
+        },
+        "v8": {
+          "agreement": 1.0,
+          "dec_recall": 1.0,
+          "noi_recall": 0.0,
+          "fpr": 0.0
+        },
+        "v9": {
+          "agreement": 1.0,
+          "dec_recall": 1.0,
+          "noi_recall": 0.0,
+          "fpr": 0.0
+        }
+      }
+    },
+    "knowledge_update_50t (TRAINING)": {
+      "n": 1100,
+      "n_dec": 150,
+      "n_noi": 950,
+      "per_version": {
+        "v6": {
+          "agreement": 0.9990909090909091,
+          "dec_recall": 0.9933333333333333,
+          "noi_recall": 1.0,
+          "fpr": 0.0
+        },
+        "v7": {
+          "agreement": 0.9736363636363636,
+          "dec_recall": 0.8066666666666666,
+          "noi_recall": 1.0,
+          "fpr": 0.0
+        },
+        "v8": {
+          "agreement": 0.9918181818181818,
+          "dec_recall": 0.94,
+          "noi_recall": 1.0,
+          "fpr": 0.0
+        },
+        "v9": {
+          "agreement": 0.8745454545454545,
+          "dec_recall": 0.08,
+          "noi_recall": 1.0,
+          "fpr": 0.0
+        }
+      }
+    },
+    "analytics_project": {
+      "n": 12,
+      "n_dec": 12,
+      "n_noi": 0,
+      "per_version": {
+        "v6": {
+          "agreement": 0.6666666666666666,
+          "dec_recall": 0.6666666666666666,
+          "noi_recall": 0.0,
+          "fpr": 0.0
+        },
+        "v7": {
+          "agreement": 0.6666666666666666,
+          "dec_recall": 0.6666666666666666,
+          "noi_recall": 0.0,
+          "fpr": 0.0
+        },
+        "v8": {
+          "agreement": 0.9166666666666666,
+          "dec_recall": 0.9166666666666666,
+          "noi_recall": 0.0,
+          "fpr": 0.0
+        },
+        "v9": {
+          "agreement": 0.0,
+          "dec_recall": 0.0,
+          "noi_recall": 0.0,
+          "fpr": 0.0
+        }
+      }
+    },
+    "session_2026_04_09": {
+      "n": 12,
+      "n_dec": 12,
+      "n_noi": 0,
+      "per_version": {
+        "v6": {
+          "agreement": 0.9166666666666666,
+          "dec_recall": 0.9166666666666666,
+          "noi_recall": 0.0,
+          "fpr": 0.0
+        },
+        "v7": {
+          "agreement": 0.75,
+          "dec_recall": 0.75,
+          "noi_recall": 0.0,
+          "fpr": 0.0
+        },
+        "v8": {
+          "agreement": 1.0,
+          "dec_recall": 1.0,
+          "noi_recall": 0.0,
+          "fpr": 0.0
+        },
+        "v9": {
+          "agreement": 0.25,
+          "dec_recall": 0.25,
+          "noi_recall": 0.0,
+          "fpr": 0.0
+        }
+      }
+    },
+    "bilingual_es_en_2026_04_14": {
+      "n": 12,
+      "n_dec": 12,
+      "n_noi": 0,
+      "per_version": {
+        "v6": {
+          "agreement": 1.0,
+          "dec_recall": 1.0,
+          "noi_recall": 0.0,
+          "fpr": 0.0
+        },
+        "v7": {
+          "agreement": 0.9166666666666666,
+          "dec_recall": 0.9166666666666666,
+          "noi_recall": 0.0,
+          "fpr": 0.0
+        },
+        "v8": {
+          "agreement": 1.0,
+          "dec_recall": 1.0,
+          "noi_recall": 0.0,
+          "fpr": 0.0
+        },
+        "v9": {
+          "agreement": 0.75,
+          "dec_recall": 0.75,
+          "noi_recall": 0.0,
+          "fpr": 0.0
+        }
+      }
+    },
+    "noisy_agent_stream": {
+      "n": 24,
+      "n_dec": 24,
+      "n_noi": 0,
+      "per_version": {
+        "v6": {
+          "agreement": 0.75,
+          "dec_recall": 0.75,
+          "noi_recall": 0.0,
+          "fpr": 0.0
+        },
+        "v7": {
+          "agreement": 0.6666666666666666,
+          "dec_recall": 0.6666666666666666,
+          "noi_recall": 0.0,
+          "fpr": 0.0
+        },
+        "v8": {
+          "agreement": 0.875,
+          "dec_recall": 0.875,
+          "noi_recall": 0.0,
+          "fpr": 0.0
+        },
+        "v9": {
+          "agreement": 0.20833333333333334,
+          "dec_recall": 0.20833333333333334,
+          "noi_recall": 0.0,
+          "fpr": 0.0
+        }
+      }
+    }
+  },
+  "labels_20pct_subsample": {
+    "v6": {
+      "agreement": 0.8975609756097561,
+      "n": 205
+    },
+    "v7": {
+      "agreement": 0.9463414634146341,
+      "n": 205
+    },
+    "v8": {
+      "agreement": 0.775609756097561,
+      "n": 205
+    },
+    "v9": {
+      "agreement": 0.9560975609756097,
+      "n": 205
+    }
+  },
+  "weighted_avg_clean_holdout": {
+    "v6": 0.8255813953488372,
+    "v7": 0.813953488372093,
+    "v8": 0.8837209302325582,
+    "v9": 0.46511627906976744
+  },
+  "notes": {
+    "knowledge_update_50t": "TRAINING DATA for v4-v7; diagnostic only",
+    "jay_vstash_snapshot": "CONTAMINATED (13/20 in training). Use _decontam",
+    "labels_20pct_subsample": "v7/v8/v9 saw these in training"
+  }
+}
