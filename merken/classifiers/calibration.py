@@ -58,20 +58,27 @@ def _sigmoid(z: float) -> float:
 class CalibrationHead:
     """Structure-conditional post-hoc calibrator.
 
-    Weights are intended to be loaded from a JSON produced by
-    ``experiments/h1_calibration_head.py``. The JSON schema looks
+    Weights are intended to be loaded from a JSON produced by the
+    H1 / H10 / H11 calibration sweep scripts. The JSON schema looks
     like::
 
         {
           "head": {
-            "intercept": 1.208,
+            "intercept": 1.05,
             "coefficients": {
-              "logit_P(D)": 0.494,
-              "has_code_fence": -0.037,
+              "logit_P(D)": 0.44,
+              "has_code_fence": 0.20,
+              ...
+              "short_X_numbers": 0.12,        # interaction, optional
+              "ood_X_short": 1.02,            # interaction, optional
               ...
             }
           }
         }
+
+    Interaction weights default to 0.0 when absent so older JSON
+    artifacts (H1 / H11) still load correctly and produce the same
+    numbers as before.
     """
 
     intercept: float
@@ -84,6 +91,12 @@ class CalibrationHead:
     w_short: float = 0.0
     w_long: float = 0.0
     w_ood: float = 0.0
+    # Interaction terms (H10). Default 0 so old JSON artifacts load.
+    w_short_numbers: float = 0.0
+    w_short_file_paths: float = 0.0
+    w_short_inline_code: float = 0.0
+    w_short_markdown_table: float = 0.0
+    w_ood_short: float = 0.0
     # Included so downstream code can tell which experiment produced
     # this head; reliable for logging, unreliable as version control.
     source: str = field(default="unknown")
@@ -105,6 +118,11 @@ class CalibrationHead:
             w_short=float(coefs.get("is_short", 0.0)),
             w_long=float(coefs.get("is_long", 0.0)),
             w_ood=float(coefs.get("is_ood", 0.0)),
+            w_short_numbers=float(coefs.get("short_X_numbers", 0.0)),
+            w_short_file_paths=float(coefs.get("short_X_file_paths", 0.0)),
+            w_short_inline_code=float(coefs.get("short_X_inline_code", 0.0)),
+            w_short_markdown_table=float(coefs.get("short_X_markdown_table", 0.0)),
+            w_ood_short=float(coefs.get("ood_X_short", 0.0)),
             source=source or str(p),
         )
 
@@ -135,5 +153,11 @@ class CalibrationHead:
             + self.w_short * f["is_short"]
             + self.w_long * f["is_long"]
             + self.w_ood * f["is_ood"]
+            # Interaction terms (H10). Defaults are 0 for old heads.
+            + self.w_short_numbers * f["is_short"] * f["has_numbers"]
+            + self.w_short_file_paths * f["is_short"] * f["has_file_paths"]
+            + self.w_short_inline_code * f["is_short"] * f["has_inline_code"]
+            + self.w_short_markdown_table * f["is_short"] * f["has_markdown_table"]
+            + self.w_ood_short * f["is_ood"] * f["is_short"]
         )
         return _sigmoid(z)

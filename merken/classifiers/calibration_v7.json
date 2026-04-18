@@ -1,18 +1,23 @@
 {
-  "source": "h11_regularized_C=10",
-  "ece": 0.0426893274668755,
+  "source": "h10_interaction_C=1",
+  "ece": 0.03543727464886015,
   "head": {
-    "intercept": 1.0911527657917175,
+    "intercept": 1.1835155126406238,
     "coefficients": {
-      "logit_P(D)": 0.4378609745016528,
-      "has_code_fence": 0.1667066062854791,
-      "has_inline_code": 0.8299212122580505,
-      "has_markdown_table": 1.7305783545306859,
-      "has_numbers": 0.6573178392465902,
-      "has_file_paths": -0.12479258205505085,
-      "is_short": -1.8185214979031945,
-      "is_long": 1.5350877843405821,
-      "is_ood": 2.2288271466628324
+      "logit_P(D)": 0.44529443525843077,
+      "has_code_fence": 0.09802715063736114,
+      "has_inline_code": 0.9153755767414963,
+      "has_markdown_table": 0.5450279805937654,
+      "has_numbers": 0.8272612640496102,
+      "has_file_paths": 0.16393431419283788,
+      "is_short": -1.8342035346258716,
+      "is_long": 0.4473917835313526,
+      "is_ood": 1.1776549569335886,
+      "short_X_numbers": -0.2766163687680083,
+      "short_X_file_paths": -0.3335942585991919,
+      "short_X_inline_code": -0.19913338021244928,
+      "short_X_markdown_table": 0.12048615295176258,
+      "ood_X_short": 1.016305277674243
     }
   }
 }

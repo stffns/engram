@@ -95,6 +95,48 @@ def test_from_json_loads_fitted_head(tmp_path: Path):
     assert math.isclose(head.w_ood, 3.0)
 
 
+def test_from_json_loads_interaction_weights():
+    """H10 interaction weights should deserialize via from_json."""
+    import tempfile
+    payload = {
+        "head": {
+            "intercept": 0.5,
+            "coefficients": {
+                "logit_P(D)": 1.0,
+                "is_short": -1.5,
+                "has_numbers": 0.5,
+                "short_X_numbers": 0.8,   # interaction
+                "ood_X_short": 1.2,       # interaction
+            },
+        }
+    }
+    with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as f:
+        json.dump(payload, f)
+        p = Path(f.name)
+    head = CalibrationHead.from_json(p)
+    assert math.isclose(head.w_short_numbers, 0.8)
+    assert math.isclose(head.w_ood_short, 1.2)
+
+
+def test_interaction_term_affects_calibration():
+    """Setting short_X_numbers=+1 boosts calibrated P(D) for short+numbers."""
+    head_no_interact = CalibrationHead(
+        intercept=0.0, w_logit=1.0, w_short=-2.0, w_numbers=0.5,
+    )
+    head_with_interact = CalibrationHead(
+        intercept=0.0, w_logit=1.0, w_short=-2.0, w_numbers=0.5,
+        w_short_numbers=1.5,
+    )
+    # Short text with numbers -- interaction should cancel some of w_short.
+    text = "Fix bug 42 in line 17 of main.py."  # short, has_numbers
+    p_no = head_no_interact.calibrate(0.7, text)
+    p_yes = head_with_interact.calibrate(0.7, text)
+    assert p_yes > p_no, (
+        f"expected short+numbers interaction to boost P_cal, "
+        f"got no_interact={p_no:.3f} vs with_interact={p_yes:.3f}"
+    )
+
+
 def test_from_json_loads_canonical_shipped_params():
     """The shipped calibration_v7.json should deserialize cleanly.
 

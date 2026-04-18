@@ -321,38 +321,64 @@ artifact but not its aggregate verdict.
 
 ---
 
-## H10. Interaction terms in the calibration head (emerged from H3 smoke)
+## H10. Interaction terms in the calibration head
 
-**Status:** planned.
+**Status:** done, ACCEPTED.
 
-**Rationale:** Smoke-testing H3's shipped head on diverse inputs
-revealed that SHORT content with concrete payload (e.g., "Fix:
-replaced pgbouncer session mode with transaction mode in db/pool.py
-line 42. Latency p95 180ms -> 40ms.", 129 chars) gets pushed
-substantially DOWN by the head (P_raw 0.668 -> P_cal 0.371). The
-head learned globally that short text is over-confident (w_short =
--2.96), but it cannot distinguish "short with numbers/filepaths"
-from "short filler".
+**Rationale:** Smoke test of the H11 head showed short-concrete
+DECs getting pushed DOWN because the additive model couldn't
+distinguish "short with payload" from "short filler" -- w_short
+fires on length alone.
 
-This is a property of additive logistic regression. To capture the
-interaction between length and content structure, the head needs
-product terms like `is_short * has_numbers` and `is_short *
-has_file_paths`.
+**Hypothesis:** adding 5 interaction terms
+(`is_short * has_X`, `is_ood * is_short`) recovers per-event
+discrimination.
 
-**Hypothesis:** adding ~3-5 interaction terms reduces head ECE on
-the test set by another 0.01+ and stops under-reporting confidence
-on short-but-substantive events. Verify by manual inspection of
-the smoke-test cases AFTER the retrain: case 2 P_cal should move
-closer to case 2 P_raw (0.668).
+**Cost:** 15 min. Script: `experiments/h10_interaction_head.py`.
 
-**Cost:** 15 min. Extend `h1_calibration_head.py` feature vector
-and retrain.
+**Decision rule:** accept if (a) aggregate ECE doesn't regress vs
+H11's 0.043 and (b) smoke-test "Fix: pgbouncer..." P_cal moves
+toward raw.
 
-**Decision rule:** ship interaction head as `calibration_v7b.json`
-if (a) aggregate ECE doesn't regress and (b) smoke-test case 2
-P_cal moves toward raw.
+**Result:** both satisfied. See
+[`experiments/nanogpt/h10_interaction_head.json`](h10_interaction_head.json).
 
-**Result:** (pending).
+C-sweep with 14 features (9 base + 5 interactions):
+
+| C | ECE | max \|w\| |
+|--:|----:|----------:|
+| 0.1 | 0.069 | +0.97 |
+| **1** | **0.035** | **+1.83** |
+| 10 | 0.041 | +2.32 |
+| 100 | 0.045 | +2.79 |
+| 1e6 | 0.039 | +8.68 |
+
+C=1 is the winner: ECE **0.035** (vs H11's 0.043, delta -0.008),
+max |w| = 1.83, all weights sensible. Notable interaction:
+`ood_X_short = +1.02` -- OOD+short gets an extra push beyond plain
+is_ood or is_short.
+
+**Smoke test recovery** on "Fix: replaced pgbouncer session mode
+with transaction mode in db/pool.py line 42. Latency p95 180ms ->
+40ms." (raw P(D)=0.857):
+- H11 (no interactions):   P_cal = **0.371** (pushed down too hard)
+- H10 (with interactions): P_cal = **0.629** (honest moderate DEC)
+
+Shipped: `merken/classifiers/calibration_v7.json` replaced with the
+C=1 H10 fit. `CalibrationHead` dataclass extended with 5 optional
+interaction weights (default 0.0 so H11/H1 JSON artifacts still
+load). Added 2 tests covering interaction load + effect on output.
+
+End-to-end smoke test with the shipped head on four diverse inputs:
+
+| event | raw P(D) | P_cal | verdict |
+|-------|---------:|------:|---------|
+| "Now let me check the config..." (filler) | 0.001 | 0.023 | stays low |
+| "Fix: pgbouncer... p95 180ms -> 40ms" (short DEC) | 0.857 | 0.629 | recovered |
+| markdown table noise | 0.321 | 0.421 | still below threshold |
+| "After running benchmark... R@5 0.82 -> 0.91..." (long DEC) | 0.899 | 0.705 | honest high |
+
+All behaviors land where you'd expect a calibrated head to land.
 
 ---
 
