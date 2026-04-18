@@ -18,7 +18,29 @@ session aligned with the state of the repo.
 4. [`notes/silt.md`](notes/silt.md) — working notes on the patterns
    Silt caught that became hard rules.
 
-## Current state (as of 2026-04-09)
+## Current state (as of 2026-04-17)
+
+**Write-filter classifier status:** nanoGPT **v7** is the graduated
+shadow baseline. First version to clear the markdown-tables blind
+spot (FPR 66.7% v6 -> 0% v7) while keeping 100% recall on
+organic_val and jay_vstash. 3/5 graduation criteria pass cleanly,
+1 borderline (94.6% oracle agreement on 205-item subsample), 1 N/A.
+`MERKEN_PRIMARY` flip still deferred; v7 runs as
+`MERKEN_SHADOW=nanogpt`. Full version history and open-frontier
+spec (v9 / v10) in `experiments/nanogpt/RESULTS.md`.
+
+**Training-data pipeline:** 1026 real oracled labels in
+`data/merken_labels_v7.jsonl` (gitignored), produced by the
+bootstrap scripts under `experiments/` (PR #12). Pipeline is
+idempotent -- re-runs are safe.
+
+**Hook bug fixed (2026-04-17):** `~/.claude/hooks/merken-save.sh`
+used to run `json.load` on JSONL transcripts and silently swallow
+the exception. Result: zero shadow events accumulated. Fixed to
+parse JSONL per-line + extract `message.content[].text`. Future
+accumulation is now passive.
+
+## Decision primitives (as of 2026-04-09)
 
 All four decision primitives from CONSTITUTION §5.1 are implemented:
 

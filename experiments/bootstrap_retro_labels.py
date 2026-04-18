@@ -1,3 +1,4 @@
+# ruff: noqa: I001, E402
 """Bootstrap ``merken_labels`` retroactively from historical audit rows.
 
 Graduation criterion #4 (>=200 oracular labels with >=95% agreement) is

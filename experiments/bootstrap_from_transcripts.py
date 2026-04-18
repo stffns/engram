@@ -1,3 +1,4 @@
+# ruff: noqa: I001, E402
 """Bootstrap ``merken_labels`` from Claude Code transcripts (offline replay).
 
 The live PreCompact hook was silently broken for months: it ran

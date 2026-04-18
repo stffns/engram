@@ -114,7 +114,9 @@ def run_model(client, model: str, items) -> tuple[list[str], float]:
     preds: list[str] = []
     t0 = time.time()
     for _, text in items:
-        prompt = STRICT_PROMPT.format(text=text[:3000])
+        # .replace (not .format) so `{` / `}` in raw text
+        # don't trigger KeyError.
+        prompt = STRICT_PROMPT.replace("{text}", text[:3000])
         try:
             resp = client.models.generate_content(
                 model=model, contents=prompt
