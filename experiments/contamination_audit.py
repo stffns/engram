@@ -27,6 +27,7 @@ be derived.
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 
@@ -47,7 +48,11 @@ SCENARIOS = {
 }
 
 TRAINING_SOURCES = {
-    "organic_train": Path("/tmp/organic_train.json"),
+    # organic_train location mirrors nanoGPT/data/merken_bpe_v7/prepare.py
+    # (hardcoded to /tmp/organic_train.json there). Override via env.
+    "organic_train": Path(
+        os.environ.get("MERKEN_ORGANIC_TRAIN_JSON", "/tmp/organic_train.json")
+    ),
     "markdown_noise_v6": REPO / "experiments/data/markdown_noise_v6.json",
     "borderline_noise": REPO / "merken" / "borderline_noise.json",  # may not exist
     # v7 training scenarios are themselves both training and benchmark:
@@ -63,7 +68,7 @@ def load_scenario_texts(path: Path) -> list[str]:
     """Return stripped event texts from a scenario JSON."""
     if not path.exists():
         return []
-    data = json.loads(path.read_text())
+    data = json.loads(path.read_text(encoding="utf-8"))
     return [e.get("text", "").strip() for e in data.get("events", []) if e.get("text")]
 
 
@@ -73,16 +78,16 @@ def load_training_texts(name: str, path: Path) -> set[str]:
         return set()
     if name == "organic_train" or name == "markdown_noise_v6" or name == "borderline_noise":
         try:
-            rows = json.loads(path.read_text())
+            rows = json.loads(path.read_text(encoding="utf-8"))
         except Exception:
             return set()
         return {r.get("text", "").strip() for r in rows if r.get("text")}
     if name.startswith("knowledge_update"):
-        data = json.loads(path.read_text())
+        data = json.loads(path.read_text(encoding="utf-8"))
         return {e.get("text", "").strip() for e in data.get("events", []) if e.get("text")}
     if name == "merken_labels_v7_jsonl":
         out = set()
-        with path.open() as f:
+        with path.open(encoding="utf-8") as f:
             for line in f:
                 try:
                     r = json.loads(line)
@@ -152,20 +157,38 @@ def main() -> int:
         if info["overlap"] == 0:
             continue
         source_path = SCENARIOS[name]
-        data = json.loads(source_path.read_text())
+        data = json.loads(source_path.read_text(encoding="utf-8"))
         events = data.get("events", [])
         clean_events = [events[i] for i in info["clean_idx"]]
-        # Write to a new filename so original scenario stays untouched
+        # Write to a new filename so original scenario stays untouched.
+        # Also bump the `name` field so the loop_quality runner doesn't
+        # collide with the original's SQLite DB path.
         out_path = source_path.parent / f"{source_path.stem}_decontam.json"
-        out_data = {**data, "events": clean_events}
-        out_path.write_text(json.dumps(out_data, indent=2))
+        out_data = {
+            **data,
+            "name": f"{data.get('name', source_path.stem)}_decontam",
+            "description": (
+                f"DECONTAMINATED subset of {data.get('name', source_path.stem)}. "
+                f"Original had {len(events)} events; "
+                f"{len(events) - len(clean_events)} of them were also in a "
+                f"training source loaded by prepare.py. "
+                f"Kept {len(clean_events)} non-contaminated events for honest "
+                f"held-out evaluation. Derived by "
+                f"experiments/contamination_audit.py."
+            ),
+            "events": clean_events,
+        }
+        out_path.write_text(
+            json.dumps(out_data, indent=2, ensure_ascii=False),
+            encoding="utf-8",
+        )
         print(f"  {name}: wrote {out_path.name} "
               f"({len(clean_events)}/{len(events)} events kept)")
 
     # Save audit report
     out = REPO / "experiments" / "nanogpt" / "contamination_audit.json"
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(json.dumps(audit, indent=2))
+    out.write_text(json.dumps(audit, indent=2, ensure_ascii=False), encoding="utf-8")
     print(f"\nfull audit saved to {out}")
     return 0
 

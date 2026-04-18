@@ -265,6 +265,26 @@ def main() -> int:
         "final_features": current,
         "final_ece": cur_ece,
         "kept_interactions": selected,
+        # Provenance so future comparisons don't rely on reconstructing.
+        "provenance": {
+            "split_seed": 42,
+            "C": 1.0,
+            "n_bins": 10,
+            "min_improvement_threshold": MIN_IMPROVEMENT,
+            "sklearn_max_iter": 5000,
+            "stratified_80_20_split": True,
+            "base_feature_count": len(BASE_FEATURES),
+            "interaction_pool": INTERACTIONS,
+        },
+        "caveat": (
+            "Single-seed 80/20 split on ~980 events; ECE at this sample "
+            "size has non-trivial variance (~0.005 typical swing across "
+            "seeds). The qualitative story -- ood_X_short + "
+            "short_X_inline_code are the load-bearing interactions -- is "
+            "robust across the leave-one-out ablation (h10_interaction_"
+            "ablation.json). A multi-seed / k-fold version would tighten "
+            "the exact ECE number and is a reasonable follow-up."
+        ),
     }
     out_path = REPO / "experiments" / "nanogpt" / "h12_forward_selection.json"
     out_path.write_text(json.dumps(out, indent=2))

@@ -23,12 +23,15 @@ dig for them:
   Gemini on 15/20 DECISIONs (75%) -- the oracle itself has a
   non-trivial error rate. Every "accuracy" number below is
   accuracy-against-Gemini-in-this-prompt, not accuracy-vs-truth.
-- **One held-out scenario partially contaminated** (since fixed).
+- **One held-out scenario partially contaminated.** Original
   `jay_vstash_2026_04_09_snapshot` had 13/20 events also in
   `/tmp/organic_train.json` (v7 training). A decontaminated
-  scenario with 7/20 events was written; v6 and v7 both score 7/7
-  there (small n; genuine generalization, not memorization). See
-  section 3.3.
+  sibling file with 7/20 events was derived by
+  `experiments/contamination_audit.py`; v6 and v7 both score 7/7
+  there (small n; generalization rather than memorization).
+  `eval_v7_vs_v6.py` still points at the ORIGINAL file so its
+  score matches the historical record; the decontam variant is an
+  opt-in alternative held-out. See section 3.3.
 - **Four "held-out" scenarios are actually training data.** The
   `knowledge_update*` scenarios loaded by `prepare.py` are both
   training corpus and (incorrectly) used as "held-out" in
