@@ -208,6 +208,7 @@ class MerkenAdapter(Adapter):
         do_consolidate: bool = False,
         do_forget: bool = False,
         write_decider=None,
+        turn_filter=None,
     ) -> None:
         self.name = name
         self._do_consolidate = do_consolidate
@@ -222,7 +223,14 @@ class MerkenAdapter(Adapter):
             write_decider=write_decider or AlwaysWrite(),
             forget_decider=forget_decider,
         )
+        # Optional per-turn filter applied by run_conversation before
+        # session text is built. H17 probes whether v7 at turn
+        # granularity recovers temporal accuracy lost at session
+        # granularity (H16). Signature: (text: str) -> bool (True = keep).
+        self.turn_filter = turn_filter
         self._count = 0
+        self._turns_kept = 0
+        self._turns_total = 0
 
     def ingest_session(self, text: str, *, title: str) -> bool:
         result = self._m.remember(text, title=title)
@@ -292,6 +300,25 @@ def _v7_chained_decider(*, with_calibrator: bool):
     return ChainedWriteDecider(HeuristicWriteDecider(), classifier)
 
 
+def _v7_turn_filter(*, with_calibrator: bool):
+    """Build a per-turn v7 filter callable for H17 turn-granularity probe.
+
+    The v7 model was trained on per-event labels; H16 showed it loses
+    ~8pp on LoCoMo temporal when applied at session granularity. H17
+    puts the filter back on its native unit: each turn is scored
+    individually; only v7-approved turns are concatenated into the
+    session text before ingest.
+    """
+    decider = _v7_chained_decider(with_calibrator=with_calibrator)
+    from merken.policies.types import Event, WriteContext
+    ctx = WriteContext(project="locomo_turn")
+
+    def _filter(text: str) -> bool:
+        return decider.decide(Event(text=text), ctx).write
+
+    return _filter
+
+
 CONFIGS = {
     "vstash-raw": lambda proj, db: VstashAdapter(proj, db),
     "merken-recall": lambda proj, db: MerkenAdapter(
@@ -314,6 +341,14 @@ CONFIGS = {
     "merken-v7-cal": lambda proj, db: MerkenAdapter(
         "merken-v7-cal", proj, db,
         write_decider=_v7_chained_decider(with_calibrator=True),
+    ),
+    # H17: apply v7 at turn granularity (its training unit) rather
+    # than session granularity. Session text is built from the
+    # surviving turns only; write_decider stays AlwaysWrite so the
+    # filter is not applied a second time at session level.
+    "merken-v7-turnfilter": lambda proj, db: MerkenAdapter(
+        "merken-v7-turnfilter", proj, db,
+        turn_filter=_v7_turn_filter(with_calibrator=False),
     ),
 }
 
@@ -478,8 +513,20 @@ def run_conversation(
     # 1. Ingest sessions as whole documents
     t0 = time.perf_counter()
     ingested = 0
+    turn_filter = getattr(adapter, "turn_filter", None)
     for session in conv.sessions:
-        lines = [f"{turn.speaker}: {turn.text}" for turn in session.turns]
+        turns = session.turns
+        if turn_filter is not None:
+            kept = [t for t in turns if turn_filter(t.text)]
+            # Track keep rate so the runner can report the filter's
+            # turn-level selectivity even when the session ingest
+            # succeeds as a whole.
+            adapter._turns_total += len(turns)
+            adapter._turns_kept += len(kept)
+            turns = kept
+            if not turns:
+                continue
+        lines = [f"{turn.speaker}: {turn.text}" for turn in turns]
         session_text = f"[{session.date_time}]\n" + "\n".join(lines)
         title = f"{conv.speaker_a} & {conv.speaker_b} - Session {session.index} ({session.date_time})"
         if adapter.ingest_session(session_text, title=title):

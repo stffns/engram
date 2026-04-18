@@ -612,6 +612,112 @@ training or create brand-new held-out variants with disjoint topics.
 
 ---
 
+## H17. Does turn-granularity filtering recover what H16 lost?
+
+**Status:** done, REJECTED (turn-level is WORSE than session-level).
+
+**Rationale:** H16 showed v7 at session granularity loses ~8pp on
+temporal. Working theory: unit mismatch. v7 was trained on
+per-event labels (one assistant message = one decision); sessions
+are 30-80 turns long. H17 applies v7 at turn granularity (its
+training unit), keeping only v7-approved turns, then concatenating
+them back into the session text for ingest. Retrieval unit stays
+at session -- only the filter unit changes.
+
+**Hypothesis:** turn-level filtering recovers temporal accuracy
+lost at session level (target: within 3pp of merken-recall).
+
+**Setup:** same LoCoMo config as H16 -- categories 2+5, top-k=10,
+`gemini-2.5-flash`, 3 convs (conv-26, conv-30, conv-41), n=202 QA
+per config. Three configs run in one process (same judge session)
+for cleaner A/B:
+- `vstash-raw` (control, no filter)
+- `merken-v7` (H16 session-level filter)
+- `merken-v7-turnfilter` (H17 turn-level filter)
+
+**Result:** see
+[`experiments/retrieval/locomo/results_h17.json`](../retrieval/locomo/results_h17.json).
+
+| config | temporal | adversarial | overall | CI (overall) |
+|--------|---------:|------------:|--------:|:-------------|
+| vstash-raw | 62.2% (56/90) | 6.2% (7/112) | 31.2% | [25.2, 37.6] |
+| merken-v7 | 54.4% (49/90) | 4.5% (5/112) | 26.7% | [20.3, 33.2] |
+| merken-v7-turnfilter | **45.6%** (41/90) | 3.6% (4/112) | **22.3%** | [16.8, 28.2] |
+
+**v7 turn-keep rates** (probed on all turns, not just ingested):
+
+| conv | turns kept | % |
+|------|-----------:|--:|
+| conv-26 | 263/419 | 62.8% |
+| conv-30 | 183/369 | 49.6% |
+| conv-41 | 435/663 | 65.6% |
+
+**Findings:**
+
+1. **Turn-level filtering LOSES another 9pp on temporal vs
+   session-level** (54.4% -> 45.6%). Both are worse than no filter
+   (62.2%). The unit-mismatch theory was backwards.
+
+2. **v7 drops 35-50% of LoCoMo turns.** Short dialogue turns
+   ("Did you see X?" / "Yeah, at 3pm") look like noise to a model
+   trained on longer assistant-message events with payload. Many
+   of those turns carry the one temporal fact a QA asks about;
+   dropping them kills retrieval precisely on temporal questions.
+
+3. **Session-level filter was less bad** because when it skipped a
+   session it dropped 100% of that session's content, but when it
+   kept one it kept everything. Turn-level fragments destroy the
+   temporal context inside sessions v7 would otherwise keep.
+
+4. **Calibrator was not re-run at turn level.** H16 established
+   calibrator is a no-op on retrieval; no reason to expect it to
+   move turn-filter numbers.
+
+**Interpretation:**
+
+The unit-mismatch story holds, but the direction is opposite to
+the hypothesis. v7's training unit ("assistant message with
+payload") is LARGER than a dialogue turn, not smaller. Matching
+v7 to turns feeds it text that is uniformly under its training
+distribution's length/payload norm, so it rejects at 35-50%
+regardless of semantic value. The filter has no way to know
+"this short turn is the temporal evidence someone will ask about
+in 20 sessions."
+
+**Decision rule:** v7 should NOT be applied as a generic
+session-or-turn filter for long-conversation retrieval. Its
+production home is where the input unit matches its training
+unit: per-assistant-message write decisions in chat-assistant
+contexts (where merken actually uses it).
+
+**What this closes and what it doesn't:**
+
+Closes:
+- Both session-level (H16) and turn-level (H17) application of v7
+  on LoCoMo-style conversational memory. Neither helps retrieval.
+
+Does not close:
+- Whether a v7-like filter *trained on dialogue turns* (H17b)
+  would do better. Different training distribution; plausible but
+  out of scope for this repo's scenario set.
+- Whether a different merken primitive (consolidation, not
+  filtering) would help retrieval on LoCoMo. Prior experiments in
+  `experiments/consolidation/` already showed brief_v1 wins big
+  (+46pp at 50 topics). Retrieval improvements come from
+  consolidation, not filter tightening.
+
+Paper section 5 Limitations now has a concrete, closed story: v7
+filter is a per-event write decider; when misapplied to
+long-conversation retrieval as a session or turn filter, it
+degrades accuracy. Not a capacity issue (see H8 discussion); a
+training-distribution / input-unit issue.
+
+Script: `experiments/retrieval/locomo/runner.py` (MerkenAdapter
+`turn_filter` hook + `merken-v7-turnfilter` config +
+`_v7_turn_filter` helper).
+
+---
+
 ## H16. Does the v7 filter change retrieval accuracy on LoCoMo?
 
 **Status:** done, REJECTED (filter HURTS temporal retrieval at this n).
