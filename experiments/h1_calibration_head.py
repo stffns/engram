@@ -49,13 +49,23 @@ from merken.policies.types import Event, WriteContext
 
 REPO = Path(__file__).resolve().parent.parent
 
-# Label files annotated with domain flag.
-SOURCES = [
-    (REPO / "data" / "merken_labels_v7.jsonl", 0),  # in-dist Jay
-    (REPO / "data" / "merken_labels_agree_write.jsonl", 0),
-    (REPO / "data" / "merken_labels_ldjnr_capybara.jsonl", 1),  # OOD
+# Clean label sources. NOTE: merken_labels_v7.jsonl is deliberately
+# EXCLUDED by default because those 1026 shadow_skip texts were part
+# of v7's training data (see nanoGPT/data/merken_bpe_v7/prepare.py
+# `DECISION:transcript:v1` class). Fitting the calibration head on
+# training data would measure memorization, not generalization, and
+# the reported ECE gain would be inflated.
+SOURCES_CLEAN = [
+    (REPO / "data" / "merken_labels_agree_write.jsonl", 0),  # in-dist Jay, NOT in v7 train
+    (REPO / "data" / "merken_labels_ldjnr_capybara.jsonl", 1),  # OOD public
     (REPO / "data" / "merken_labels_slimorca.jsonl", 1),
 ]
+
+# Opt-in via --include-contaminated-skip to reproduce the original
+# (flawed) run for historical comparison.
+SOURCES_WITH_CONTAM = [
+    (REPO / "data" / "merken_labels_v7.jsonl", 0),
+] + SOURCES_CLEAN
 
 EPS = 1e-6
 
@@ -95,11 +105,11 @@ def featurize(text: str) -> list[int]:
     ]
 
 
-def collect(decider: NanoGPTWriteDecider):
+def collect(decider: NanoGPTWriteDecider, sources):
     """Return list of (X_row, y) plus text+tag info for diagnostics."""
     ctx = WriteContext(project="h1")
     rows = []
-    for path, is_ood in SOURCES:
+    for path, is_ood in sources:
         if not path.exists():
             continue
         with path.open(encoding="utf-8") as f:
@@ -150,6 +160,16 @@ def ece_signed(pairs, n_bins=10):
 
 
 def main() -> int:
+    import argparse
+    ap = argparse.ArgumentParser()
+    ap.add_argument(
+        "--include-contaminated-skip",
+        action="store_true",
+        help="Include merken_labels_v7.jsonl (v7 training data). Default"
+        " excludes these so the head is fit on clean held-out events.",
+    )
+    args = ap.parse_args()
+
     ckpt = os.environ.get("MERKEN_SHADOW_NANOGPT_CKPT")
     meta = os.environ.get("MERKEN_SHADOW_NANOGPT_META")
     if not ckpt or not meta:
@@ -157,7 +177,10 @@ def main() -> int:
     print(f"loading v7 from {ckpt}")
     v7 = NanoGPTWriteDecider(ckpt, meta)
 
-    rows = collect(v7)
+    sources = SOURCES_WITH_CONTAM if args.include_contaminated_skip else SOURCES_CLEAN
+    label = "WITH CONTAMINATED skip-set" if args.include_contaminated_skip else "CLEAN only"
+    print(f"sources: {label}")
+    rows = collect(v7, sources)
     print(f"total: {len(rows)} labeled rows")
 
     # Stratified 80/20 split on y (class-balance).

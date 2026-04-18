@@ -155,19 +155,36 @@ def ece_signed(pairs, n_bins=10):
 
 
 def spearman(x: list[float], y: list[float]) -> float:
-    """Rank-based correlation without scipy (N is small)."""
+    """Rank-based correlation with proper tie handling (fractional ranks).
+
+    Ties get the average of the ranks they'd receive if broken
+    arbitrarily. This is the standard Spearman behavior used by
+    scipy.stats.spearmanr. Without it, our small N was letting
+    tied values silently skew the correlation.
+    """
     assert len(x) == len(y)
     n = len(x)
     if n < 2:
         return 0.0
-    def ranks(vals):
-        order = sorted(range(n), key=lambda i: vals[i])
+
+    def average_ranks(vals):
+        """Return ranks with ties broken by averaging."""
+        indexed = sorted(range(n), key=lambda i: vals[i])
         r = [0.0] * n
-        for rank_pos, idx in enumerate(order):
-            r[idx] = rank_pos + 1
+        i = 0
+        while i < n:
+            j = i
+            while j + 1 < n and vals[indexed[j + 1]] == vals[indexed[i]]:
+                j += 1
+            # indices i..j inclusive are tied; they share average rank
+            avg_rank = (i + j) / 2 + 1  # 1-indexed
+            for k in range(i, j + 1):
+                r[indexed[k]] = avg_rank
+            i = j + 1
         return r
-    rx = ranks(x)
-    ry = ranks(y)
+
+    rx = average_ranks(x)
+    ry = average_ranks(y)
     mean_rx = sum(rx) / n
     mean_ry = sum(ry) / n
     num = sum((rx[i] - mean_rx) * (ry[i] - mean_ry) for i in range(n))
@@ -233,14 +250,39 @@ def main() -> int:
         print(f"{cat:<22} " + "  ".join(cells))
 
     print()
-    print("Spearman rank correlation of ECE ordering vs Jay (excl 'all'):")
-    jay_vals = [per_dataset_ece["jay_1520"].get(c, 0.0) for c in rankable]
+    print("Spearman rank correlation of ECE ordering vs Jay:")
+    print("  (intersection of categories, min_n=5 per dataset to avoid "
+          "rank noise from n=1 bins)")
+    MIN_N = 5
+    jay_cats = {
+        c for c in rankable
+        if per_dataset_ece["jay_1520"].get(c) is not None
+        and per_dataset_n["jay_1520"].get(c, 0) >= MIN_N
+    }
+    spearman_out: dict[str, dict] = {}
     for ds in per_dataset_ece:
         if ds == "jay_1520":
             continue
-        ds_vals = [per_dataset_ece[ds].get(c, 0.0) for c in rankable]
+        ds_cats = {
+            c for c in rankable
+            if per_dataset_ece[ds].get(c) is not None
+            and per_dataset_n[ds].get(c, 0) >= MIN_N
+        }
+        shared = sorted(jay_cats & ds_cats)
+        if len(shared) < 2:
+            print(f"  jay_1520 vs {ds:<14}  rho = N/A ({len(shared)} shared bins, need >=2)")
+            spearman_out[ds] = {"rho": None, "shared_categories": shared}
+            continue
+        jay_vals = [per_dataset_ece["jay_1520"][c] for c in shared]
+        ds_vals = [per_dataset_ece[ds][c] for c in shared]
         rho = spearman(jay_vals, ds_vals)
-        print(f"  jay_1520 vs {ds:<14}  rho = {rho:+.3f}")
+        print(f"  jay_1520 vs {ds:<14}  rho = {rho:+.3f}  over {len(shared)} bins: {shared}")
+        spearman_out[ds] = {
+            "rho": rho,
+            "shared_categories": shared,
+            "jay_ece": jay_vals,
+            "ds_ece": ds_vals,
+        }
 
     # Save
     out = {
@@ -252,13 +294,12 @@ def main() -> int:
                     "n": per_dataset_n[ds].get(cat),
                 }
                 for cat in CATEGORIES
+                if per_dataset_ece[ds].get(cat) is not None
             }
             for ds in per_dataset_ece
         },
-        "spearman_vs_jay": {
-            ds: spearman(jay_vals, [per_dataset_ece[ds].get(c, 0.0) for c in rankable])
-            for ds in per_dataset_ece if ds != "jay_1520"
-        },
+        "spearman_vs_jay": spearman_out,
+        "min_n_per_bin": MIN_N,
     }
     out_path = REPO / "experiments" / "nanogpt" / "h5_transferability.json"
     out_path.write_text(json.dumps(out, indent=2))
