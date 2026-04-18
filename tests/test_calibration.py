@@ -100,6 +100,43 @@ def test_decider_without_calibrator_emits_baseline_reason():
     assert math.isclose(d.confidence, 0.72)
 
 
+def test_resolve_calibrator_from_env_default(monkeypatch):
+    """`_resolve_calibrator` returns the shipped head when env=default."""
+    from merken._shadow import _resolve_calibrator
+
+    monkeypatch.setenv("MERKEN_SHADOW_NANOGPT_CALIBRATOR", "default")
+    head = _resolve_calibrator("SHADOW")
+    assert head is not None
+    assert head.source == "SHADOW_env"
+    # Shipped head has a positive logit weight by construction.
+    assert head.w_logit > 0
+
+
+def test_resolve_calibrator_from_env_unset_returns_none(monkeypatch):
+    from merken._shadow import _resolve_calibrator
+
+    monkeypatch.delenv("MERKEN_SHADOW_NANOGPT_CALIBRATOR", raising=False)
+    assert _resolve_calibrator("SHADOW") is None
+
+
+def test_resolve_calibrator_from_env_explicit_path(tmp_path, monkeypatch):
+    from merken._shadow import _resolve_calibrator
+
+    payload = {
+        "head": {
+            "intercept": 0.1,
+            "coefficients": {"logit_P(D)": 0.9},
+        }
+    }
+    p = tmp_path / "custom_head.json"
+    p.write_text(json.dumps(payload))
+    monkeypatch.setenv("MERKEN_SHADOW_NANOGPT_CALIBRATOR", str(p))
+    head = _resolve_calibrator("SHADOW")
+    assert head is not None
+    assert math.isclose(head.intercept, 0.1)
+    assert math.isclose(head.w_logit, 0.9)
+
+
 def test_from_json_rejects_non_finite_weights(tmp_path: Path):
     payload = {
         "head": {

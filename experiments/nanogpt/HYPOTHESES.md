@@ -129,10 +129,28 @@ and `confidence` field surface the calibrated value.
 - Markdown noise table: raw 0.397 -> cal 0.392. Markdown and short
   cancel; head leaves it roughly where v7 already was.
 
-**Decision taken:** ship as opt-in (`Memory` does not auto-wrap
-yet). Consumers that want it do
-`NanoGPTWriteDecider(..., calibrator=CalibrationHead.from_json(...))`.
-The smoke finding opens H10 (interaction terms).
+**Decision taken:** ship as opt-in. Two ways to enable:
+
+1. Programmatic:
+   ```python
+   head = CalibrationHead.from_json(
+       "merken/classifiers/calibration_v7.json"
+   )
+   decider = NanoGPTWriteDecider(ckpt, meta, calibrator=head)
+   ```
+2. Env-var driven, works with `Memory` without code changes:
+   ```bash
+   export MERKEN_SHADOW=nanogpt
+   export MERKEN_SHADOW_NANOGPT_CKPT=.../ckpt.pt
+   export MERKEN_SHADOW_NANOGPT_META=.../meta.pkl
+   export MERKEN_SHADOW_NANOGPT_CALIBRATOR=default
+   ```
+   Shadow-mode deciders built via `_build_classifier` pick up the
+   calibrator automatically. `default` -> shipped v7 head; any other
+   value -> filesystem path. Unset -> no calibration.
+
+The smoke finding on short-concrete DECs pushed down by the head
+opened H10 (interaction terms), shipped in the same PR.
 
 ---
 

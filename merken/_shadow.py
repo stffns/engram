@@ -31,6 +31,15 @@ Supported backends (shared between SHADOW and PRIMARY):
 - ``nanogpt``
     + ``MERKEN_<role>_NANOGPT_CKPT=/path/to/ckpt.pt``
     + ``MERKEN_<role>_NANOGPT_META=/path/to/meta.pkl``
+    + ``MERKEN_<role>_NANOGPT_CALIBRATOR=default`` (optional)
+      Wraps the decider with a post-hoc CalibrationHead so
+      ``Decision.reason`` includes ``P_cal=x.xxx`` and
+      ``Decision.confidence`` reports the calibrated value. Does NOT
+      change pass/fail -- threshold stays on raw P(D). Accepts:
+        * ``default`` -> use shipped
+          ``merken/classifiers/calibration_v7.json``.
+        * any filesystem path -> load that JSON instead.
+        * unset -> no calibration (raw P(D) shown).
 - ``llm``
     + ``MERKEN_<role>_LLM_MODEL=google/gemma-3-270m-it``
     + ``MERKEN_<role>_LLM_DEVICE=cpu`` (optional, default ``cpu``)
@@ -65,6 +74,33 @@ if (
     import torch  # noqa: F401
 
 
+def _resolve_calibrator(role: str):
+    """Return a CalibrationHead or None based on env.
+
+    ``MERKEN_<role>_NANOGPT_CALIBRATOR`` values:
+      - unset / empty -> None (no calibration)
+      - ``default`` (or ``shipped``) -> use
+        ``merken/classifiers/calibration_v7.json``
+      - any other value -> treat as a filesystem path to a JSON head
+
+    Errors loading the JSON raise; they are NOT silently swallowed.
+    We prefer a loud failure so a typoed path never silently
+    degrades into "no calibration".
+    """
+    raw = (os.environ.get(f"MERKEN_{role}_NANOGPT_CALIBRATOR") or "").strip()
+    if not raw:
+        return None
+    from merken.classifiers.calibration import CalibrationHead
+
+    if raw.lower() in ("default", "shipped"):
+        from pathlib import Path
+        path = Path(__file__).resolve().parent / "classifiers" / "calibration_v7.json"
+    else:
+        from pathlib import Path
+        path = Path(raw)
+    return CalibrationHead.from_json(path, source=f"{role}_env")
+
+
 def _build_classifier(kind: str, role: str):
     """Construct the classifier for ``role`` (``SHADOW`` / ``PRIMARY``)."""
     if kind == "nanogpt":
@@ -77,7 +113,8 @@ def _build_classifier(kind: str, role: str):
                 f"MERKEN_{role}=nanogpt requires MERKEN_{role}_NANOGPT_CKPT "
                 f"and MERKEN_{role}_NANOGPT_META env vars."
             )
-        return NanoGPTWriteDecider(ckpt, meta)
+        calibrator = _resolve_calibrator(role)
+        return NanoGPTWriteDecider(ckpt, meta, calibrator=calibrator)
 
     if kind == "llm":
         from merken.classifiers.llm import LLMWriteDecider
