@@ -27,8 +27,12 @@ import pickle
 import re
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from merken.policies import Decision, Event, WriteContext
+
+if TYPE_CHECKING:
+    from merken.classifiers.calibration import CalibrationHead
 
 _DECISION_VERBS = {
     "replaced", "migrated", "switched", "adopted", "deployed",
@@ -209,7 +213,18 @@ class NanoGPTWriteDecider:
         *,
         confidence_threshold: float = 0.6,
         use_verb_markers: bool | None = None,
+        calibrator: "CalibrationHead | None" = None,
     ) -> None:
+        """Create a NanoGPT write decider.
+
+        Args:
+            calibrator: optional post-hoc calibrator. When provided,
+                the `reason` string gains a ``P_cal`` field and the
+                `confidence` field reports the calibrated probability.
+                The pass/fail decision (``write``) still uses the RAW
+                P(D) against ``confidence_threshold`` so existing
+                graduation metrics remain comparable. Display-only.
+        """
         import torch
         self._torch = torch
 
@@ -240,6 +255,7 @@ class NanoGPTWriteDecider:
         self._use_markers = (
             (self._bpe is not None) if use_verb_markers is None else use_verb_markers
         )
+        self._calibrator = calibrator
 
     def _encode(self, prompt: str) -> list[int]:
         if self._bpe is not None:
@@ -268,9 +284,16 @@ class NanoGPTWriteDecider:
 
         is_signal = p_decision > p_noise and p_decision >= self._threshold
 
+        reason = f"P(D)={p_decision:.3f} P(N)={p_noise:.3f}"
+        reported_confidence = max(p_decision, p_noise)
+        if self._calibrator is not None:
+            p_cal = self._calibrator.calibrate(p_decision, event.text)
+            reason = f"{reason} P_cal={p_cal:.3f}"
+            reported_confidence = p_cal
+
         return Decision(
             write=is_signal,
-            reason=f"P(D)={p_decision:.3f} P(N)={p_noise:.3f}",
-            confidence=max(p_decision, p_noise),
+            reason=reason,
+            confidence=reported_confidence,
             policy=self.name,
         )
