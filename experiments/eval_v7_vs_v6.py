@@ -150,6 +150,9 @@ def main() -> int:
         ("session_2026_04_09", SCEN / "session_2026_04_09.json"),
         ("bilingual_es_en_2026_04_14", SCEN / "bilingual_es_en_2026_04_14.json"),
         ("noisy_agent_stream", SCEN / "noisy_agent_stream.json"),
+        # Disjoint-from-training noise-heavy held-out (H_disjoint_holdout).
+        ("disjoint_noise_heavy_holdout",
+            SCEN / "disjoint_noise_heavy_holdout.json"),
     ]
 
     col_hdr = "".join(f"{name:>8}" for name, _ in present)

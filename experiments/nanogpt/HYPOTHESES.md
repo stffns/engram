@@ -471,6 +471,62 @@ Action items from this finding:
 - Future v10: build a NEW held-out noise-heavy scenario with
   topics disjoint from knowledge_update.
 
+## H_disjoint_holdout. Noise-heavy held-out with topics disjoint from training
+
+**Status:** done, validates v7.
+
+**Rationale:** H_v9_pragmatic confirmed that dropping KU from
+training hurts more than it helps. The correct fix is a NEW
+held-out scenario whose topics do NOT appear in KU training
+(cache / db / auth / deploy). This probes v7's real
+generalization on noise it was not taught to reject by name.
+
+**Dataset:** `experiments/loop_quality/scenarios/disjoint_noise_heavy_holdout.json`
+generated 2026-04-18 via Gemini 2.0 Flash
+(`experiments/generate_disjoint_holdout.py`). 57 events total:
+24 DEC across 4 domains (observability, mobile_ops,
+security_response, product_rollouts) + 33 NOI across 6 domains.
+Topics intentionally disjoint from KU. Two of the intended DEC
+domains (ml_ops, billing, accessibility, i18n) partially failed
+to complete due to Gemini 429 rate limits; the 57 events we have
+are the successfully-generated ones.
+
+**Result:** `experiments/nanogpt/disjoint_holdout_eval.json`.
+
+| version | accuracy | DEC recall | NOI recall | FPR |
+|---------|---------:|-----------:|-----------:|----:|
+| v6 | 61.4% | 83.3% | 45.5% | **54.5%** |
+| **v7** | **87.7%** | 70.8% | **100.0%** | **0.0%** |
+| v8 | 87.7% | 100.0% | 78.8% | 21.2% |
+| v9 | 73.7% | 37.5% | 100.0% | 0.0% |
+
+Three findings:
+
+1. **v7 FPR=0% generalizes to disjoint domains.** On noise events
+   about observability / mobile / security / product the model has
+   literally never seen in training, v7 correctly skips all 33/33.
+   That is not memorization -- it is a learned noise-shape
+   signature (table formatting, filler verbs, transition syntax)
+   that transfers across content domains.
+
+2. **v9 (no synthetic training) collapses DEC recall to 37.5%.**
+   Third independent confirmation that dropping KU from training
+   does NOT fix anything -- it just makes the model uniformly
+   more conservative and unusable. The right fix (this scenario)
+   keeps KU in training and uses a disjoint held-out for eval.
+
+3. **v7's failure mode on this scenario is DEC misses, not NOI
+   false positives.** 7 of 24 real DECs rejected. v8 catches them
+   all but at 21% FPR. The Pareto front between v7 and v8 is
+   "conservative filter (v7)" vs "aggressive filter (v8)"; v7 is
+   the production-safe choice.
+
+**Action item (not yet implemented):** add this scenario to
+`eval_v7_vs_v6.py` main() scenario list and REMOVE
+`knowledge_update_50t` from it (or keep both with explicit
+training-vs-held-out labels). Then re-emit
+`eval_v6_to_v9.json` with this scenario included.
+
 ## H12. Forward-selection minimal calibration head
 
 **Status:** done, ACCEPTED (beats H10 full head).
