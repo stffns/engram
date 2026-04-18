@@ -612,6 +612,101 @@ training or create brand-new held-out variants with disjoint topics.
 
 ---
 
+## H16. Does the v7 filter change retrieval accuracy on LoCoMo?
+
+**Status:** done, REJECTED (filter HURTS temporal retrieval at this n).
+
+**Rationale:** Paper Limitations called out that H16 -- whether v7
+at shadow or as the write decider moves downstream QA accuracy on a
+long-conversation benchmark -- was unrun. A negative result (v7
+drops retrieval accuracy) is as informative as a positive one; both
+constrain how aggressively we can ship the filter.
+
+**Setup:** LoCoMo E2E, categories 2 (temporal) + 5 (adversarial),
+top-k=10, `gemini-2.5-flash` as answerer AND judge, 3 conversations
+(conv-26, conv-30, conv-41), n=202 QA pairs per config, 1616
+Gemini calls total. Four configs:
+- `vstash-raw`: no write filter, no consolidation.
+- `merken-recall`: `HeuristicWriteDecider` + no consolidation.
+- `merken-v7`: `ChainedWriteDecider(Heuristic, NanoGPTWriteDecider(v7))`.
+- `merken-v7-cal`: same as above + H12 calibration head.
+
+**Hypothesis:** v7 filter does not degrade retrieval accuracy on
+the temporal subset by more than 5pp vs `merken-recall` baseline.
+
+**Result:** see
+[`experiments/retrieval/locomo/results_v7_cal.json`](../retrieval/locomo/results_v7_cal.json).
+
+| config | temporal | adversarial | overall | CI (overall) |
+|--------|---------:|------------:|--------:|:-------------|
+| vstash-raw | 65.6% (59/90) | 4.5% (5/112) | 31.7% | [25.2, 38.1] |
+| merken-recall | 61.1% (55/90) | 7.1% (8/112) | 31.2% | [24.8, 37.6] |
+| merken-v7 | 53.3% (48/90) | 6.2% (7/112) | 27.2% | [21.3, 33.7] |
+| merken-v7-cal | 54.4% (49/90) | 5.4% (6/112) | 27.2% | [21.3, 33.7] |
+
+Sessions ingested per config (smaller = filter rejected):
+- vstash-raw / merken-recall: 19, 19, 32 (baseline)
+- merken-v7 / merken-v7-cal: 18, 14, 31 (dropped 7/70 sessions, 10%)
+
+**Findings:**
+
+1. **v7 filter costs ~8pp on temporal vs merken-recall heuristic**
+   (61.1% -> 53.3%). 95% CIs for overall accuracy overlap with the
+   baselines, but the temporal subset shows a consistent drop
+   across all 3 conversations. The 5pp threshold in the hypothesis
+   is violated.
+
+2. **Calibrator is a no-op on retrieval.** merken-v7 and
+   merken-v7-cal produce identical ingestion decisions (14/18/31
+   sessions kept in both) and within-rounding-error identical
+   accuracy. The calibrator only changes the displayed confidence;
+   the threshold decision uses raw P(D). So all production
+   flavors of v7 (cal vs no-cal) look the same downstream.
+
+3. **Adversarial is baseline noise** across all configs (4-7%).
+   LoCoMo cat 5 questions are mostly unanswerable from context;
+   every config correctly says "I don't know" most of the time.
+   The differentiating signal is in cat 2 (temporal reasoning).
+
+4. **The filter's precision for "is this noise?" is a wrong
+   question for retrieval.** v7 was trained on per-event labels:
+   given this single event, is it DECISION or NOISE? LoCoMo
+   ingestion works at the SESSION level (whole conversation
+   sessions at a time). A session containing one high-value
+   temporal fact and 50 low-value turns is a DEC at event level
+   but gets filtered if the session-level score trends NOI.
+
+**Honest interpretation for the paper:**
+- v7 is a good write filter for single-event decisions in a
+  chat-assistant context (CONSTITUTION primitive: should_remember).
+- v7 is NOT a good session-level filter for long-conversation
+  retrieval. The units don't match.
+- Cheap mitigation: apply v7 turn-by-turn before aggregating into
+  sessions, instead of scoring the aggregated session once.
+  That's H17 territory, not a free win here.
+
+**Scope caveats (do not overclaim):**
+- n=3 conversations is too small for strong claims. Overall CIs
+  overlap across all four configs. The temporal sub-signal is
+  consistent across all 3 convs (always a drop), but CI on the
+  temporal delta is wide.
+- The answerer/judge is `gemini-2.5-flash`. A different LLM could
+  give different numbers. Reported as an illustrative probe.
+- Adversarial accuracy may be biased up by Gemini judge's own
+  temperament about hedged answers.
+
+**Decision rule:** accept H16 as rejected (filter hurts retrieval).
+Ship v7 in chat-assistant write paths, NOT as a session-level
+filter for long-context QA retrieval. Paper section 5
+("Limitations") needs a concrete number now: v7-on-LoCoMo temporal
+= 53.3% vs 65.6% baseline, 3-conv probe.
+
+Script: `experiments/retrieval/locomo/runner.py` (extended with
+`merken-v7` / `merken-v7-cal` configs + 429-aware judge retry +
+torch-first import).
+
+---
+
 ## H9. nanoGPT-as-connector (separate scope)
 
 **Status:** parked for a separate session.
