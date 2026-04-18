@@ -54,8 +54,13 @@ BIN_LABELS = ["confident_NOI (<0.3)", "ambiguous (0.3-0.7)", "confident_DEC (>=0
 
 
 def parse_pd(shadow_reason: str) -> float | None:
-    m = re.search(r"P\(D\)=([\d.]+)", shadow_reason or "")
-    return float(m.group(1)) if m else None
+    m = re.search(r"P\(D\)=(\d+\.\d+|\d+)", shadow_reason or "")
+    if not m:
+        return None
+    try:
+        return float(m.group(1))
+    except ValueError:
+        return None
 
 
 def bin_of(p: float) -> int:

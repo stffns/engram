@@ -43,15 +43,21 @@ Head vs Platt: delta = **-0.004**, below the -0.030 threshold. On
 the aggregate metric the head is NOT a meaningful win. The earlier
 -0.025 delta was contamination, not signal.
 
-Per-category test-set ECE still shows the head wins decisively on
-small-n slices:
+Per-category test-set ECE is mixed. Head wins on is_ood and the
+very-small-n slices (markdown_table, is_long) but REGRESSES on
+has_numbers where baseline was already near-perfect:
 
 | tag | n_test | raw | platt | head |
 |-----|-------:|----:|------:|-----:|
 | markdown_table | 13 | 0.072 | 0.106 | **0.000** |
 | is_long | 15 | 0.048 | 0.087 | **0.000** |
 | is_ood | 97 | 0.125 | 0.122 | **0.049** |
-| has_numbers | 74 | 0.018 | 0.043 | 0.064 (head regresses here) |
+| has_numbers | 74 | 0.018 | 0.043 | 0.064 (head REGRESSES here) |
+
+The markdown_table and is_long "wins" should be read with caution:
+small n, unregularized weights overfit those slices. H11 addresses
+this with regularization; H10 then adds interactions. The H1 run
+itself is a reference baseline, not a shippable artifact.
 
 Learned weights (unregularized, C=1e6):
 - `is_ood = +2.25`  -- OOD push UP (was +3.19 in contaminated run).
@@ -304,8 +310,13 @@ C=10 both minimizes test ECE AND keeps all weights <= |3|. Over
 the unregularized C=1e6 fit: ECE drops from 0.049 to 0.043, and
 has_markdown_table drops from +8.33 to a sensible +1.73.
 
-Shipped params in `merken/classifiers/calibration_v7.json` replaced
-with the C=10 fit. Weights:
+The C=10 head was briefly the shipped artifact. H10 superseded it
+by adding 5 interaction terms at C=1 (ECE 0.035, see H10 block
+below). The currently-shipped `merken/classifiers/calibration_v7.json`
+holds the H10 C=1 fit, NOT the H11 C=10 fit. H11 remains the
+recommended configuration if interaction terms are undesired.
+
+H11 C=10 weights (for reference, not shipped):
 - intercept = ~1.0
 - logit_P(D) = +0.44 (dominant)
 - is_ood = +2.23 (domain shift correction)
@@ -316,8 +327,7 @@ with the C=10 fit. Weights:
 vs Platt (ECE 0.053): head beats by -0.010 (19% relative). The
 head-vs-Platt delta of -0.010 is below the -0.030 threshold H1 set,
 but on contamination-free data the signal IS real and consistent
-across regularization strengths. H11 overwrites H1's shipped
-artifact but not its aggregate verdict.
+across regularization strengths.
 
 ---
 

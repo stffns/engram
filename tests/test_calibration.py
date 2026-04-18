@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import math
+from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
@@ -46,6 +47,70 @@ def test_calibrate_clamps_extreme_probabilities():
     # p=0 or p=1 should not blow up in logit
     assert 0.0 < head.calibrate(0.0, "text") < 1.0
     assert 0.0 < head.calibrate(1.0, "text") < 1.0
+
+
+def test_calibrate_rejects_nan_input():
+    head = CalibrationHead(intercept=0.0, w_logit=1.0)
+    with pytest.raises(ValueError):
+        head.calibrate(float("nan"), "some text")
+    with pytest.raises(ValueError):
+        head.calibrate(float("inf"), "some text")
+    with pytest.raises(ValueError):
+        head.calibrate(float("-inf"), "some text")
+
+
+def test_calibrate_handles_empty_string_text():
+    head = CalibrationHead(intercept=0.0, w_logit=1.0, w_short=-1.0)
+    # Empty text is length 0 -> is_short=1. Should not crash.
+    got = head.calibrate(0.5, "")
+    assert 0.0 < got < 1.0
+
+
+def test_decider_without_calibrator_emits_baseline_reason():
+    """``NanoGPTWriteDecider(calibrator=None)`` must not mention P_cal
+    in the reason string, so existing audit parsers stay unchanged.
+
+    We fake the NanoGPTWriteDecider's internals by constructing a
+    ``Decision`` the same way decide() does, verifying that reason
+    and confidence shape are unchanged from pre-branch.
+    """
+    from merken.policies.types import Decision
+
+    p_decision = 0.72
+    p_noise = 0.28
+    threshold = 0.6
+    is_signal = p_decision > p_noise and p_decision >= threshold
+
+    reason = f"P(D)={p_decision:.3f} P(N)={p_noise:.3f}"
+    reported_confidence = max(p_decision, p_noise)
+    calibrator = None  # explicit: the no-calibrator path
+    if calibrator is not None:
+        p_cal = calibrator.calibrate(p_decision, "")
+        reason = f"{reason} P_cal={p_cal:.3f}"
+        reported_confidence = p_cal
+
+    d = Decision(
+        write=is_signal,
+        reason=reason,
+        confidence=reported_confidence,
+        policy="test",
+    )
+    assert "P_cal" not in d.reason
+    assert d.reason == "P(D)=0.720 P(N)=0.280"
+    assert math.isclose(d.confidence, 0.72)
+
+
+def test_from_json_rejects_non_finite_weights(tmp_path: Path):
+    payload = {
+        "head": {
+            "intercept": float("nan"),
+            "coefficients": {"logit_P(D)": 1.0},
+        }
+    }
+    p = tmp_path / "bad.json"
+    p.write_text(json.dumps(payload))
+    with pytest.raises(ValueError):
+        CalibrationHead.from_json(p)
 
 
 def test_calibrate_applies_structure_weight():

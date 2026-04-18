@@ -77,8 +77,13 @@ NUMBER = re.compile(r"\d")
 
 
 def parse_pd(s: str) -> float | None:
-    m = re.search(r"P\(D\)=([\d.]+)", s or "")
-    return float(m.group(1)) if m else None
+    m = re.search(r"P\(D\)=(\d+\.\d+|\d+)", s or "")
+    if not m:
+        return None
+    try:
+        return float(m.group(1))
+    except ValueError:
+        return None
 
 
 def logit(p: float) -> float:

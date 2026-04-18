@@ -44,8 +44,13 @@ LABELS_WRITE = REPO / "data" / "merken_labels_agree_write.jsonl"
 
 
 def parse_pd(s: str) -> float | None:
-    m = re.search(r"P\(D\)=([\d.]+)", s or "")
-    return float(m.group(1)) if m else None
+    m = re.search(r"P\(D\)=(\d+\.\d+|\d+)", s or "")
+    if not m:
+        return None
+    try:
+        return float(m.group(1))
+    except ValueError:
+        return None
 
 
 def iter_labels_with_pd(path: Path, decider: NanoGPTWriteDecider, force_reinfer: bool):

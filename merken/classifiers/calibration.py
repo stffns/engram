@@ -43,6 +43,15 @@ NUMBER = re.compile(r"\d")
 
 
 def _logit(p: float) -> float:
+    """Safe logit.
+
+    NaN propagates through ``min`` / ``max`` in CPython, so a naive
+    clamp would silently produce NaN logits. Detect non-finite input
+    and reject it so callers see the problem immediately instead of
+    poisoning audit rows and downstream ``>= threshold`` checks.
+    """
+    if not math.isfinite(p):
+        raise ValueError(f"calibrator received non-finite probability: {p!r}")
     p = min(max(p, EPS), 1 - EPS)
     return math.log(p / (1 - p))
 
@@ -107,22 +116,41 @@ class CalibrationHead:
         data = json.loads(p.read_text())
         head = data.get("head") or data  # accept raw head dict too
         coefs = head.get("coefficients") or {}
+
+        def _get(*keys: str) -> float:
+            """Pull a coefficient and verify it is finite."""
+            for k in keys:
+                if k in coefs:
+                    v = float(coefs[k])
+                    break
+            else:
+                return 0.0
+            if not math.isfinite(v):
+                raise ValueError(
+                    f"non-finite weight {keys[0]!r}={v!r} in {p}"
+                )
+            return v
+
+        intercept = float(head.get("intercept", 0.0))
+        if not math.isfinite(intercept):
+            raise ValueError(f"non-finite intercept in {p}")
+
         return cls(
-            intercept=float(head.get("intercept", 0.0)),
-            w_logit=float(coefs.get("logit_P(D)", coefs.get("logit_p_d", 0.0))),
-            w_code_fence=float(coefs.get("has_code_fence", 0.0)),
-            w_inline_code=float(coefs.get("has_inline_code", 0.0)),
-            w_markdown_table=float(coefs.get("has_markdown_table", 0.0)),
-            w_numbers=float(coefs.get("has_numbers", 0.0)),
-            w_file_paths=float(coefs.get("has_file_paths", 0.0)),
-            w_short=float(coefs.get("is_short", 0.0)),
-            w_long=float(coefs.get("is_long", 0.0)),
-            w_ood=float(coefs.get("is_ood", 0.0)),
-            w_short_numbers=float(coefs.get("short_X_numbers", 0.0)),
-            w_short_file_paths=float(coefs.get("short_X_file_paths", 0.0)),
-            w_short_inline_code=float(coefs.get("short_X_inline_code", 0.0)),
-            w_short_markdown_table=float(coefs.get("short_X_markdown_table", 0.0)),
-            w_ood_short=float(coefs.get("ood_X_short", 0.0)),
+            intercept=intercept,
+            w_logit=_get("logit_P(D)", "logit_p_d"),
+            w_code_fence=_get("has_code_fence"),
+            w_inline_code=_get("has_inline_code"),
+            w_markdown_table=_get("has_markdown_table"),
+            w_numbers=_get("has_numbers"),
+            w_file_paths=_get("has_file_paths"),
+            w_short=_get("is_short"),
+            w_long=_get("is_long"),
+            w_ood=_get("is_ood"),
+            w_short_numbers=_get("short_X_numbers"),
+            w_short_file_paths=_get("short_X_file_paths"),
+            w_short_inline_code=_get("short_X_inline_code"),
+            w_short_markdown_table=_get("short_X_markdown_table"),
+            w_ood_short=_get("ood_X_short"),
             source=source or str(p),
         )
 
@@ -140,7 +168,12 @@ class CalibrationHead:
         }
 
     def calibrate(self, p_raw: float, text: str, *, is_ood: bool = False) -> float:
-        """Apply the head to a raw P(D), returning calibrated P(D)."""
+        """Apply the head to a raw P(D), returning calibrated P(D).
+
+        ``p_raw`` must be finite and will be clamped into ``[EPS, 1-EPS]``
+        before the logit transform. Non-finite ``p_raw`` (NaN / inf)
+        raises ``ValueError`` rather than silently producing NaN.
+        """
         f = self.features(text, is_ood=is_ood)
         z = (
             self.intercept
