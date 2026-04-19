@@ -47,6 +47,13 @@ experiments/**/runs/
 experiments/retrieval/locomo/data/
 experiments/retrieval/locomo/results_detail.json
 
+# Midloop pilot artifacts (regeneratable; some contain copyrighted
+# WHO source text staged for local clause-chunking).
+experiments/midloop_pilot/staging/
+experiments/midloop_pilot/scaleup_out/
+experiments/midloop_pilot/out/
+experiments/midloop_pilot/training_data/
+
 # Training-data extracts from merken_labels across projects. Contains
 # private transcript snippets; regeneratable via
 # experiments/extract_labels_to_jsonl.py.
