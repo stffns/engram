@@ -906,6 +906,79 @@ living in user code until empirically justified. But the bar
 is now achievable with one command, not "requires modifying
 the runner" as an earlier version of this doc said.
 
+## Marking authoritative content -- Type A vs Type B memory
+
+merken stores two ontologies in the same vstash:
+
+- **Type A (derived):** episodic events, briefs, traces. Mutable;
+  consolidate / forget / future decay can transform or remove them.
+- **Type B (authoritative):** clinical protocols, specs, laws, fixed
+  corpora. Immutable; mutative ops MUST skip them. Updated only via
+  versioned replacement.
+
+The distinction is a tag convention, not a separate layer or
+collection (real decisions integrate both).
+
+### Marking events as Type B
+
+CLI:
+
+```bash
+merken --project medlocal remember "WHO clause: amoxicillin 50 mg/kg/day for pneumonia" \
+    --title proto_who_amox_pneumonia \
+    --tags "topic:pneumonia,protocol:who" \
+    --immutable
+```
+
+The `--immutable` flag adds `source:authoritative` to the tags. If
+your `--tags` already include a `source:<value>` your value wins
+(no double-tagging).
+
+Python SDK:
+
+```python
+mem.remember(
+    "WHO clause...",
+    title="proto_who_amox_pneumonia",
+    tags="source:authoritative,topic:pneumonia,protocol:who",
+)
+```
+
+### Fail-closed semantics
+
+The predicate `merken.sourcing.is_safely_mutable(tags)` decides
+whether `consolidate()` and `forget()` may touch an event:
+
+| tags                                  | mutable? | reason |
+|---------------------------------------|---------|--------|
+| `None` / empty                        | yes | legacy untagged |
+| `source:session` (KNOWN_DERIVED)      | yes | explicitly derived |
+| `source:authoritative`                | no  | explicitly authoritative |
+| `source:autoritative` (typo)          | no  | unknown source -> fail closed |
+| `source:foo_unknown`                  | no  | unknown source -> fail closed |
+| no `source:` tag at all               | yes | legacy default |
+
+The asymmetry is intentional: skipping a mutable-but-misspelled
+event is recoverable (re-tag, re-run); mutating a Type B event is
+not (lost protocol). When in doubt: do not mutate.
+
+### Adding new derived sources
+
+If a new ingest path produces events that should be Type A, register
+its source value in `merken.sourcing.KNOWN_DERIVED`. Otherwise the
+filter will treat events from that path as immutable and they'll
+never get consolidated.
+
+### Citation preference (separate from mutability)
+
+`is_authoritative(tags)` returns True only for explicitly
+authoritative sources. Useful when ranking search results: a
+matched protocol clause should typically outrank a derived note,
+even if both are equally relevant by embedding distance. Note this
+is *distinct* from `is_safely_mutable`: an unknown source value is
+NOT mutable AND NOT authoritative -- the unknown case is
+conservative for mutation but does not get citation preference.
+
 ## Further reading
 
 - [`primitives.md`](primitives.md) — the four default deciders

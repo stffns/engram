@@ -99,6 +99,94 @@ def test_remember_errors_without_text_or_stdin(tmp_path: Path, capsys) -> None:
     assert "provide TEXT" in err
 
 
+def test_remember_immutable_adds_authoritative_tag(tmp_path: Path, capsys) -> None:
+    """--immutable maps to source:authoritative tag."""
+    code = main(
+        _base(
+            tmp_path,
+            "remember",
+            "WHO protocol clause amoxicillin 50 mg/kg/day for pneumonia treatment",
+            "--title",
+            "proto_amox",
+            "--immutable",
+        )
+    )
+    capsys.readouterr()
+    assert code == 0
+
+    # Verify the tag landed in the actual store.
+    import sqlite3
+    con = sqlite3.connect(str(tmp_path / "e.db"))
+    rows = con.execute(
+        "SELECT title, tags FROM documents WHERE layer='episodic'"
+    ).fetchall()
+    con.close()
+    assert any(
+        title == "proto_amox" and "source:authoritative" in (tags or "")
+        for title, tags in rows
+    ), f"expected source:authoritative on proto_amox; got {rows}"
+
+
+def test_remember_immutable_preserves_user_tags(tmp_path: Path, capsys) -> None:
+    """--immutable appends to user --tags without dropping them."""
+    code = main(
+        _base(
+            tmp_path,
+            "remember",
+            "another protocol fragment with sufficient length to be ingested by vstash",
+            "--title",
+            "proto_two",
+            "--tags",
+            "topic:medlocal,priority:high",
+            "--immutable",
+        )
+    )
+    capsys.readouterr()
+    assert code == 0
+
+    import sqlite3
+    con = sqlite3.connect(str(tmp_path / "e.db"))
+    tags = con.execute(
+        "SELECT tags FROM documents WHERE title='proto_two'"
+    ).fetchone()[0]
+    con.close()
+    assert "topic:medlocal" in tags
+    assert "priority:high" in tags
+    assert "source:authoritative" in tags
+
+
+def test_remember_immutable_defers_to_existing_source_tag(
+    tmp_path: Path, capsys
+) -> None:
+    """If user tags already include source:<value>, --immutable does NOT
+    override (theirs wins). Avoids double-tagging and respects the
+    user's explicit categorization.
+    """
+    code = main(
+        _base(
+            tmp_path,
+            "remember",
+            "user explicitly tagged source session and added immutable flag together",
+            "--title",
+            "deferred",
+            "--tags",
+            "source:session,topic:foo",
+            "--immutable",
+        )
+    )
+    capsys.readouterr()
+    assert code == 0
+
+    import sqlite3
+    con = sqlite3.connect(str(tmp_path / "e.db"))
+    tags = con.execute(
+        "SELECT tags FROM documents WHERE title='deferred'"
+    ).fetchone()[0]
+    con.close()
+    assert "source:session" in tags
+    assert "source:authoritative" not in tags
+
+
 def test_remember_respects_layer_flag(tmp_path: Path, capsys) -> None:
     main(
         _base(

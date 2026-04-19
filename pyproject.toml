@@ -40,6 +40,7 @@ Issues = "https://github.com/stffns/merken/issues"
 
 [project.scripts]
 merken = "merken.cli:main"
+merken-midloop-dataset = "merken.training.midloop_dataset_cli:main"
 merken-mcp = "merken.mcp_server:main"
 
 [tool.hatch.build.targets.wheel]
