@@ -496,22 +496,108 @@ is useful but not urgent.
 
 ---
 
-## H8. Architecture bump -- v8b with 2x params
+## H8. Architecture bump -- v13_capacity
 
-**Status:** deferred.
+**Status:** done, REJECTED. Capacity is NOT the bottleneck;
+training data distribution is.
 
 **Rationale:** 800K-params may be architectural ceiling for
-distribution-aware calibration. A 1.5M-params (n_embd=256) version
-would answer: is more capacity the fix, or is it a training-signal
-problem?
+distribution-aware calibration. After H2/H2b/H2c exhausted the
+contrastive class on the same architecture, H8 cleanly tests the
+capacity-vs-signal split with a single knob: n_embd 128 -> 256
+(~3.3M params, ~4x v7), same v7 dataset, no contrastive aux.
 
-**Cost:** 1-2 hours training on mps. Same data as v7.
+**Implementation:**
+  - data: `nanoGPT/data/merken_bpe_v13_capacity/` (symlinked to v7)
+  - config: `nanoGPT/config/train_merken_bpe_v13_capacity.py`
+  - train: regular `nanoGPT/train.py` (no contrastive)
+  - eval: `experiments/nanogpt/eval_h2.py` (handles all 4 variants)
+  - artifact: `experiments/nanogpt/h8_results.json`
 
-**Decision rule:** only run if v9 contrastive loss (H2) fails.
-That keeps the problem in "training signal" vs "capacity"
-terminology, not muddled.
+**Training observations:**
+  - val loss converged ~1.5pp faster than v7 (step-50 val 4.20 vs
+    v7's 5.25) -- expected, more capacity learns CE faster.
+  - Train-val gap widened sharply: step-100 (3.11/3.40), step-200
+    (1.97/2.58), step-350 (0.82/2.40, best ckpt). Overfit by step
+    400 (val started rising). Best ckpt locked at step 350.
+  - Dropout=0.1 was insufficient regularization for 4x params on
+    the same 3046-example training set. Killed at step 600 since
+    val was monotonically rising past step 350; best ckpt already
+    saved (always_save_checkpoint=False).
 
-**Result:** (deferred).
+**Decision rule:** ship as v13 IFF
+  - markdown_tables_held_out FPR <= 10%
+  - organic_val agreement >= 95%
+  - jay_vstash_decontam agreement >= 95%
+
+**Result:**
+
+| metric | v7 | v13 (capacity 4x) | delta |
+|--------|---:|------------------:|------:|
+| labels-157 DEC recall | 65.6% | 67.5% | +1.9pp (within CI noise) |
+| FN recovered | -- | 15 | -- |
+| FN newly lost | -- | 12 | -- |
+| markdown FPR (target <=10%) | 0.0% | **50.0%** | FAIL |
+| organic_val (target >=95%) | 100% | 100% | PASS |
+| jay_vstash_decontam (target >=95%) | 100% | 100% | PASS |
+| analytics_project | 67% | 83% | +17pp |
+| session_2026_04_09 | 75% | 83% | +8pp |
+| bilingual_es_en | 92% | 100% | +8pp |
+| noisy_agent_stream | 67% | 63% | -4pp |
+| disjoint_noise_holdout | 88% | **81%** | -7pp + FPR 0->9% |
+| knowledge_update_50t (TRAIN) | 97% | 99.7% | +2.7pp (memorization) |
+
+**Diagnosed failure mode:** the larger model memorizes the training
+set faster but loses the markdown-NOI generalization that v7 had.
+Two regressions are signal-bearing:
+  - markdown_tables_held_out: 0% -> 50% FPR. The 30 markdown-NOISE
+    examples in training are too few to constrain a 3M-param model;
+    the model now fits training markdown patterns but flags
+    held-out markdown as DEC.
+  - disjoint_noise_holdout (n=57, real held-out): 0% -> 9% FPR with
+    -7pp agreement. Same pattern on a more diverse noise scenario.
+
+**The four-way comparison closes the case:**
+
+| variant | mech change | DEC recall | mFPR | OOD agreement |
+|---------|-------------|-----------:|-----:|--------------:|
+| v7      | (baseline)              | 65.6% | 0%   | 100/100 |
+| v10     | + hinge contrastive     | 51.0% | 83%  | 14/14   |
+| v11     | + InfoNCE (12 buckets)  | 68.8% | 67%  | 100/100 |
+| v12     | + InfoNCE (25 buckets)  | 70.1% | 0%   | 100/100 |
+| v13     | + 4x capacity (no aux)  | 67.5% | 50%  | 100/100 |
+
+  - v10/v11 break OOD or mFPR. v12 holds both with marginal DEC
+    gain. v13 holds OOD but breaks mFPR.
+  - **No same-architecture loss-tweak (H2 family) and no
+    capacity-bump (H8) recovers the desired FN coverage WHILE
+    preserving v7's mFPR=0% headline.** v12 does come close (best
+    DEC recall + zero mFPR) but only recovers 13 of v7's 54
+    transcript-DEC FNs (target was 30).
+
+**Conclusion:** the bottleneck is the training data distribution,
+not the model. With ~157 DEC examples (and only 30 markdown-NOI
+examples), neither smarter loss nor more parameters can extract
+more signal than v7 already does. The path forward is data growth,
+not architecture.
+
+**v13_capacity is archived as ablation evidence.** v7 stays as the
+graduated shadow baseline.
+
+**Next steps with non-zero EV:**
+
+1. **Passive label accumulation (the right move).** Hook is fixed.
+   When transcript-DEC pool grows from 157 to ~300+, both v12-style
+   contrastive AND v7-style baseline get more data; re-run both at
+   that point. Calendar: 4-8 weeks.
+2. **Synthetic DEC augmentation** for markdown-NOISE specifically
+   (since that's the recurring blind spot). Risk: same as the v8
+   binary-balance failure, may unbalance the model.
+3. **Stop iterating on the v7 frontier.** Three months of work to
+   move v7's headline +5pp DEC recall is diminishing returns. Pivot
+   to paper writing, with v7 graduated and the v10/v11/v12/v13
+   negative results as the empirical body of the architecture
+   section.
 
 ---
 

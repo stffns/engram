@@ -38,6 +38,7 @@ CONTRASTIVE_VARIANTS = [
     ("v10_contrastive",   "h2",  "h2_results.json"),
     ("v11_infonce",       "h2b", "h2b_results.json"),
     ("v12_wide_infonce",  "h2c", "h2c_results.json"),
+    ("v13_capacity",      "h8",  "h8_results.json"),
 ]
 
 
@@ -109,7 +110,20 @@ def _decision_rule(label, recovered, scenarios_per_scen):
             "bar_2_markdown_fpr_le_10pct": b2,
             "verdict": "ACCEPTED" if (b1 and b2) else "REJECTED",
         }
-    # h2b
+    if label == "h8":
+        # H8 capacity bump: reach v7's headline numbers AND keep
+        # OOD intact. No FN-recovery target -- this experiment
+        # tests the capacity ceiling, not the contrastive class.
+        b1 = markdown_fpr <= 0.10
+        b2 = organic >= 0.95
+        b3 = vstash >= 0.95
+        return {
+            "bar_1_markdown_fpr_le_10pct": b1,
+            "bar_2_organic_val_ge_95pct": b2,
+            "bar_3_jay_vstash_decontam_ge_95pct": b3,
+            "verdict": "ACCEPTED" if (b1 and b2 and b3) else "REJECTED",
+        }
+    # h2b / h2c
     b1 = recovered >= 30
     b2 = organic >= 0.85
     b3 = vstash >= 0.85
