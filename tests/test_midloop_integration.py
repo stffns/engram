@@ -18,7 +18,6 @@ from merken import Memory
 from merken.audit import format_midloop_audit_row as audit_module_fn
 from merken.policies.midloop import (
     HeuristicMidloopDecider,
-    HeuristicThresholds,
     MidloopDecision,
     NoopMidloopDecider,
     ShadowMidloopDecider,
@@ -81,7 +80,8 @@ def test_observe_step_passes_trajectory_to_decider(tmp_path: Path) -> None:
         def decide(self, observation, ctx, trajectory):
             captured["sizes"].append(len(trajectory))
             from merken.policies.midloop import (
-                CognitiveState, InterventionAction,
+                CognitiveState,
+                InterventionAction,
             )
             return MidloopDecision(
                 intervene=False,

@@ -54,7 +54,6 @@ from merken.policies.should_forget import (
     ForgetDecision,
     NeverForget,
 )
-from merken.sourcing import is_safely_mutable
 from merken.policies.should_recall import (
     LayeredRecaller,
     RecallContext,
@@ -67,9 +66,16 @@ from merken.policies.should_remember import (
     ShadowWriteDecider,
 )
 from merken.policies.types import Decision, Event, WriteContext, WriteDecider
+from merken.sourcing import is_safely_mutable
 
 if TYPE_CHECKING:
     from vstash import IngestResult, SearchResult
+
+    from merken.policies.midloop import (
+        MidloopDecider,
+        MidloopDecision,
+        StepObservation,
+    )
 
 DEFAULT_LAYER = "episodic"
 DEFAULT_COLLECTION = "default"
@@ -224,7 +230,7 @@ class Memory:
         consolidate_decider: ConsolidateDecider | None = None,
         recall_decider: RecallDecider | None = None,
         forget_decider: ForgetDecider | None = None,
-        midloop_decider: Any | None = None,
+        midloop_decider: MidloopDecider | None = None,
         temporal_weight: float = 0.0,
         trajectory_window: int = 20,
     ) -> None:
@@ -250,6 +256,7 @@ class Memory:
         # snapshot"). Callers reuse the same Memory instance across a
         # session to maintain trajectory coherence.
         from collections import deque
+
         from merken.policies.midloop import NoopMidloopDecider
         self._midloop_decider = midloop_decider or NoopMidloopDecider()
         self._trajectory: deque = deque(maxlen=trajectory_window)
@@ -929,7 +936,12 @@ class Memory:
 
     # --------------------------------------------------------------- midloop
 
-    def observe_step(self, observation, *, is_last_step: bool = False):
+    def observe_step(
+        self,
+        observation: StepObservation,
+        *,
+        is_last_step: bool = False,
+    ) -> MidloopDecision:
         """Submit one step observation to the midloop and (maybe) audit it.
 
         Per midloop spec section "Trayectoria, no snapshot":
@@ -1055,7 +1067,11 @@ class Memory:
         except Exception:
             pass
 
-    def _write_midloop_audit(self, observation, decision) -> None:
+    def _write_midloop_audit(
+        self,
+        observation: StepObservation,
+        decision: MidloopDecision,
+    ) -> None:
         """Audit one ``should_intervene`` decision.
 
         Same fail-open policy as the other audit writers: a flaky

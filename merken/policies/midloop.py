@@ -19,7 +19,7 @@ follows the same shadow-mode graduation path that
    pairs.
 2. ``HeuristicMidloopDecider`` as shadow, observing every step.
    Disagreements with the noop primary surface as
-   ``midloop_disagree`` audit tags for review.
+   ``shadow_disagree`` audit tags for review.
 3. After ~200 labeled disagreements, calibrate Heuristic
    thresholds against the labels. Only THEN promote Heuristic to
    primary, with action clamped to ``WHISPER`` (cheapest, most
@@ -36,13 +36,11 @@ reader can trace which numbers shipped at which point.
 
 from __future__ import annotations
 
-import json
 import re
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Protocol
-
 
 # ---------------------------------------------------------------- enums
 
@@ -539,9 +537,9 @@ def is_persistable_step(
         return False  # first step, no signal-trigger context
     if decision.state != prev_decision.state:
         return True
-    if abs(decision.confidence - prev_decision.confidence) >= confidence_change_threshold:
-        return True
-    return False
+    return abs(
+        decision.confidence - prev_decision.confidence
+    ) >= confidence_change_threshold
 
 
 # ---------------------------------------------------------------- audit format
