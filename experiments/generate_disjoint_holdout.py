@@ -55,7 +55,7 @@ SCENARIOS_DIR = REPO / "experiments" / "loop_quality" / "scenarios"
 DOMAINS: dict[str, dict[str, str]] = {
     "observability": {
         "dec_prompt": (
-            "You are generating TRAINING data for a memory filter. Produce "
+            "You are generating HELD-OUT EVALUATION data for a memory filter. Produce "
             "6 short text events (each 80-400 chars) that represent REAL "
             "engineering DECISIONS in the observability / metrics / alerting "
             "domain. Each event should be a lasting commitment, a concrete "
@@ -66,7 +66,7 @@ DOMAINS: dict[str, dict[str, str]] = {
             "traffic regression analysis.'"
         ),
         "noi_prompt": (
-            "You are generating TRAINING data for a memory filter. Produce "
+            "You are generating HELD-OUT EVALUATION data for a memory filter. Produce "
             "6 short text events (each 80-300 chars) of observability / "
             "metrics NOISE -- transitional sentences, routine checks, task "
             "announcements without content. Do NOT use 'cache', 'database', "
@@ -288,6 +288,11 @@ def main() -> int:
             f"H_v9_pragmatic in HYPOTHESES.md for context."
         ),
         "events": events,
+        # `queries` is required by experiments/loop_quality/scenario.load_scenario;
+        # this scenario has no per-query expectations (it is noise-heavy +
+        # used as input to nanoGPT eval, NOT as a recall-quality benchmark).
+        # Empty list keeps the runner from KeyError'ing.
+        "queries": [],
     }
     Path(args.out).write_text(
         json.dumps(out_data, indent=2, ensure_ascii=False),

@@ -784,14 +784,18 @@ recognition. DEC-only scenarios at larger n regress significantly
 **v9 is archived as ablation evidence, not shipped as a
 replacement.** v7 remains the shadow baseline.
 
-Action items from this finding:
-- Remove `knowledge_update_50t` from eval_v7_vs_v6.py's scenario
-  list (or rename to make its "training-set performance" nature
-  explicit in the output).
-- Paper section 3.2: add a row separating "honest held-out"
-  scenarios from "training-set diagnostics".
-- Future v10: build a NEW held-out noise-heavy scenario with
-  topics disjoint from knowledge_update.
+Action items from this finding (status as of PR #19):
+- DONE: `eval_v7_vs_v6.py` renames the scenario to
+  `knowledge_update_50t (TRAINING)` so the diagnostic-vs-held-out
+  distinction is explicit in the output table.
+- DONE: `experiments/nanogpt/eval_v6_to_v9.json` re-emitted with
+  the renamed scenario + a `notes` block documenting which
+  scenarios are TRAINING / CONTAMINATED vs honest held-out.
+- DONE: NEW held-out noise-heavy scenario built --
+  `disjoint_noise_heavy_holdout.json`, topics intentionally
+  disjoint from KU. See H_disjoint_holdout below for results.
+- Pending (paper writing): add a row in section 3.2 separating
+  honest held-out from training-set diagnostics.
 
 ## H_disjoint_holdout. Noise-heavy held-out with topics disjoint from training
 

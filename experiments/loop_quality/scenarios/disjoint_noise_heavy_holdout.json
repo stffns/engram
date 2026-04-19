@@ -129,7 +129,7 @@
     },
     {
       "id": "security_response__dec__03",
-      "text": "API key 'secret_api_key_01' rotated after unauthorized access attempt logged on 2024-07-01. New key distributed via config management.",
+      "text": "API key 'EXAMPLE_KEY_ID_01' rotated after unauthorized access attempt logged on 2024-07-01. New key distributed via config management.",
       "topic": "security_response"
     },
     {
@@ -287,5 +287,6 @@
       "text": "Kill switch for `image_upload_api` engaged; error count spiked above threshold in `api_metrics_v5.log`.",
       "topic": "product_rollouts"
     }
-  ]
+  ],
+  "queries": []
 }
