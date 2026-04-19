@@ -182,3 +182,88 @@ Expected output: ~570 cases, ~1,700 intervention labels.
 - Does NOT validate that a hypothetical midloop trained on this
   dataset would actually catch errors at inference time -- that
   measurement comes after Phase 3.
+
+---
+
+## Scale-up run: 77 protocols (2026-04-19)
+
+After the 3-protocol pilot above validated the pipeline +
+calibrated the threshold, ran the full `protocols/` directory.
+The `who/` sibling holds 7 PDFs (no .md), so it was skipped --
+PDF extraction is out of scope for this pilot; would land as a
+separate ingest step.
+
+### Stack
+
+Same as pilot: Gemini 2.5 Flash + lmstudio gemma-4-e4b-it-mlx +
+fastembed bge-small. Threshold = 0.85 (calibrated from pilot).
+Ran with the PR #21 fixes applied (Gemini per-call timeout,
+requests.Session for connection pooling, fail-soft per
+malformed JSONL line, etc).
+
+### Results
+
+| metric | value |
+|---|---|
+| protocols attempted | 77 |
+| protocols that produced cases | 75 (97.4%) |
+| cases generated | 375 (5 per surviving protocol) |
+| divergent regions | 1115 |
+| **semantic drops** (threshold=0.85) | 18 (1.6%) |
+| **intervention labels** | 1097 (98.4%) |
+| step 2 wall time (Gemini) | 14.2 min |
+| step 3 wall time (lmstudio) | 5.6 min (~0.9s/case MLX) |
+| step 4 wall time (align) | 6.4s |
+| total wall time | ~20 min |
+| Gemini cost | ~$0.30 |
+
+### Protocols that failed entirely (2 of 77)
+
+Both failed in step 2 (case generation) due to the same root cause:
+Gemini emitted a JSON array that became malformed past the first
+~500 chars. The pipeline fail-soft caught it, logged the error,
+and moved on -- no manual intervention required.
+
+- `cholera-who` -- JSON parse error at char 276
+- `dengue-who` -- JSON parse error at char 601 (different from the
+  pilot's dengue success; same protocol, different generation run)
+
+This is the same failure mode I noted as a follow-up after the
+pilot: switch to Gemini's structured-output mode (response_schema)
+to guarantee valid JSON. Filed as a tech-debt item; not blocking.
+
+### Drop ratio interpretation
+
+1.6% (18/1115) is even lower than the pilot's 4.3%. Same root
+cause: Gemma 4 E4B systematically gives generic "monitor closely"
+advice instead of protocol-specific actions. With 25x more
+protocols the diversity of clinical scenarios shows the same
+pattern -- Gemma's generic-safe-advice strategy is broad-spectrum
+across the protocol suite, not specific to the pilot's 3
+diseases.
+
+The 18 drops that DID happen are concentrated in protocols with
+heavy numerical / dosing content where paraphrases of units and
+synonyms naturally arise:
+- `diabetes-who`: 2 drops
+- `gestational-diabetes-who`: 1 drop
+- `fever-assessment-imci`: 1 drop
+- `burns-who`: 1 drop
+
+### Output
+
+Final dataset: `experiments/midloop_pilot/scaleup_out/aligned.jsonl`
+(gitignored, regenerable). 375 lines, one per case. 1097 total
+intervention labels available for a future midloop classifier.
+
+### Phase 1 closeout
+
+Phase 1 is now complete:
+- pipeline shipped (PR #20),
+- pilot validates pipeline + threshold (PR #21),
+- scale-up produces the first usable training dataset.
+
+Phase 2 (midloop primitive in `merken/policies/midloop.py`) can now
+proceed with the dataset shape known. Phase 3 (training a
+NanoGPTMidloopDecider on this dataset) is gated on Phase 2's
+primitive landing.

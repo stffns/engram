@@ -428,9 +428,13 @@ def write_report(aligned_path: Path) -> None:
                 "cos": d["cosine_sim"],
             })
 
+    n_protocols_actual = len({r["metadata"].get("protocol_id", "?") for r in rows})
     out = OUT_DIR / "pilot_report.md"
     lines = []
-    lines.append("# Midloop pilot report -- 3 protocols (2026-04-19)")
+    lines.append(
+        f"# Midloop pilot report -- {n_protocols_actual} protocols "
+        f"({date.today().isoformat()})"
+    )
     lines.append("")
     lines.append("## Stack")
     lines.append(f"- cases: Gemini 2.5 Flash via google.genai")
