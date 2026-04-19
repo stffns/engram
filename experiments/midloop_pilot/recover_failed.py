@@ -18,9 +18,10 @@ This script:
      instead of overwriting.
 
 If structured output also produces a usable run, the same fix should
-land in `merken/training/case_generator.py::default_anthropic_client`
-and the equivalent Gemini client. Filed as follow-up; not in scope
-for this script.
+land in `merken/training/case_generator.py` as a `default_gemini_client`
+factory analogous to `default_anthropic_client` (and the Anthropic
+client should grow an equivalent strict-JSON path). Filed as
+follow-up; not in scope for this script.
 
 Usage:
   python -m experiments.midloop_pilot.recover_failed
@@ -36,13 +37,19 @@ from pathlib import Path
 
 from pydantic import BaseModel
 
-ENGRAM_ROOT = Path(__file__).resolve().parent.parent.parent
-PROTOCOL_ROOT = Path.home() / "Desktop/Personal/Projects/medlocal/data/core/protocols"
+# Default protocol root mirrors run_pilot.py: Jay's local MedLocal
+# checkout. Override via $MIDLOOP_PROTOCOL_ROOT env var so the
+# script is portable across machines / CI.
+DEFAULT_PROTOCOL_ROOT = Path.home() / "Desktop/Personal/Projects/medlocal/data/core/protocols"
+PROTOCOL_ROOT = Path(
+    os.environ.get("MIDLOOP_PROTOCOL_ROOT", str(DEFAULT_PROTOCOL_ROOT))
+)
 OUT_DIR = Path(__file__).resolve().parent / "scaleup_out"
 
 FAILED_PROTOCOLS = ["cholera-who.md", "dengue-who.md"]
 N_CASES_PER_PROTOCOL = 5
 GEMINI_MODEL = "gemini-2.5-flash"
+GEMINI_TIMEOUT_S = 60  # per-call hard timeout (mirror run_pilot.gemini_client)
 LMSTUDIO_URL = "http://localhost:1234/v1"
 LMSTUDIO_MODEL = "gemma-4-e4b-it-mlx"
 EMBED_MODEL = "BAAI/bge-small-en-v1.5"
@@ -62,17 +69,31 @@ def gemini_structured_client(api_key: str):
     response_mime_type=application/json + response_schema=list[Case]
     so the SDK enforces the structure. No more JSON parse failures
     from unescaped quotes or runaway prose.
+
+    Wrapped in a per-call concurrent.futures timeout (mirror of
+    run_pilot.gemini_client) so a hung Gemini call cannot block the
+    whole batch. We previously hit a 23-min SSL_read hang during the
+    scale-up before adding this protection.
     """
-    from google import genai
-    from google.genai import types
+    import concurrent.futures
+
+    try:
+        from google import genai
+        from google.genai import types
+    except ImportError as e:
+        raise SystemExit(
+            "google-genai not installed. Run `pip install google-genai`. "
+            f"[{e}]"
+        ) from e
 
     client = genai.Client(api_key=api_key)
     config = types.GenerateContentConfig(
         response_mime_type="application/json",
         response_schema=list[_Case],
     )
+    pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
 
-    def _fn(system: str, user: str) -> list[dict]:
+    def _do_call(system: str, user: str) -> list[dict]:
         full = f"{system}\n\n{user}"
         resp = client.models.generate_content(
             model=GEMINI_MODEL,
@@ -83,14 +104,42 @@ def gemini_structured_client(api_key: str):
         # SDK was able to materialize the schema; otherwise text.
         parsed = resp.parsed
         if parsed is None:
-            return json.loads(resp.text or "[]")
+            text = (resp.text or "").strip()
+            if not text:
+                raise ValueError(
+                    "Gemini returned an empty response (no parsed schema, "
+                    "no text). Likely a transient API issue; retry."
+                )
+            try:
+                return json.loads(text)
+            except json.JSONDecodeError as e:
+                raise ValueError(
+                    f"Gemini returned non-JSON text after schema "
+                    f"parsing failed: {text[:200]!r}"
+                ) from e
         return [{"prompt": c.prompt, "truth": c.truth} for c in parsed]
+
+    def _fn(system: str, user: str) -> list[dict]:
+        future = pool.submit(_do_call, system, user)
+        try:
+            return future.result(timeout=GEMINI_TIMEOUT_S)
+        except concurrent.futures.TimeoutError as e:
+            future.cancel()
+            raise TimeoutError(
+                f"Gemini structured call exceeded {GEMINI_TIMEOUT_S}s timeout"
+            ) from e
 
     return _fn
 
 
 def lmstudio_client():
-    import requests
+    """Same as run_pilot.lmstudio_client: Session-pooled + safe choices access."""
+    try:
+        import requests
+    except ImportError as e:
+        raise SystemExit(
+            f"requests not installed. Run `pip install requests`. [{e}]"
+        ) from e
 
     SYSTEM = (
         "You are a community health worker assistant in a low-resource "
@@ -118,7 +167,11 @@ def lmstudio_client():
         )
         resp.raise_for_status()
         data = resp.json()
-        return data["choices"][0]["message"]["content"].strip()
+        choices = data.get("choices") or []
+        if not choices:
+            raise RuntimeError(f"lmstudio returned no choices: {str(data)[:200]}")
+        msg = choices[0].get("message") or {}
+        return (msg.get("content") or "").strip()
     return _fn
 
 
@@ -143,25 +196,44 @@ _CASE_GEN_USER_TEMPLATE = (
 )
 
 
-def generate_cases_for(protocol_id: str, text: str, gen_fn) -> list[dict]:
+def generate_cases_for(
+    protocol_id: str, text: str, gen_fn, source_path: Path,
+) -> list[dict]:
+    """Format N cases from one protocol clause. Skip malformed rows."""
+    from datetime import date
+
     user = _CASE_GEN_USER_TEMPLATE.format(
         protocol_id=protocol_id,
         protocol_text=text,
         n=N_CASES_PER_PROTOCOL,
     )
     rows = gen_fn(_CASE_GEN_SYSTEM, user)
-    out = []
+    out: list[dict] = []
     for i, row in enumerate(rows[:N_CASES_PER_PROTOCOL]):
+        if not isinstance(row, dict):
+            continue
+        prompt = row.get("prompt")
+        truth = row.get("truth")
+        if not prompt or not truth:
+            print(
+                f"    skip case {i}: missing prompt or truth",
+                file=sys.stderr,
+            )
+            continue
         out.append({
             "case_id": f"{protocol_id}__case_{i:03d}",
-            "prompt": row["prompt"].strip(),
-            "truth": row["truth"].strip(),
+            "prompt": str(prompt).strip(),
+            "truth": str(truth).strip(),
             "metadata": {
                 "protocol_id": protocol_id,
-                "source_file": str(PROTOCOL_ROOT / f"{protocol_id}.md"),
+                "source_file": str(source_path),
                 "source": "medlocal_authoritative",
-                "source_dir": "protocols",
-                "ingested_at_pilot": "2026-04-19",
+                # source_dir tracks the actual parent directory the
+                # .md was loaded from, not a hardcoded "protocols"
+                # (matches scale-up's behavior when reading from
+                # both protocols/ and other dirs).
+                "source_dir": source_path.parent.name,
+                "ingested_at_pilot": date.today().isoformat(),
                 "recovered_via_structured_output": True,
             },
         })
@@ -170,7 +242,9 @@ def generate_cases_for(protocol_id: str, text: str, gen_fn) -> list[dict]:
 
 def align_cases(cases_with_responses: list[dict]) -> list[dict]:
     from merken.training.midloop_dataset import (
-        Aligner, Case, default_embed_fn,
+        Aligner,
+        Case,
+        default_embed_fn,
     )
     aligner = Aligner(
         embed_fn=default_embed_fn(model_name=EMBED_MODEL),
@@ -246,7 +320,7 @@ def main() -> int:
         print(f"  generating cases for {protocol_id}...", file=sys.stderr)
         t0 = time.time()
         try:
-            cases = generate_cases_for(protocol_id, text, gen_fn)
+            cases = generate_cases_for(protocol_id, text, gen_fn, path)
         except Exception as e:
             print(f"  STILL FAILED {protocol_id}: {type(e).__name__}: {e}",
                   file=sys.stderr)
