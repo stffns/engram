@@ -546,37 +546,8 @@ def is_persistable_step(
 
 # ---------------------------------------------------------------- audit format
 
-def format_midloop_audit_row(
-    observation: StepObservation,
-    decision: MidloopDecision,
-) -> tuple[str, str]:
-    """Build a (title, body) pair for one midloop audit entry.
-
-    Body is plain key:value text so vstash FTS can find rows by
-    ``task_id:abc123`` or ``step_index:7`` or ``midloop_disagree``
-    via simple grep.
-    """
-    from datetime import datetime, timezone
-    ts = datetime.now(timezone.utc).isoformat(timespec="microseconds")
-    preview = " ".join(observation.output_text.split())[:200]
-    body = (
-        f"timestamp: {ts}\n"
-        f"decision: should_intervene\n"
-        f"task_id: {observation.task_id}\n"
-        f"step_id: {observation.step_id}\n"
-        f"step_index: {observation.step_index}\n"
-        f"task_category: {observation.task_category.value}\n"
-        f"intervene: {decision.intervene}\n"
-        f"action: {decision.action.value}\n"
-        f"state: {decision.state.value}\n"
-        f"confidence: {decision.confidence:.4f}\n"
-        f"reason: {decision.reason}\n"
-        f"policy: {decision.policy}\n"
-        f"signals: {json.dumps(decision.signals, sort_keys=True)}\n"
-        f"output_preview: {preview}\n"
-    )
-    title = (
-        f"audit:should_intervene:{observation.task_id}:"
-        f"step{observation.step_index:04d}:{ts}"
-    )
-    return title, body
+# format_midloop_audit_row lives in merken.audit alongside the other
+# format_*_audit_row helpers. Re-exported here so existing
+# `from merken.policies.midloop import format_midloop_audit_row`
+# imports keep working.
+from merken.audit import format_midloop_audit_row  # noqa: E402, F401

@@ -224,7 +224,9 @@ class Memory:
         consolidate_decider: ConsolidateDecider | None = None,
         recall_decider: RecallDecider | None = None,
         forget_decider: ForgetDecider | None = None,
+        midloop_decider: Any | None = None,
         temporal_weight: float = 0.0,
+        trajectory_window: int = 20,
     ) -> None:
         self.project = project
         self.collection = collection
@@ -241,6 +243,17 @@ class Memory:
         )
         self._recall_decider: RecallDecider = recall_decider or LayeredRecaller()
         self._forget_decider: ForgetDecider = forget_decider or NeverForget()
+
+        # Midloop default is Noop (never intervenes). The trajectory
+        # is per-Memory instance state, intentionally NOT persisted
+        # step-a-step (per midloop spec section "Trajectory, no
+        # snapshot"). Callers reuse the same Memory instance across a
+        # session to maintain trajectory coherence.
+        from collections import deque
+        from merken.policies.midloop import NoopMidloopDecider
+        self._midloop_decider = midloop_decider or NoopMidloopDecider()
+        self._trajectory: deque = deque(maxlen=trajectory_window)
+        self._prev_midloop_decision = None
 
         # Wire the write decider's hydration to vstash so cross-invocation
         # dedup works without the caller knowing about _seen sets. If the
@@ -914,6 +927,62 @@ class Memory:
             fts_only=fts_only,
         )
 
+    # --------------------------------------------------------------- midloop
+
+    def observe_step(self, observation, *, is_last_step: bool = False):
+        """Submit one step observation to the midloop and (maybe) audit it.
+
+        Per midloop spec section "Trayectoria, no snapshot":
+          - The trajectory window is per-Memory-instance state, NOT
+            persisted step-by-step. Reuse the same Memory instance
+            across a session for trajectory coherence.
+          - The full trajectory (last N observations) is passed to the
+            decider so it can compute trends.
+          - Only "interesting" steps land in the audit log. The
+            ``is_persistable_step`` filter drops on_track-with-no-change
+            rows so the audit collection does not flood. Last step
+            before task outcome always persists -- pass
+            ``is_last_step=True`` on the final observation of a task.
+
+        Returns the ``MidloopDecision`` so the caller can act on
+        ``decision.intervene`` / ``decision.action`` if it wants
+        runtime behavior to follow the midloop's recommendation.
+        """
+        from merken.policies.midloop import (
+            MidloopContext,
+            is_persistable_step,
+        )
+
+        ctx = MidloopContext(
+            project=self.project,
+            task_id=observation.task_id,
+            task_category=observation.task_category,
+            trajectory_size=len(self._trajectory),
+            task_description=observation.metadata.get("task_description", ""),
+        )
+        decision = self._midloop_decider.decide(
+            observation=observation,
+            ctx=ctx,
+            trajectory=list(self._trajectory),
+        )
+
+        if is_persistable_step(decision, self._prev_midloop_decision, is_last_step):
+            self._write_midloop_audit(observation, decision)
+
+        self._trajectory.append(observation)
+        self._prev_midloop_decision = decision
+        return decision
+
+    def reset_trajectory(self) -> None:
+        """Clear the in-process trajectory window (typically on task switch).
+
+        Call between tasks so signals from the previous task do not
+        leak into the next task's decisions. The audit log still has
+        the prior task's persisted rows.
+        """
+        self._trajectory.clear()
+        self._prev_midloop_decision = None
+
     # --------------------------------------------------------------- labels
 
     def remember_label(self, *, event_title: str, body: str) -> None:
@@ -976,6 +1045,25 @@ class Memory:
     ) -> None:
         """Audit one ``should_consolidate`` decision. Same fail-open policy."""
         title, body = format_consolidate_audit_row(decision, n_events)
+        try:
+            self._vstash.remember(
+                body,
+                title=title,
+                collection=AUDIT_COLLECTION,
+                layer=AUDIT_LAYER,
+            )
+        except Exception:
+            pass
+
+    def _write_midloop_audit(self, observation, decision) -> None:
+        """Audit one ``should_intervene`` decision.
+
+        Same fail-open policy as the other audit writers: a flaky
+        write must never break the user's call. Uses the canonical
+        format from ``merken.audit.format_midloop_audit_row``.
+        """
+        from merken.audit import format_midloop_audit_row
+        title, body = format_midloop_audit_row(observation, decision)
         try:
             self._vstash.remember(
                 body,
