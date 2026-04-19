@@ -218,6 +218,44 @@ def test_cli_generate_cases_missing_input_returns_2(
 
 # ----------------------------------------------------------------- generate-responses
 
+def test_cli_generate_responses_skips_malformed_cases(
+    tmp_path: Path, monkeypatch, capsys
+) -> None:
+    """One bad line in cases JSONL must not abort the batch.
+
+    Mirrors `_load_cases` and `_load_protocols` per PR #20 review
+    (Copilot, 2026-04-19): all three loaders skip+warn instead of
+    raising KeyError on missing required keys.
+    """
+    in_path = tmp_path / "cases.jsonl"
+    out_path = tmp_path / "responses.jsonl"
+    in_path.write_text(
+        '{"case_id":"c1","prompt":"q1","truth":"t1"}\n'
+        'not json at all\n'
+        '{"prompt":"missing case_id","truth":"t"}\n'
+        '{"case_id":"c2","prompt":"","truth":"t"}\n'
+        '{"case_id":"c3","prompt":"q3","truth":"t3"}\n'
+    )
+
+    fake_gen_fn = lambda prompt: f"reply: {prompt[:20]}"  # noqa: E731
+
+    import merken.training.midloop_dataset_cli as cli_mod
+    monkeypatch.setattr(cli_mod, "_resolve_generate_fn", lambda args: fake_gen_fn)
+
+    rc = main([
+        "generate-responses",
+        "--in", str(in_path),
+        "--out", str(out_path),
+    ])
+    assert rc == 0
+    rows = [json.loads(line) for line in out_path.read_text().splitlines()]
+    # Only c1 and c3 land. c2 has empty prompt -> skipped. The
+    # JSON-broken line and the missing-case_id line are also skipped.
+    assert [r["case_id"] for r in rows] == ["c1", "c3"]
+    err = capsys.readouterr().err
+    assert err.count("skipping line") >= 3
+
+
 def test_cli_generate_responses_uses_injected_gen_fn(
     tmp_path: Path, monkeypatch
 ) -> None:

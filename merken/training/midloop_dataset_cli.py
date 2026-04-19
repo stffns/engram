@@ -210,7 +210,12 @@ def _load_protocols(path: Path):
 
 
 def _load_generated_cases(path: Path):
-    """Yield GeneratedCase from JSONL emitted by `generate-cases`."""
+    """Yield GeneratedCase from JSONL emitted by `generate-cases`.
+
+    Skips malformed rows with a stderr warning (consistent with
+    ``_load_cases`` and ``_load_protocols``); a single bad line must
+    not abort the whole ``generate-responses`` batch.
+    """
     with path.open() as f:
         for lineno, raw in enumerate(f, 1):
             raw = raw.strip()
@@ -220,6 +225,13 @@ def _load_generated_cases(path: Path):
                 row = json.loads(raw)
             except json.JSONDecodeError as e:
                 print(f"warn: skipping line {lineno}: {e}", file=sys.stderr)
+                continue
+            missing = [k for k in ("case_id", "prompt", "truth") if not row.get(k)]
+            if missing:
+                print(
+                    f"warn: skipping line {lineno}: missing required keys {missing}",
+                    file=sys.stderr,
+                )
                 continue
             yield GeneratedCase(
                 case_id=row["case_id"],
@@ -349,11 +361,17 @@ def cmd_generate_responses(args: argparse.Namespace) -> int:
 def cmd_build(args: argparse.Namespace) -> int:
     """End-to-end: protocols -> cases -> responses -> aligned.
 
-    Writes intermediate artifacts to <out_dir>/cases.jsonl,
-    <out_dir>/responses.jsonl, <out_dir>/aligned.jsonl. Each step
-    is restartable -- if cases.jsonl already exists you can skip
-    `generate-cases` by deleting only the later artifacts and
-    re-running.
+    Writes intermediate artifacts to ``<out_dir>/cases.jsonl``,
+    ``<out_dir>/responses.jsonl``, and ``<out_dir>/aligned.jsonl``.
+
+    Each step OVERWRITES its target artifact, so a re-run produces
+    a fresh dataset end-to-end (no skip-if-exists logic). To skip
+    early steps -- e.g. if cases.jsonl is already correct and you
+    only want to re-run responses + align -- invoke the subcommands
+    individually instead of ``build``. A future revision may add a
+    ``--skip-existing`` flag if the manual orchestration becomes
+    common; today the explicit subcommand path is the supported
+    way to partial-rebuild.
     """
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
