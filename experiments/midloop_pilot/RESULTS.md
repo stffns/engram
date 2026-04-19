@@ -267,3 +267,36 @@ Phase 2 (midloop primitive in `merken/policies/midloop.py`) can now
 proceed with the dataset shape known. Phase 3 (training a
 NanoGPTMidloopDecider on this dataset) is gated on Phase 2's
 primitive landing.
+
+---
+
+## Tech-debt recovery: 2 failed protocols, +39 labels (2026-04-19)
+
+Scale-up logged 2 protocols as ERR (cholera-who, dengue-who). Both
+hit the same Gemini failure: JSON array malformed past ~500 chars.
+Pipeline fail-soft skipped them, ending at 75/77.
+
+Fix: `recover_failed.py` uses Gemini structured-output mode
+(`response_mime_type="application/json"` + `response_schema=list[Case]`)
+so the SDK GUARANTEES the response shape. Both protocols regenerated
+cleanly on the FIRST try; ~$0.01, ~30s.
+
+**Final dataset:**
+
+| metric | scale-up only | +recovery | total |
+|---|---:|---:|---:|
+| protocols | 75/77 | +2 | **77/77 (100%)** |
+| cases | 375 | +10 | **385** |
+| divergent regions | 1115 | +39 | 1154 |
+| semantic drops | 18 | +0 | 18 |
+| **intervention labels** | 1097 | +39 | **1136** |
+
+The 39 new divergences are all genuine clinical errors (0 drops),
+consistent with the systemic finding.
+
+Production follow-ups filed:
+- Promote `response_schema` from the recovery script to
+  `merken/training/case_generator.py` default Gemini client.
+- Anthropic client should grow an analogous strict-JSON path.
+- 7 WHO PDFs in `data/core/who/` deferred (need pypdf extraction +
+  per-section clause splitting; separate larger effort).
