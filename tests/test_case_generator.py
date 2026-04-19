@@ -124,3 +124,65 @@ def test_generate_propagates_extraction_errors() -> None:
     gen = CaseGenerator(_fake_client("totally not json"))
     with pytest.raises(ValueError):
         gen.generate(ProtocolClause("p", "..."), n=1)
+
+
+# ----------------------------------------------------------------- structured
+
+def _fake_structured_client(canned: list):
+    """Build a structured client that returns a canned list."""
+    def _fn(system: str, user: str) -> list:
+        return canned
+    return _fn
+
+
+def test_structured_mode_skips_text_parsing() -> None:
+    """structured=True path takes the list directly; never calls
+    _extract_json_array. Verifiable because we pass a canned list
+    with 2 valid entries."""
+    canned = [
+        {"prompt": "child fever 38.5", "truth": "amoxicillin 50 mg/kg"},
+        {"prompt": "adult cough 5 days", "truth": "wait and observe"},
+    ]
+    gen = CaseGenerator(_fake_structured_client(canned), structured=True)
+    cases = gen.generate(ProtocolClause("p_struct", "..."), n=2)
+    assert len(cases) == 2
+    assert cases[0].case_id == "p_struct__case_000"
+    assert cases[0].prompt == "child fever 38.5"
+    assert cases[0].truth == "amoxicillin 50 mg/kg"
+
+
+def test_structured_mode_rejects_non_list_return() -> None:
+    """A structured client MUST return list[dict]; raising on a
+    string return surfaces a clear TypeError instead of corrupting
+    the output silently."""
+    def bad_client(system: str, user: str):
+        return "this is text not a list"
+
+    gen = CaseGenerator(bad_client, structured=True)
+    with pytest.raises(TypeError, match="must return list"):
+        gen.generate(ProtocolClause("p", "..."), n=1)
+
+
+def test_structured_mode_skips_malformed_entries_same_as_text() -> None:
+    """Validation on prompt/truth presence is identical between modes."""
+    canned = [
+        {"prompt": "ok", "truth": "ok"},
+        {"prompt": "missing truth"},        # incomplete
+        "not even a dict",                  # wrong type
+        {"prompt": "valid two", "truth": "valid"},
+    ]
+    gen = CaseGenerator(_fake_structured_client(canned), structured=True)
+    cases = gen.generate(ProtocolClause("p", "..."), n=4)
+    assert len(cases) == 2
+    assert cases[0].prompt == "ok"
+    assert cases[1].prompt == "valid two"
+
+
+def test_text_mode_default_unchanged() -> None:
+    """structured=False (default) preserves the existing behavior:
+    raw text in, _extract_json_array parses, cases come out."""
+    raw = '[{"prompt": "p_text", "truth": "t_text"}]'
+    gen = CaseGenerator(_fake_client(raw))  # no structured= kwarg
+    cases = gen.generate(ProtocolClause("p", "..."), n=1)
+    assert len(cases) == 1
+    assert cases[0].prompt == "p_text"

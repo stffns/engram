@@ -8,9 +8,27 @@ WITHOUT the protocol; the gap between truth and small-model response
 is the midloop training signal.
 
 Mock-friendly design: ``CaseGenerator`` takes a ``LLMClient``
-callable. The default implementation wraps the anthropic SDK, but
-tests pass a fake that returns canned JSON. This keeps the suite
-offline + zero-cost while preserving the real-world path.
+callable. The default implementations wrap the anthropic SDK or the
+google-genai SDK; tests pass a fake that returns canned JSON or a
+canned list. This keeps the suite offline + zero-cost while preserving
+the real-world path.
+
+Two client contracts are supported:
+
+- **Text-mode** (default): the client returns a raw JSON string and
+  ``CaseGenerator`` parses it with ``_extract_json_array`` (tolerant
+  of markdown fences + leading prose). Use this when the upstream
+  API doesn't enforce JSON structure on the wire.
+- **Structured-mode**: the client returns ``list[dict]`` directly,
+  bypassing the text parsing. Use this when the API guarantees the
+  shape via response_mime_type / response_schema (Gemini's
+  structured output, OpenAI's response_format=json_schema, etc).
+
+Pass ``structured=True`` to ``CaseGenerator`` when wiring a
+structured-mode client so the parser step is skipped. The recovery
+script in ``experiments/midloop_pilot/recover_failed.py`` (PR #23)
+demonstrated structured-mode is faster + zero JSON parse failures
+on the live MedLocal corpus.
 """
 
 from __future__ import annotations
@@ -21,8 +39,13 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
-# (system_prompt, user_prompt) -> raw model output text.
+# Text-mode: (system_prompt, user_prompt) -> raw model output text.
 LLMClient = Callable[[str, str], str]
+
+# Structured-mode: (system_prompt, user_prompt) -> parsed list of dicts.
+# Used by clients backed by structured-output APIs that guarantee the
+# response shape on the wire (e.g. Gemini response_schema).
+LLMStructuredClient = Callable[[str, str], list[dict]]
 
 
 @dataclass
@@ -114,8 +137,28 @@ class CaseGenerator:
     aside from the LLM client reference.
     """
 
-    def __init__(self, llm_client: LLMClient) -> None:
+    def __init__(
+        self,
+        llm_client: LLMClient | LLMStructuredClient,
+        *,
+        structured: bool = False,
+    ) -> None:
+        """Build a CaseGenerator.
+
+        ``structured=False`` (default): ``llm_client`` returns a raw
+        JSON string; we parse it with ``_extract_json_array``
+        (tolerant of markdown fences + prose). Use with
+        ``default_anthropic_client`` and any API where you cannot
+        enforce JSON structure on the wire.
+
+        ``structured=True``: ``llm_client`` returns ``list[dict]``
+        directly, bypassing text parsing. Use with
+        ``default_gemini_client(structured=True)`` and any API that
+        guarantees the response shape (Gemini response_schema,
+        OpenAI json_schema, etc).
+        """
         self._llm = llm_client
+        self._structured = structured
 
     def generate(self, clause: ProtocolClause, n: int = 5) -> list[GeneratedCase]:
         if n <= 0:
@@ -125,8 +168,16 @@ class CaseGenerator:
             protocol_text=clause.text,
             n=n,
         )
-        raw = self._llm(_SYSTEM_PROMPT, user)
-        rows = _extract_json_array(raw)
+        result = self._llm(_SYSTEM_PROMPT, user)
+        if self._structured:
+            if not isinstance(result, list):
+                raise TypeError(
+                    f"structured=True client must return list[dict]; "
+                    f"got {type(result).__name__}"
+                )
+            rows = result
+        else:
+            rows = _extract_json_array(result)
 
         cases: list[GeneratedCase] = []
         for i, row in enumerate(rows):
@@ -179,3 +230,96 @@ def default_anthropic_client(
         return getattr(block, "text", "") or ""
 
     return _fn
+
+
+def default_gemini_client(
+    api_key: str,
+    model: str = "gemini-2.5-flash",
+    *,
+    structured: bool = True,
+    timeout_s: float = 60.0,
+) -> "LLMStructuredClient | LLMClient":
+    """Build a Gemini-backed client. Defaults to structured-output mode.
+
+    Lazy-imports google-genai so the module is importable without
+    the SDK installed (tests use fake clients).
+
+    ``structured=True`` (RECOMMENDED, default) returns an
+    ``LLMStructuredClient`` -- the SDK enforces a Pydantic schema
+    (``list[_GeneratedCaseSchema]``) on the wire so the response
+    is GUARANTEED to be valid JSON with the right shape. The
+    recovery script in ``experiments/midloop_pilot/recover_failed.py``
+    demonstrated this is faster + zero JSON parse failures on the
+    77-protocol MedLocal corpus that text-mode left 2 protocols
+    failing on. Pair with ``CaseGenerator(client, structured=True)``.
+
+    ``structured=False`` returns an ``LLMClient`` (text mode) for
+    callers who explicitly want raw text + tolerant parsing.
+
+    Wrapped in a per-call ``concurrent.futures`` timeout (default
+    60s) because the google-genai SDK can hang in SSL_read
+    indefinitely under transient network conditions; we observed a
+    23-min hang during the 77-protocol scale-up before adding this
+    protection. ``timeout_s=0`` disables the wrapper.
+    """
+    try:
+        from google import genai
+        from google.genai import types
+    except ImportError as e:  # pragma: no cover - env-specific
+        raise SystemExit(
+            "google-genai not installed. Run `pip install google-genai`. "
+            f"[{e}]"
+        ) from e
+    from pydantic import BaseModel
+
+    class _GeneratedCaseSchema(BaseModel):
+        prompt: str
+        truth: str
+
+    client = genai.Client(api_key=api_key)
+    config = (
+        types.GenerateContentConfig(
+            response_mime_type="application/json",
+            response_schema=list[_GeneratedCaseSchema],
+        )
+        if structured
+        else None
+    )
+
+    def _do_call(system: str, user: str):
+        full = f"{system}\n\n{user}"
+        resp = client.models.generate_content(
+            model=model, contents=full, config=config,
+        )
+        if structured:
+            parsed = resp.parsed
+            if parsed is not None:
+                return [
+                    {"prompt": c.prompt, "truth": c.truth} for c in parsed
+                ]
+            # Fallback: schema didn't materialize; surface a clear
+            # error rather than returning [] silently.
+            text = (resp.text or "").strip()
+            if not text:
+                raise ValueError(
+                    "Gemini structured call returned no parsed schema "
+                    "and no text; likely a transient API issue."
+                )
+            return _extract_json_array(text)
+        return (resp.text or "").strip()
+
+    if timeout_s and timeout_s > 0:
+        import concurrent.futures
+        pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+
+        def _fn(system: str, user: str):
+            future = pool.submit(_do_call, system, user)
+            try:
+                return future.result(timeout=timeout_s)
+            except concurrent.futures.TimeoutError as e:
+                future.cancel()
+                raise TimeoutError(
+                    f"Gemini call exceeded {timeout_s}s timeout"
+                ) from e
+        return _fn
+    return _do_call
