@@ -103,6 +103,19 @@ as the truth. For MedLocal that shape is concise clinical action,
 not free-form essay. Document this constraint in
 `response_generator.default_hf_client` for future users.
 
+## License note (per PR #21 review)
+
+The protocol excerpts quoted below come from MedLocal's
+`data/core/protocols/` directory. Per `medlocal/docs/SOURCES.md`,
+those files are **original works authored by the MedLocal project**,
+licensed under Apache 2.0, written from scratch based on factual
+medical guidance from publicly available WHO/IMCI/MSF sources.
+**No CC-BY-NC-SA or other restricted text is reproduced verbatim**
+in MedLocal or in this report. Reproducing the truth + model
+strings here is therefore Apache-2.0-compatible. If you mirror this
+report into a license-stricter context, the same SOURCES.md guarantee
+holds for any future regeneration.
+
 ## Sample interventions (the actual training labels)
 
 Three representative cases, illustrating the kind of error the midloop

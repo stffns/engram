@@ -32,10 +32,16 @@ import os
 import statistics
 import sys
 import time
+from datetime import date
 from pathlib import Path
 
-ENGRAM_ROOT = Path(__file__).resolve().parent.parent.parent
-PROTOCOL_ROOT = Path.home() / "Desktop/Personal/Projects/medlocal/data/core/protocols"
+# Default protocol root: Jay's local MedLocal checkout. Override via
+# --protocol-root CLI flag or MIDLOOP_PROTOCOL_ROOT env var so the
+# script is portable to other machines / CI without editing source.
+DEFAULT_PROTOCOL_ROOT = Path.home() / "Desktop/Personal/Projects/medlocal/data/core/protocols"
+PROTOCOL_ROOT = Path(
+    os.environ.get("MIDLOOP_PROTOCOL_ROOT", str(DEFAULT_PROTOCOL_ROOT))
+)
 OUT_DIR = Path(__file__).resolve().parent / "out"
 
 PILOT_PROTOCOLS = ["pneumonia-imci.md", "dengue-who.md", "anemia-who.md"]
@@ -43,14 +49,35 @@ N_CASES_PER_PROTOCOL = 5
 LMSTUDIO_URL = "http://localhost:1234/v1"
 LMSTUDIO_MODEL = "gemma-4-e4b-it-mlx"
 GEMINI_MODEL = "gemini-2.5-flash"
+GEMINI_TIMEOUT_S = 60  # per-call hard timeout (the v1 hang debug)
 EMBED_MODEL = "BAAI/bge-small-en-v1.5"
 
 
-def load_protocols() -> list[dict]:
-    """Read each pilot protocol from disk, return list of {id, text, metadata}."""
+def load_protocols(
+    files: list[str] | None = None,
+    dirs: list[Path] | None = None,
+) -> list[dict]:
+    """Read protocols from disk, return list of {id, text, metadata}.
+
+    Two modes:
+      - ``files`` -- explicit filename list under PROTOCOL_ROOT (legacy
+        pilot path; default when neither arg is set).
+      - ``dirs`` -- list of directories; every ``*.md`` under each is
+        loaded (scale-up path).
+    """
+    paths: list[Path] = []
+    if dirs:
+        for d in dirs:
+            paths.extend(sorted(d.glob("*.md")))
+    elif files:
+        for fname in files:
+            paths.append(PROTOCOL_ROOT / fname)
+    else:
+        for fname in PILOT_PROTOCOLS:
+            paths.append(PROTOCOL_ROOT / fname)
+
     out = []
-    for fname in PILOT_PROTOCOLS:
-        path = PROTOCOL_ROOT / fname
+    for path in paths:
         if not path.exists():
             print(f"ERROR: protocol not found: {path}", file=sys.stderr)
             sys.exit(2)
@@ -61,17 +88,18 @@ def load_protocols() -> list[dict]:
             "metadata": {
                 "source_file": str(path),
                 "source": "medlocal_authoritative",
-                "ingested_at_pilot": "2026-04-19",
+                "source_dir": path.parent.name,
+                "ingested_at_pilot": date.today().isoformat(),
             },
         })
     return out
 
 
-def step_protocols() -> Path:
+def step_protocols(dirs: list[Path] | None = None) -> Path:
     """Step 0: serialize protocols to JSONL for traceability + reuse."""
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     path = OUT_DIR / "protocols.jsonl"
-    protocols = load_protocols()
+    protocols = load_protocols(dirs=dirs)
     with path.open("w") as f:
         for p in protocols:
             f.write(json.dumps(p, ensure_ascii=False) + "\n")
@@ -80,8 +108,23 @@ def step_protocols() -> Path:
 
 
 def gemini_client():
-    """Build an LLMClient backed by google.genai (Gemini 2.5 Flash)."""
-    from google import genai
+    """Build an LLMClient backed by google.genai (Gemini 2.5 Flash).
+
+    Per-call hard timeout via concurrent.futures: the google-genai SDK
+    relies on the underlying gRPC/HTTP layer for timeouts and we observed
+    a 23-min hang on a single call during the 84-protocol scale-up
+    (SSL_read blocking forever). Wrapping in a futures.Future with
+    GEMINI_TIMEOUT_S gives us a hard bound so a single bad call cannot
+    block the entire batch.
+    """
+    try:
+        from google import genai
+    except ImportError as e:
+        raise SystemExit(
+            "google-genai not installed. Run "
+            "`pip install google-genai` (it is an optional dep for the "
+            f"midloop pilot script; not required for core merken). [{e}]"
+        ) from e
 
     key = os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY")
     if not key:
@@ -90,11 +133,23 @@ def gemini_client():
         )
     client = genai.Client(api_key=key)
 
-    def _fn(system: str, user: str) -> str:
-        # Gemini's API takes contents; system prompt prepended.
+    import concurrent.futures
+    pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+
+    def _do_call(system: str, user: str) -> str:
         full = f"{system}\n\n{user}"
         resp = client.models.generate_content(model=GEMINI_MODEL, contents=full)
         return (resp.text or "").strip()
+
+    def _fn(system: str, user: str) -> str:
+        future = pool.submit(_do_call, system, user)
+        try:
+            return future.result(timeout=GEMINI_TIMEOUT_S)
+        except concurrent.futures.TimeoutError as e:
+            future.cancel()
+            raise TimeoutError(
+                f"Gemini call exceeded {GEMINI_TIMEOUT_S}s timeout"
+            ) from e
 
     return _fn
 
@@ -110,8 +165,21 @@ def lmstudio_client():
     truth (~100-200 chars), and EVERY divergence becomes an
     intervention by accident -- the aligner cannot distinguish
     "wrong" from "verbose" without matched response shape.
+
+    Uses a single ``requests.Session`` for connection pooling: at
+    570+ calls the connection-reuse savings are measurable (per
+    PR #21 review). Validates ``choices`` before indexing so a
+    malformed lmstudio response surfaces a clear error rather than
+    an opaque KeyError / IndexError.
     """
-    import requests
+    try:
+        import requests
+    except ImportError as e:
+        raise SystemExit(
+            "requests not installed. Run `pip install requests` "
+            "(optional dep for the midloop pilot script; not required "
+            f"for core merken). [{e}]"
+        ) from e
 
     SYSTEM = (
         "You are a community health worker assistant in a low-resource "
@@ -122,8 +190,10 @@ def lmstudio_client():
         "specific (drug names + doses + durations), and brief."
     )
 
+    session = requests.Session()
+
     def _fn(prompt: str) -> str:
-        resp = requests.post(
+        resp = session.post(
             f"{LMSTUDIO_URL}/chat/completions",
             json={
                 "model": LMSTUDIO_MODEL,
@@ -138,7 +208,14 @@ def lmstudio_client():
         )
         resp.raise_for_status()
         data = resp.json()
-        return data["choices"][0]["message"]["content"].strip()
+        choices = data.get("choices") or []
+        if not choices:
+            raise RuntimeError(
+                f"lmstudio returned no choices: {str(data)[:200]}"
+            )
+        msg = choices[0].get("message") or {}
+        content = msg.get("content") or ""
+        return content.strip()
 
     return _fn
 
@@ -391,11 +468,12 @@ def write_report(aligned_path: Path) -> None:
     for s in sample_ints[:15]:
         lines.append(f"- [{s['case_id']}] cos={(f"{s['cos']:.3f}" if s['cos'] is not None else "N/A")}  "
                      f"truth=`{s['truth']}` -> model=`{s['model']}`")
-    lines.append("")
-    lines.append("## Sample semantic drops (first 5 cases)")
-    for s in sample_drops[:10]:
-        lines.append(f"- [{s['case_id']}] cos={(f"{s['cos']:.3f}" if s['cos'] is not None else "N/A")}  "
-                     f"truth=`{s['truth']}` -> model=`{s['model']}`")
+    if sample_drops:
+        lines.append("")
+        lines.append("## Sample semantic drops (first 5 cases)")
+        for s in sample_drops[:10]:
+            lines.append(f"- [{s['case_id']}] cos={(f"{s['cos']:.3f}" if s['cos'] is not None else "N/A")}  "
+                         f"truth=`{s['truth']}` -> model=`{s['model']}`")
 
     out.write_text("\n".join(lines))
     print(f"  wrote report -> {out}")
@@ -406,9 +484,43 @@ def main() -> int:
     ap.add_argument("--skip", choices=["protocols", "cases", "responses", "align"],
                     nargs="*", default=[],
                     help="skip steps whose output already exists")
-    ap.add_argument("--threshold", type=float, default=0.90,
-                    help="cosine threshold for semantic-drop filter")
+    ap.add_argument(
+        "--threshold", type=float, default=0.85,
+        help="cosine threshold for semantic-drop filter. Default 0.85 "
+             "(empirically calibrated 2026-04-19 on pneumonia/dengue/anemia; "
+             "see experiments/midloop_pilot/RESULTS.md for the calibration).",
+    )
+    ap.add_argument(
+        "--protocol-root", type=Path, default=None,
+        help="override the protocol root directory (default: "
+             "$MIDLOOP_PROTOCOL_ROOT or DEFAULT_PROTOCOL_ROOT). The 3-file "
+             "pilot reads .md files relative to this dir.",
+    )
+    ap.add_argument("--scale-up", action="store_true",
+                    help="load all protocols from data/core/protocols/ + who/ "
+                         "(84 files) instead of the 3-file pilot list. "
+                         "Writes to a separate scaleup_out/ directory so the "
+                         "3-file pilot artifacts stay untouched.")
+    ap.add_argument("--out-subdir", default=None,
+                    help="override OUT_DIR subdir name (default: out for pilot, "
+                         "scaleup_out for --scale-up).")
     args = ap.parse_args()
+
+    # Resolve protocol source + output dir.
+    global OUT_DIR, PROTOCOL_ROOT
+    if args.out_subdir:
+        OUT_DIR = Path(__file__).resolve().parent / args.out_subdir
+    elif args.scale_up:
+        OUT_DIR = Path(__file__).resolve().parent / "scaleup_out"
+    if args.protocol_root:
+        PROTOCOL_ROOT = args.protocol_root
+
+    protocol_dirs = None
+    if args.scale_up:
+        # Scale-up reads from siblings of PROTOCOL_ROOT: ../protocols + ../who
+        # Default PROTOCOL_ROOT IS .../core/protocols, so parent is .../core
+        base = PROTOCOL_ROOT.parent
+        protocol_dirs = [base / "protocols", base / "who"]
 
     print("=== midloop pilot ===")
     print(f"out_dir: {OUT_DIR}")
@@ -417,27 +529,27 @@ def main() -> int:
     print(f"threshold: {args.threshold}")
     print()
 
-    print("step 0/3: load protocols")
+    print("step 1/4: load protocols")
     protocols_path = OUT_DIR / "protocols.jsonl"
     if "protocols" not in args.skip or not protocols_path.exists():
-        protocols_path = step_protocols()
+        protocols_path = step_protocols(dirs=protocol_dirs)
 
-    print("\nstep 1/3: generate cases (Gemini)")
+    print("\nstep 2/4: generate cases (Gemini)")
     cases_path = OUT_DIR / "cases.jsonl"
     if "cases" not in args.skip or not cases_path.exists():
         cases_path = step_cases(protocols_path)
 
-    print("\nstep 2/3: generate responses (lmstudio gemma)")
+    print("\nstep 3/4: generate responses (lmstudio gemma)")
     responses_path = OUT_DIR / "responses.jsonl"
     if "responses" not in args.skip or not responses_path.exists():
         responses_path = step_responses(cases_path)
 
-    print("\nstep 3/3: align + filter")
+    print("\nstep 4/4: align + filter")
     aligned_path = OUT_DIR / "aligned.jsonl"
     if "align" not in args.skip or not aligned_path.exists():
         aligned_path = step_align(responses_path, args.threshold)
 
-    print("\nstep 4/3: write report")
+    print("\nfinal: write report")
     write_report(aligned_path)
 
     print("\n=== pilot complete ===")
