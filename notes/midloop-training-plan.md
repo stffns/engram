@@ -13,6 +13,83 @@ NanoGPTWriteDecider precedent (PRs #1, #4, #5, #11) -- shadow
 mode first, calibrated against fresh disagreements, graduated
 only when the numeric bars are met.
 
+## Status snapshot (end of session 2026-04-19) -- READ FIRST
+
+**Phase 3 is unblocked. Tomorrow starts with the training script.**
+
+- Phase 1 dataset on disk:
+  `experiments/midloop_pilot/training_data/midloop_v0.jsonl`
+  (gitignored). Stats: 385 cases over 77 protocols (5 per
+  protocol), 8053 response tokens, 1132 positive boundary
+  labels (14.1% positive density -- matches the plan estimate
+  within rounding). File schema matches the "Recommended
+  dataset format (v0)" section below.
+- Phase 2 runtime: `merken/policies/midloop.py` with the three
+  reference deciders. Lives on develop, has tests.
+- Tooling readiness for Phase 3:
+    - `default_gemini_client(structured=True)` (PR #25 merged)
+      and `default_anthropic_client(structured=True)` (PR #26
+      merged) -- parse-failure-free case generation if the
+      pool needs to grow.
+    - `experiments/midloop_pilot/extract_pdfs.py` (PR #27
+      merged) -- 7 WHO PDFs staged in
+      `staging/who_extracted/` (~1.1MB) waiting for clause
+      chunking IF the 77-protocol corpus needs widening before
+      training.
+
+### Next session: start here
+
+Concrete first steps for the Phase 3 v0 implementation
+(in order, no surprises):
+
+1. **Sanity-load the dataset.** Open
+   `experiments/midloop_pilot/training_data/midloop_v0.jsonl`,
+   confirm 385 rows, `intervene_labels` arrays line up with
+   `response_tokens`, no malformed entries. ~5 min.
+2. **Stratified train/test split.** 10% test stratified by
+   `metadata.protocol_id` so no protocol leaks across the
+   split (~38 test, 347 train). Save to two JSONL files in
+   the same dir. ~30 min.
+3. **Fork the v7 training script.** Start from the
+   NanoGPTWriteDecider v7 trainer in the nanoGPT repo. Three
+   surgical changes:
+     - swap classification head (single label token logits)
+       for a per-position tagging head (`Linear(n_embd, 1)`).
+     - swap loss to per-position binary cross-entropy with
+       `pos_weight=6.0` (rough inverse of 14.1% positive rate);
+       sweep 3/5/6/8/10 against held-out F1.
+     - mask loss to response-region positions only (prompt +
+       special tokens excluded from gradient).
+4. **First training run.** ~30 min on MPS, 4L/4H/128d, block
+   size 128 (confirm distribution after the split; current
+   note says 71 mean tokens, 128 is safe).
+5. **Eval against graduation gate.** F1 >= 0.75 on held-out 38
+   cases, no per-protocol recall < 50%. If pass, ship as PR
+   "Phase 3 v0: NanoGPTMidloopDecider graduated as shadow."
+
+Iteration to F1 >= 0.75 is the real work (1-3 weeks per the
+plan): class-weight sweep, threshold calibration, possibly a
+wider tagging head MLP if 129-param Linear isn't enough.
+
+### What ships when v0 lands
+
+A new `NanoGPTMidloopDecider` class in `merken/policies/midloop.py`
+that wraps the trained ckpt + meta and implements
+`should_intervene(StepObservation) -> MidloopDecision`. Wired
+shadow-first via `ShadowMidloopDecider(NoopMidloopDecider(),
+NanoGPTMidloopDecider(ckpt))` -- mirror of the
+NanoGPTWriteDecider graduation pattern. Action initially
+clamped to WHISPER per the spec.
+
+### What's NOT changed by today's PRs (#25/#26/#27)
+
+The training plan, architecture sketch, and graduation
+criteria below are unchanged. Today only added tooling that
+makes case generation more reliable for any future corpus
+expansion. The 1132-label dataset is sufficient to start
+training right now -- corpus expansion via the staged WHO PDFs
+is a parallel track, not a blocker.
+
 ## What the model needs to predict
 
 Per the midloop spec section "NanoGPTMidloopDecider":
