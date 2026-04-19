@@ -642,6 +642,21 @@ class Memory:
                     method=method,
                 )
 
+            # Tombstone any prior briefs that don't share the new
+            # fingerprint. Probe B (2026-04-19) showed that without
+            # supersession, recall-briefs surfaces stale snapshots
+            # alongside fresh ones and downstream LLMs treat both
+            # as current state. The full text + tags are preserved
+            # in merken_tombstones so a caller can `merken tombstones`
+            # to inspect the historical snapshot.
+            stale_briefs = [
+                d for d in existing_briefs
+                if "method:brief_v1" in (getattr(d, "tags", "") or "")
+                and fp_tag not in (getattr(d, "tags", "") or "")
+            ]
+            for stale in stale_briefs:
+                self._supersede_brief(stale, reason=f"superseded_by_fp={events_fingerprint}")
+
             from merken.consolidation import generate_briefs
             briefs = generate_briefs(events, synthesize_fn)
             facts_written = []
@@ -949,6 +964,46 @@ class Memory:
                 collection=AUDIT_COLLECTION,
                 layer=AUDIT_LAYER,
             )
+        except Exception:
+            pass
+
+    def _supersede_brief(self, doc, reason: str) -> None:
+        """Tombstone a stale brief during a re-consolidation cycle.
+
+        Called by ``consolidate(method="brief_v1")`` when a fresh
+        events_fingerprint produces a new brief set; older briefs in
+        the same semantic layer get superseded so ``recall-briefs``
+        only surfaces the current snapshot. Full text and original
+        tags are preserved in ``merken_tombstones`` for inspection
+        via ``Memory.tombstones`` / ``merken tombstones`` CLI.
+
+        Failure is silent: a brief that fails to supersede stays
+        live in semantic, which is the same as the prior behavior.
+        Worst case: stale briefs accumulate; recall surfaces them.
+        Best case: clean snapshot.
+        """
+        try:
+            chunks = self._vstash.get_document_chunks(
+                doc.path, collection=self.collection,
+            )
+            text = " ".join(chunks).strip()
+            if not text:
+                return
+            t_title, t_body = format_tombstone_row(
+                event_path=doc.path,
+                event_text=text,
+                event_title=getattr(doc, "title", None),
+                event_layer="semantic",
+                event_tags=getattr(doc, "tags", None),
+                derived_in_facts=[],
+                reason=reason,
+                policy="brief_v1_supersede",
+            )
+            self._vstash.remember(
+                t_body, title=t_title,
+                collection=TOMBSTONE_COLLECTION, layer=TOMBSTONE_LAYER,
+            )
+            self._vstash.remove(doc.path)
         except Exception:
             pass
 

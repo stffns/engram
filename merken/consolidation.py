@@ -492,34 +492,45 @@ def materialize_fact(cluster: list[tuple[str, str]]) -> Fact:
 #: Takes a list of texts and returns a single synthesized string.
 SynthesizeFn = Callable[[list[str]], str]
 
-_BRIEF_PROMPT = (
+_BRIEF_PROMPT_TEMPLATE = (
     "You are analyzing a stream of notes. Many are noise (standups, tickets,\n"
     "planning). Some contain significant evolving information.\n\n"
+    "Today is {today}. Every brief you produce MUST include an\n"
+    "`**As of:** {today}` line directly under the `##` header so the\n"
+    "reader knows when this snapshot was made.\n\n"
     "Identify significant topics and produce a TEMPORAL BRIEF for each.\n"
     "Choose the schema that fits each topic:\n\n"
     "DECISION (architecture, tooling, providers):\n"
     "## [Topic Name]\n"
+    "**As of:** {today}\n"
     "- [v1]: [what was decided and why]\n"
     "- [v2]: [what changed and why]\n"
     "- **Current state:** [what is in place RIGHT NOW]\n\n"
     "ENTITY (people, services, systems):\n"
     "## [Entity Name]\n"
+    "**As of:** {today}\n"
     "- **Identity:** [what/who it is]\n"
     "- **Key facts:** [known attributes]\n"
     "- **Last update:** [most recent information]\n\n"
     "EVENT (incidents, migrations, launches):\n"
     "## [Event Name]\n"
+    "**As of:** {today}\n"
     "- **What happened:** [description]\n"
     "- **Impact:** [consequences]\n"
     "- **Resolution:** [how it was resolved]\n"
     "- **Follow-ups:** [pending actions]\n\n"
     "FREE (anything that doesn't fit the above):\n"
     "## [Topic Name]\n"
+    "**As of:** {today}\n"
     "[Concise narrative summary with current state clearly marked]\n\n"
     "Rules:\n"
     "- Only include topics with real informational content.\n"
     "- Ignore noise (standups, ticket updates, planning boilerplate).\n"
     "- Each brief starts with ## on its own line.\n"
+    "- Each brief includes the `**As of:**` line directly under the header.\n"
+    "- Prefer past-tense factual statements over future-tense plans.\n"
+    "  Plans rot fast; record only decisions that have been ACTED ON.\n"
+    "  If a plan was discussed but not executed, omit it from the brief.\n"
     "- Separate briefs with a blank line.\n\n"
     "## Event stream\n"
 )
@@ -528,16 +539,33 @@ _BRIEF_PROMPT = (
 def generate_briefs(
     events: list[tuple[str, str]],
     synthesize_fn: SynthesizeFn,
+    *,
+    today: str | None = None,
 ) -> list[str]:
     """Use an LLM to produce per-topic temporal briefs from episodic events.
 
     Returns a list of brief strings, one per identified topic.
     The LLM handles topic identification and temporal resolution --
     no embedding-based clustering needed.
+
+    ``today`` (ISO date, e.g. ``"2026-04-19"``) is interpolated into
+    the prompt so each brief carries an explicit ``**As of:** ...``
+    timestamp line. This is load-bearing for brief freshness: Probe B
+    (2026-04-19) showed that without an explicit timestamp, the LLM
+    treats stale briefs as current state and hallucinates with
+    confidence (Q1: a brief from yesterday saying "next session will
+    use H2" misled the LLM after H2 had been rejected today). The
+    timestamp gives readers and downstream LLMs a way to reason about
+    recency. When ``today`` is None, defaults to the local date in
+    UTC.
     """
+    if today is None:
+        from datetime import datetime, timezone
+        today = datetime.now(timezone.utc).date().isoformat()
+
     event_texts = [text for _, text in events]
     prompt_body = "\n".join(f"- {t}" for t in event_texts)
-    full_prompt = _BRIEF_PROMPT + prompt_body
+    full_prompt = _BRIEF_PROMPT_TEMPLATE.format(today=today) + prompt_body
 
     raw_output = synthesize_fn([full_prompt])
     # Parse into separate briefs by ## headers
