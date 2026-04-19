@@ -29,6 +29,14 @@ structured-mode client so the parser step is skipped. The recovery
 script in ``experiments/midloop_pilot/recover_failed.py`` (PR #23)
 demonstrated structured-mode is faster + zero JSON parse failures
 on the live MedLocal corpus.
+
+Both backends support structured mode:
+
+- ``default_gemini_client(structured=True)``: SDK enforces a
+  Pydantic schema on the wire via ``response_schema``.
+- ``default_anthropic_client(structured=True)``: forces the model
+  to call a single ``emit_clinical_cases`` tool whose input schema
+  is validated by the Anthropic runtime before the response returns.
 """
 
 from __future__ import annotations
@@ -209,12 +217,53 @@ class CaseGenerator:
         return cases
 
 
+_ANTHROPIC_TOOL_NAME = "emit_clinical_cases"
+_ANTHROPIC_CASES_TOOL = {
+    "name": _ANTHROPIC_TOOL_NAME,
+    "description": (
+        "Emit the generated clinical scenarios. Each item must derive "
+        "STRICTLY from the supplied protocol clause."
+    ),
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "cases": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "prompt": {
+                            "type": "string",
+                            "description": (
+                                "Realistic clinician question or "
+                                "situation, 1-3 sentences."
+                            ),
+                        },
+                        "truth": {
+                            "type": "string",
+                            "description": (
+                                "Correct answer derived strictly from "
+                                "the protocol clause."
+                            ),
+                        },
+                    },
+                    "required": ["prompt", "truth"],
+                },
+            },
+        },
+        "required": ["cases"],
+    },
+}
+
+
 def default_anthropic_client(
     api_key: str,
     model: str = "claude-sonnet-4-6",
     max_tokens: int = 4096,
-) -> LLMClient:
-    """Build an LLMClient backed by the anthropic SDK.
+    *,
+    structured: bool = False,
+) -> "LLMClient | LLMStructuredClient":
+    """Build a client backed by the anthropic SDK.
 
     Lazy-imports anthropic so the module remains importable without
     the SDK installed (tests use fake clients). When the SDK is
@@ -224,24 +273,86 @@ def default_anthropic_client(
     use the latest Sonnet for case generation (capable enough to
     follow the strict-derivation instruction without leaking
     out-of-clause info).
+
+    ``structured=False`` (default) returns an ``LLMClient`` (text
+    mode) that returns the raw model text for ``_extract_json_array``
+    to parse.
+
+    ``structured=True`` returns an ``LLMStructuredClient`` that
+    forces the model to call a single ``emit_clinical_cases`` tool
+    with a typed ``list[{prompt, truth}]`` input. The Anthropic
+    runtime validates the tool input against the JSON schema before
+    returning, so the response is GUARANTEED to be valid JSON with
+    the right shape -- mirrors the parse-failure-free guarantee
+    that ``default_gemini_client(structured=True)`` provides via
+    ``response_schema``. Pair with ``CaseGenerator(client, structured=True)``.
     """
     import anthropic
 
     client = anthropic.Anthropic(api_key=api_key)
 
-    def _fn(system: str, user: str) -> str:
+    if not structured:
+        def _fn_text(system: str, user: str) -> str:
+            resp = client.messages.create(
+                model=model,
+                max_tokens=max_tokens,
+                system=system,
+                messages=[{"role": "user", "content": user}],
+            )
+            # Iterate to find the first text-bearing block. Newer
+            # models can prepend a `thought` (extended thinking) or
+            # other non-text block; reading content[0] blindly drops
+            # the actual answer. Per PR #26 review (Gemini).
+            for block in resp.content or []:
+                if getattr(block, "type", None) != "text":
+                    continue
+                text = getattr(block, "text", "") or ""
+                if text:
+                    return text
+            return ""
+        return _fn_text
+
+    def _fn_struct(system: str, user: str) -> list[dict]:
         resp = client.messages.create(
             model=model,
             max_tokens=max_tokens,
             system=system,
             messages=[{"role": "user", "content": user}],
+            tools=[_ANTHROPIC_CASES_TOOL],
+            tool_choice={"type": "tool", "name": _ANTHROPIC_TOOL_NAME},
         )
-        if not resp.content:
-            return ""
-        block = resp.content[0]
-        return getattr(block, "text", "") or ""
+        for block in resp.content or []:
+            if getattr(block, "type", None) != "tool_use":
+                continue
+            # Validate the tool input shape rather than silently
+            # returning []. The runtime SHOULD enforce the schema,
+            # but a SDK regression or upstream change shouldn't
+            # corrupt the dataset. Per PR #26 review (Copilot).
+            payload = getattr(block, "input", None)
+            if not isinstance(payload, dict):
+                raise ValueError(
+                    f"Anthropic tool_use returned non-dict input: "
+                    f"{type(payload).__name__}"
+                )
+            cases = payload.get("cases")
+            if not isinstance(cases, list):
+                raise ValueError(
+                    f"Anthropic tool_use payload missing/invalid "
+                    f"`cases` field: got {type(cases).__name__}"
+                )
+            return [
+                {"prompt": c["prompt"], "truth": c["truth"]}
+                for c in cases
+                if isinstance(c, dict) and "prompt" in c and "truth" in c
+            ]
+        # Tool-forcing should make this unreachable; surface the
+        # failure clearly rather than returning [] silently.
+        raise ValueError(
+            "Anthropic structured call returned no tool_use block; "
+            "likely a transient API issue or model refusal."
+        )
 
-    return _fn
+    return _fn_struct
 
 
 def default_gemini_client(
