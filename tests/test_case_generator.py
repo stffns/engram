@@ -198,3 +198,124 @@ def test_text_mode_rejects_list_return_with_actionable_error() -> None:
     gen = CaseGenerator(structured_like)  # MISSING structured=True
     with pytest.raises(TypeError, match="text-mode client must return str"):
         gen.generate(ProtocolClause("p", "..."), n=1)
+
+
+# ---------------------------------------------------- anthropic structured
+
+class _FakeBlock:
+    """Minimal stand-in for anthropic SDK content blocks."""
+    def __init__(self, *, type: str, text: str = "", input: dict | None = None):
+        self.type = type
+        self.text = text
+        self.input = input or {}
+
+
+class _FakeMessages:
+    def __init__(self, response_content, capture):
+        self._response_content = response_content
+        self._capture = capture
+
+    def create(self, **kwargs):
+        self._capture.update(kwargs)
+        class _Resp:
+            content = self._response_content
+        return _Resp()
+
+
+class _FakeAnthropicClient:
+    def __init__(self, response_content, capture):
+        self.messages = _FakeMessages(response_content, capture)
+
+
+def _install_fake_anthropic(monkeypatch, response_content, capture):
+    """Inject a fake `anthropic` module so the lazy import resolves
+    to our stub. Test-local: removed when monkeypatch tears down."""
+    import sys
+    import types as pytypes
+    fake_module = pytypes.ModuleType("anthropic")
+    fake_module.Anthropic = lambda api_key: _FakeAnthropicClient(
+        response_content, capture
+    )
+    monkeypatch.setitem(sys.modules, "anthropic", fake_module)
+
+
+def test_anthropic_structured_forces_tool_use_and_parses(monkeypatch) -> None:
+    """structured=True forces a single emit_clinical_cases tool call
+    and pulls the cases out of the tool_use block."""
+    from merken.training.case_generator import default_anthropic_client
+
+    capture: dict = {}
+    response = [
+        _FakeBlock(
+            type="tool_use",
+            input={"cases": [
+                {"prompt": "kid 5y/o cough", "truth": "amox 50mg/kg"},
+                {"prompt": "kid 3y/o fever", "truth": "amox 50mg/kg"},
+            ]},
+        ),
+    ]
+    _install_fake_anthropic(monkeypatch, response, capture)
+
+    fn = default_anthropic_client(api_key="test", structured=True)
+    out = fn("system prompt", "user prompt")
+
+    assert out == [
+        {"prompt": "kid 5y/o cough", "truth": "amox 50mg/kg"},
+        {"prompt": "kid 3y/o fever", "truth": "amox 50mg/kg"},
+    ]
+    # Verify the request actually forced the tool.
+    assert capture["tool_choice"] == {
+        "type": "tool", "name": "emit_clinical_cases",
+    }
+    assert capture["tools"][0]["name"] == "emit_clinical_cases"
+    assert capture["system"] == "system prompt"
+
+
+def test_anthropic_structured_skips_text_blocks_finds_tool_use(monkeypatch) -> None:
+    """If the response interleaves text + tool_use, the parser still
+    finds the tool_use (e.g. a future model emits commentary first)."""
+    from merken.training.case_generator import default_anthropic_client
+
+    capture: dict = {}
+    response = [
+        _FakeBlock(type="text", text="Here are the cases:"),
+        _FakeBlock(
+            type="tool_use",
+            input={"cases": [{"prompt": "p", "truth": "t"}]},
+        ),
+    ]
+    _install_fake_anthropic(monkeypatch, response, capture)
+
+    fn = default_anthropic_client(api_key="test", structured=True)
+    out = fn("s", "u")
+    assert out == [{"prompt": "p", "truth": "t"}]
+
+
+def test_anthropic_structured_raises_on_no_tool_use(monkeypatch) -> None:
+    """No tool_use block in the response surfaces a clear ValueError
+    rather than a silent empty list."""
+    from merken.training.case_generator import default_anthropic_client
+
+    capture: dict = {}
+    response = [_FakeBlock(type="text", text="I refuse")]
+    _install_fake_anthropic(monkeypatch, response, capture)
+
+    fn = default_anthropic_client(api_key="test", structured=True)
+    with pytest.raises(ValueError, match="no tool_use block"):
+        fn("s", "u")
+
+
+def test_anthropic_text_mode_unchanged_by_structured_flag(monkeypatch) -> None:
+    """structured=False preserves the existing behavior: returns the
+    first text block's text. No tools, no tool_choice in the request."""
+    from merken.training.case_generator import default_anthropic_client
+
+    capture: dict = {}
+    response = [_FakeBlock(type="text", text='[{"prompt":"p","truth":"t"}]')]
+    _install_fake_anthropic(monkeypatch, response, capture)
+
+    fn = default_anthropic_client(api_key="test")  # structured=False default
+    out = fn("s", "u")
+    assert out == '[{"prompt":"p","truth":"t"}]'
+    assert "tools" not in capture
+    assert "tool_choice" not in capture
