@@ -186,3 +186,15 @@ def test_text_mode_default_unchanged() -> None:
     cases = gen.generate(ProtocolClause("p", "..."), n=1)
     assert len(cases) == 1
     assert cases[0].prompt == "p_text"
+
+
+def test_text_mode_rejects_list_return_with_actionable_error() -> None:
+    """A structured client passed WITHOUT structured=True surfaces
+    a clear TypeError pointing at the misuse. Symmetric to the
+    structured-mode str check. Per PR #25 review (Copilot)."""
+    structured_like = _fake_structured_client(
+        [{"prompt": "p", "truth": "t"}]
+    )
+    gen = CaseGenerator(structured_like)  # MISSING structured=True
+    with pytest.raises(TypeError, match="text-mode client must return str"):
+        gen.generate(ProtocolClause("p", "..."), n=1)

@@ -177,6 +177,18 @@ class CaseGenerator:
                 )
             rows = result
         else:
+            # Symmetric defensive check: a structured client passed
+            # without `structured=True` would return a list and the
+            # downstream _extract_json_array(...).strip() would fail
+            # with an unhelpful AttributeError. Surface the misuse
+            # explicitly. Per PR #25 review (Copilot, 2026-04-19).
+            if not isinstance(result, str):
+                raise TypeError(
+                    f"text-mode client must return str (got "
+                    f"{type(result).__name__}). If your client returns "
+                    f"list[dict] (e.g. default_gemini_client(structured=True)), "
+                    f"pass `structured=True` to CaseGenerator."
+                )
             rows = _extract_json_array(result)
 
         cases: list[GeneratedCase] = []
@@ -242,7 +254,17 @@ def default_gemini_client(
     """Build a Gemini-backed client. Defaults to structured-output mode.
 
     Lazy-imports google-genai so the module is importable without
-    the SDK installed (tests use fake clients).
+    the SDK installed (tests use fake clients). Per PR #25 review
+    (Gemini code-assist + Copilot, 2026-04-19) we use the SDK's
+    NATIVE features instead of wrapping calls in a thread pool:
+
+    - ``system_instruction`` on ``GenerateContentConfig`` carries
+      the system prompt without manual string concat.
+    - ``http_options.timeout`` on the same config gives the SDK's
+      HTTP layer a hard deadline. The SDK closes the connection
+      cleanly on timeout, unlike a futures.Future cancel() which
+      cannot stop in-flight Python work and leaves a poisoned
+      worker thread behind.
 
     ``structured=True`` (RECOMMENDED, default) returns an
     ``LLMStructuredClient`` -- the SDK enforces a Pydantic schema
@@ -256,17 +278,20 @@ def default_gemini_client(
     ``structured=False`` returns an ``LLMClient`` (text mode) for
     callers who explicitly want raw text + tolerant parsing.
 
-    Wrapped in a per-call ``concurrent.futures`` timeout (default
-    60s) because the google-genai SDK can hang in SSL_read
-    indefinitely under transient network conditions; we observed a
-    23-min hang during the 77-protocol scale-up before adding this
-    protection. ``timeout_s=0`` disables the wrapper.
+    ``timeout_s=0`` disables the per-call timeout (NOT recommended
+    -- the SDK can hang in SSL_read for many minutes under
+    transient network conditions; we observed a 23-min hang during
+    the 77-protocol scale-up before adding this protection).
     """
     try:
         from google import genai
         from google.genai import types
-    except ImportError as e:  # pragma: no cover - env-specific
-        raise SystemExit(
+    except ImportError as e:
+        # Library code raises ImportError (not SystemExit) so the
+        # caller can catch + degrade. The install hint is in the
+        # message so a top-level handler can show it to the user
+        # without a traceback.
+        raise ImportError(
             "google-genai not installed. Run `pip install google-genai`. "
             f"[{e}]"
         ) from e
@@ -276,20 +301,28 @@ def default_gemini_client(
         prompt: str
         truth: str
 
-    client = genai.Client(api_key=api_key)
-    config = (
-        types.GenerateContentConfig(
-            response_mime_type="application/json",
-            response_schema=list[_GeneratedCaseSchema],
-        )
-        if structured
+    # http_options.timeout is in milliseconds. timeout_s=0 -> omit
+    # the http_options entirely (SDK default = no per-call timeout).
+    http_options = (
+        types.HttpOptions(timeout=int(timeout_s * 1000))
+        if timeout_s and timeout_s > 0
         else None
     )
 
-    def _do_call(system: str, user: str):
-        full = f"{system}\n\n{user}"
+    client = genai.Client(api_key=api_key, http_options=http_options)
+
+    def _build_config(system: str):
+        kwargs: dict = {"system_instruction": system}
+        if structured:
+            kwargs["response_mime_type"] = "application/json"
+            kwargs["response_schema"] = list[_GeneratedCaseSchema]
+        return types.GenerateContentConfig(**kwargs)
+
+    def _fn(system: str, user: str):
         resp = client.models.generate_content(
-            model=model, contents=full, config=config,
+            model=model,
+            contents=user,
+            config=_build_config(system),
         )
         if structured:
             parsed = resp.parsed
@@ -308,18 +341,4 @@ def default_gemini_client(
             return _extract_json_array(text)
         return (resp.text or "").strip()
 
-    if timeout_s and timeout_s > 0:
-        import concurrent.futures
-        pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
-
-        def _fn(system: str, user: str):
-            future = pool.submit(_do_call, system, user)
-            try:
-                return future.result(timeout=timeout_s)
-            except concurrent.futures.TimeoutError as e:
-                future.cancel()
-                raise TimeoutError(
-                    f"Gemini call exceeded {timeout_s}s timeout"
-                ) from e
-        return _fn
-    return _do_call
+    return _fn
