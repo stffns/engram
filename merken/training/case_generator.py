@@ -299,10 +299,17 @@ def default_anthropic_client(
                 system=system,
                 messages=[{"role": "user", "content": user}],
             )
-            if not resp.content:
-                return ""
-            block = resp.content[0]
-            return getattr(block, "text", "") or ""
+            # Iterate to find the first text-bearing block. Newer
+            # models can prepend a `thought` (extended thinking) or
+            # other non-text block; reading content[0] blindly drops
+            # the actual answer. Per PR #26 review (Gemini).
+            for block in resp.content or []:
+                if getattr(block, "type", None) != "text":
+                    continue
+                text = getattr(block, "text", "") or ""
+                if text:
+                    return text
+            return ""
         return _fn_text
 
     def _fn_struct(system: str, user: str) -> list[dict]:
@@ -317,8 +324,22 @@ def default_anthropic_client(
         for block in resp.content or []:
             if getattr(block, "type", None) != "tool_use":
                 continue
-            payload = getattr(block, "input", None) or {}
-            cases = payload.get("cases", [])
+            # Validate the tool input shape rather than silently
+            # returning []. The runtime SHOULD enforce the schema,
+            # but a SDK regression or upstream change shouldn't
+            # corrupt the dataset. Per PR #26 review (Copilot).
+            payload = getattr(block, "input", None)
+            if not isinstance(payload, dict):
+                raise ValueError(
+                    f"Anthropic tool_use returned non-dict input: "
+                    f"{type(payload).__name__}"
+                )
+            cases = payload.get("cases")
+            if not isinstance(cases, list):
+                raise ValueError(
+                    f"Anthropic tool_use payload missing/invalid "
+                    f"`cases` field: got {type(cases).__name__}"
+                )
             return [
                 {"prompt": c["prompt"], "truth": c["truth"]}
                 for c in cases

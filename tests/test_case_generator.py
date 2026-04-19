@@ -203,11 +203,13 @@ def test_text_mode_rejects_list_return_with_actionable_error() -> None:
 # ---------------------------------------------------- anthropic structured
 
 class _FakeBlock:
-    """Minimal stand-in for anthropic SDK content blocks."""
-    def __init__(self, *, type: str, text: str = "", input: dict | None = None):
+    """Minimal stand-in for anthropic SDK content blocks. Stores
+    `input` as-passed (not coerced) so tests can inject None to
+    simulate SDK regressions."""
+    def __init__(self, *, type: str, text: str = "", input=None):
         self.type = type
         self.text = text
-        self.input = input or {}
+        self.input = input
 
 
 class _FakeMessages:
@@ -319,3 +321,52 @@ def test_anthropic_text_mode_unchanged_by_structured_flag(monkeypatch) -> None:
     assert out == '[{"prompt":"p","truth":"t"}]'
     assert "tools" not in capture
     assert "tool_choice" not in capture
+
+
+def test_anthropic_text_mode_skips_thought_block(monkeypatch) -> None:
+    """Newer Claude models can prepend a `thought` (extended thinking)
+    block before the actual text. Reading content[0] blindly would
+    drop the answer; iterate to find the first text block instead.
+    Per PR #26 review (Gemini)."""
+    from merken.training.case_generator import default_anthropic_client
+
+    capture: dict = {}
+    response = [
+        _FakeBlock(type="thinking", text="(reasoning trace)"),
+        _FakeBlock(type="text", text='[{"prompt":"p","truth":"t"}]'),
+    ]
+    _install_fake_anthropic(monkeypatch, response, capture)
+
+    fn = default_anthropic_client(api_key="test")
+    out = fn("s", "u")
+    assert out == '[{"prompt":"p","truth":"t"}]'
+
+
+def test_anthropic_structured_raises_on_missing_cases_field(monkeypatch) -> None:
+    """If the SDK ever returns a tool_use block whose input is missing
+    or has the wrong shape (regression / upstream change), surface a
+    clear ValueError rather than silently returning []. Per PR #26
+    review (Copilot)."""
+    from merken.training.case_generator import default_anthropic_client
+
+    capture: dict = {}
+    # tool_use block whose input is None (could happen on a SDK regression).
+    response = [_FakeBlock(type="tool_use", input=None)]
+    _install_fake_anthropic(monkeypatch, response, capture)
+
+    fn = default_anthropic_client(api_key="test", structured=True)
+    with pytest.raises(ValueError, match="non-dict input"):
+        fn("s", "u")
+
+
+def test_anthropic_structured_raises_on_non_list_cases(monkeypatch) -> None:
+    """tool_use input present but `cases` field is wrong type."""
+    from merken.training.case_generator import default_anthropic_client
+
+    capture: dict = {}
+    response = [_FakeBlock(type="tool_use", input={"cases": "not a list"})]
+    _install_fake_anthropic(monkeypatch, response, capture)
+
+    fn = default_anthropic_client(api_key="test", structured=True)
+    with pytest.raises(ValueError, match="missing/invalid `cases`"):
+        fn("s", "u")
