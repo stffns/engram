@@ -1,12 +1,14 @@
 {
-  "h2_verdict": "REJECTED",
+  "variant": "v10_contrastive",
+  "rule_label": "h2",
+  "verdict": "REJECTED",
   "labels_157_DEC": {
     "v7_dec_recall": 0.6560509554140127,
-    "v10_dec_recall": 0.5095541401273885,
+    "variant_dec_recall": 0.5095541401273885,
     "v7_noi_recall": 0.9712313003452244,
-    "v10_noi_recall": 0.9516685845799769,
+    "variant_noi_recall": 0.9516685845799769,
     "v7_fn_count": 54,
-    "v10_fn_count": 77,
+    "variant_fn_count": 77,
     "fn_recovered": [
       "**5. session.py** — read mode from card, not from config:",
       "Also need to add `import re` reference since we're using `_re` in the new code:",
@@ -90,7 +92,7 @@
         "noi_recall": 1.0,
         "fpr": 0.0
       },
-      "v10": {
+      "variant": {
         "agreement": 0.5,
         "dec_recall": 0.8333333333333334,
         "noi_recall": 0.16666666666666666,
@@ -107,7 +109,7 @@
         "noi_recall": 0.0,
         "fpr": 0.0
       },
-      "v10": {
+      "variant": {
         "agreement": 0.14285714285714285,
         "dec_recall": 0.14285714285714285,
         "noi_recall": 0.0,
@@ -124,7 +126,7 @@
         "noi_recall": 0.0,
         "fpr": 0.0
       },
-      "v10": {
+      "variant": {
         "agreement": 0.14285714285714285,
         "dec_recall": 0.14285714285714285,
         "noi_recall": 0.0,
@@ -141,7 +143,7 @@
         "noi_recall": 1.0,
         "fpr": 0.0
       },
-      "v10": {
+      "variant": {
         "agreement": 0.98,
         "dec_recall": 0.8533333333333334,
         "noi_recall": 1.0,
@@ -158,7 +160,7 @@
         "noi_recall": 0.0,
         "fpr": 0.0
       },
-      "v10": {
+      "variant": {
         "agreement": 0.8333333333333334,
         "dec_recall": 0.8333333333333334,
         "noi_recall": 0.0,
@@ -175,7 +177,7 @@
         "noi_recall": 0.0,
         "fpr": 0.0
       },
-      "v10": {
+      "variant": {
         "agreement": 0.6666666666666666,
         "dec_recall": 0.6666666666666666,
         "noi_recall": 0.0,
@@ -192,7 +194,7 @@
         "noi_recall": 0.0,
         "fpr": 0.0
       },
-      "v10": {
+      "variant": {
         "agreement": 1.0,
         "dec_recall": 1.0,
         "noi_recall": 0.0,
@@ -209,7 +211,7 @@
         "noi_recall": 0.0,
         "fpr": 0.0
       },
-      "v10": {
+      "variant": {
         "agreement": 0.7083333333333334,
         "dec_recall": 0.7083333333333334,
         "noi_recall": 0.0,
@@ -226,7 +228,7 @@
         "noi_recall": 1.0,
         "fpr": 0.0
       },
-      "v10": {
+      "variant": {
         "agreement": 0.8771929824561403,
         "dec_recall": 0.75,
         "noi_recall": 0.9696969696969697,
@@ -236,6 +238,7 @@
   },
   "decision_rule": {
     "bar_1_recovered_fn_ge_50": false,
-    "bar_2_markdown_fpr_le_10pct": false
+    "bar_2_markdown_fpr_le_10pct": false,
+    "verdict": "REJECTED"
   }
 }

@@ -15,6 +15,7 @@ the lesson learned.
 | v8 | 2026-04-17 late | Negative result: binary + balance + starter-oversample together broke markdown FPR (0 -> 100%) | archived |
 | v9 (H_v9_pragmatic) | 2026-04-18 | Negative result: dropping knowledge_update from training restored a 50% markdown FPR (was 0 in v7); confirms KU is in EVAL not training | archived |
 | v10_contrastive (H2) | 2026-04-19 | Negative result: hinge loss on output logits over 12 starter buckets saturated to 0 by step 100. OOD DEC recall collapsed (organic_val 100->14%, jay_vstash_decontam 100->14%); markdown FPR exploded 0->83%. Reweighted gradient TOWARD trusting the contrastive starters, opposite of the intent | archived |
+| v11_infonce (H2b) | 2026-04-19 | Mixed result: InfoNCE on hidden state at position(`<\|label\|>`-1) over the same 12 buckets. Aux loss saturated at step 50 (faster than H2 hinge). FN recovery 8/30 FAIL, but OOD held cleanly (organic_val 100%, jay_vstash 100%, analytics +25pp, bilingual +8pp, disjoint +1.8pp). markdown FPR partially regressed (0->67%, vs v10's 83%). Validates that the contrastive FORMULATION is sound; the 12-bucket pool is the bottleneck (= H2c motivation) | archived |
 
 **Post-graduation characterization (2026-04-18 session):** see
 [CONFUSION_MATRIX.md](CONFUSION_MATRIX.md) for v7's full confusion

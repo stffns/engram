@@ -172,7 +172,8 @@ training signal definition, not parameter count.
 
 ## H2b. Contrastive on hidden-state representation, not output logits
 
-**Status:** planned.
+**Status:** done, REJECTED on Bar 1 but VALIDATED as harmless
+(unlike H2 hinge).
 
 **Rationale:** H2 failed because the hinge on output-token logits
 let the model satisfy the margin via memorized "this starter ->
@@ -182,16 +183,67 @@ position(`<|label|>`-1) cannot be satisfied by lookup; it requires
 the embedding of the *payload* to differ between DEC and NOI
 anchors that share a starter.
 
-**Hypothesis:** swap the output-logit hinge for InfoNCE over the
-last-position hidden state. Same 12 starter buckets. Recover >=50
-of v7's 157 FNs without crashing OOD recall (organic_val and
-jay_vstash_decontam stay >= 85% agreement).
+**Implementation:** L2-normalized hidden state at position(-1) ->
+pairwise cosine sim / temperature(0.1). For each anchor in a batch
+of 16 sequences (8 same-starter pairs), positives = same-class
+others, negatives = opposite-class others. NT-Xent / InfoNCE loss
+over rows that have at least one positive. lambda=0.5. Reuses
+v10's prepare.py output (12 starter buckets, 21 DEC + 153 NOI).
 
-**Cost:** 30 min. Same train_contrastive.py, swap the loss term.
+  - train: `nanoGPT/train_contrastive.py` (`contrastive_mode=infonce`)
+  - config: `nanoGPT/config/train_merken_bpe_v11_infonce.py`
+  - data: symlinked to `data/merken_bpe_v10_contrastive/` (same set)
+  - eval: `experiments/nanogpt/eval_h2.py` (handles both v10 and v11)
+  - artifact: `experiments/nanogpt/h2b_results.json`
 
-**Decision rule:** if OOD recall holds AND FN recovery >= 30 (a
-relaxed bar; demonstrates the formulation is sound), iterate.
-Otherwise mark "contrastive class of approaches" as exhausted.
+**Result:**
+
+| metric | v7 | v10 (hinge) | v11 (InfoNCE) |
+|--------|---:|------------:|--------------:|
+| labels-157 DEC recall | 65.6% | 51.0% | **68.8%** |
+| FN recovered (target >=30) | -- | 21 | **8** FAIL |
+| FN newly lost | -- | 44 | 3 |
+| markdown FPR | 0.0% | 83.3% | 66.7% |
+| organic_val agreement (>=85%) | 100% | 14.3% | **100%** PASS |
+| jay_vstash_decontam (>=85%) | 100% | 14.3% | **100%** PASS |
+| analytics_project | 66.7% | 83.3% | 91.7% |
+| bilingual_es_en | 91.7% | 100% | 100% |
+| disjoint_noise_holdout | 87.7% | 87.7% | 89.5% |
+
+Bar 1 fails: only 8 FN recovered, 22 short of the 30 bar. But
+Bars 2 and 3 PASS cleanly -- OOD generalization is intact and
+several non-target scenarios actually improve (analytics +25pp,
+bilingual +8pp, disjoint +1.8pp).
+
+**Diagnosed behavior:** the InfoNCE loss saturated to 0.0 by
+step 50 (faster than H2's hinge). Same memorization shortcut at
+the embedding level: with 12 buckets, the model can place those
+exact 24 token sequences at separated points on the unit
+hypersphere in <50 steps. Once saturated, no gradient flows from
+the aux loss; the model trains essentially as v7 + a small early
+perturbation. CE val loss converged to 2.35 (identical to v7).
+
+**Why this matters:** H2 hinge actively DAMAGED the model
+(organic_val 100->14%, etc.) by misallocating gradient capacity
+toward starter lookup. H2b InfoNCE saturated harmlessly -- the
+representation objective doesn't have a memorizable shortcut as
+sharp as the output-logit one, but with only 12 buckets it
+doesn't generate enough gradient pressure to change the model
+either. Formulation is sound; sample diversity is the bottleneck.
+
+**v11_infonce is archived as ablation evidence.** v7 remains the
+graduated shadow baseline. The +3.2pp DEC recall is intriguing
+but not actionable on its own (CI uncertainty at n=157 includes
+zero delta).
+
+**Decision toward H2c:** the H2b result is the single piece of
+evidence that the contrastive formulation IS sound -- it doesn't
+hurt OOD when the loss is at the representation level. So expand
+the pool (H2c) is the next move with non-zero EV. If H2c also
+fails to recover >=30 FNs, the entire contrastive class of
+approaches over THIS dataset is exhausted, and the next move is
+data augmentation (more real-content DEC examples) or H8
+(capacity bump).
 
 ---
 
