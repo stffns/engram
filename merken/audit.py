@@ -134,6 +134,44 @@ def format_consolidate_audit_row(
     return title, body
 
 
+def format_midloop_audit_row(observation, decision) -> tuple[str, str]:
+    """Build a (title, body) pair for one midloop (should_intervene) audit row.
+
+    Lives here for symmetry with the other format_*_audit_row helpers.
+    Imports are deferred so that ``audit.py`` does not depend on the
+    midloop module if a caller never uses it -- midloop is the only
+    primitive whose dataclasses live in policies/ rather than at the
+    package root.
+
+    Body is plain key:value text so vstash FTS can find rows by
+    ``task_id:abc123`` or ``step_index:7`` or ``shadow_disagree``.
+    """
+    import json
+    ts = datetime.now(timezone.utc).isoformat(timespec="microseconds")
+    preview = " ".join((observation.output_text or "").split())[:_PREVIEW_CHARS]
+    body = (
+        f"timestamp: {ts}\n"
+        f"decision: should_intervene\n"
+        f"task_id: {observation.task_id}\n"
+        f"step_id: {observation.step_id}\n"
+        f"step_index: {observation.step_index}\n"
+        f"task_category: {observation.task_category.value}\n"
+        f"intervene: {decision.intervene}\n"
+        f"action: {decision.action.value}\n"
+        f"state: {decision.state.value}\n"
+        f"confidence: {decision.confidence:.4f}\n"
+        f"reason: {decision.reason}\n"
+        f"policy: {decision.policy}\n"
+        f"signals: {json.dumps(decision.signals, sort_keys=True)}\n"
+        f"output_preview: {preview}\n"
+    )
+    title = (
+        f"audit:should_intervene:{observation.task_id}:"
+        f"step{observation.step_index:04d}:{ts}"
+    )
+    return title, body
+
+
 def format_audit_row(event: Event, decision: Decision) -> tuple[str, str]:
     """Build a (title, body) pair for one audit entry.
 
