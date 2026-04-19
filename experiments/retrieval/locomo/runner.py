@@ -17,8 +17,13 @@ latency, and audit event counts.
 Category mapping (from LoCoMo paper):
   1 = single_hop, 2 = temporal, 3 = multi_hop, 4 = open_domain, 5 = adversarial
 """
+# ruff: noqa: I001, E402
 
 from __future__ import annotations
+
+# NB: torch must import before fastembed/vstash on macOS to avoid a
+# first-load-order segfault (SIGSEGV on exit with leaked semaphores).
+import torch  # noqa: F401
 
 import argparse
 import json
@@ -54,7 +59,7 @@ CATEGORY_NAMES = {
 
 DEFAULT_CATEGORIES = [2, 5]  # temporal + adversarial (most diagnostic)
 DEFAULT_TOP_K = 10
-DEFAULT_MODEL = "gemini-2.0-flash"
+DEFAULT_MODEL = "gemini-2.5-flash"
 
 _ENCODER = tiktoken.get_encoding("cl100k_base")
 
@@ -202,6 +207,8 @@ class MerkenAdapter(Adapter):
         *,
         do_consolidate: bool = False,
         do_forget: bool = False,
+        write_decider=None,
+        turn_filter=None,
     ) -> None:
         self.name = name
         self._do_consolidate = do_consolidate
@@ -210,10 +217,20 @@ class MerkenAdapter(Adapter):
         self._m = Memory(
             project=project,
             db=db,
-            write_decider=AlwaysWrite(),
+            # Default back to AlwaysWrite so existing configs are unchanged.
+            # Callers can inject v7 (or any other classifier) via the
+            # write_decider kwarg.
+            write_decider=write_decider or AlwaysWrite(),
             forget_decider=forget_decider,
         )
+        # Optional per-turn filter applied by run_conversation before
+        # session text is built. H17 probes whether v7 at turn
+        # granularity recovers temporal accuracy lost at session
+        # granularity (H16). Signature: (text: str) -> bool (True = keep).
+        self.turn_filter = turn_filter
         self._count = 0
+        self._turns_kept = 0
+        self._turns_total = 0
 
     def ingest_session(self, text: str, *, title: str) -> bool:
         result = self._m.remember(text, title=title)
@@ -248,6 +265,60 @@ class MerkenAdapter(Adapter):
         self._m.close()
 
 
+def _v7_chained_decider(*, with_calibrator: bool):
+    """Build a ChainedWriteDecider(Heuristic, nanoGPT v7).
+
+    The chain keeps hygiene gates (dedup / too-short / empty) and
+    then defers write/skip to the classifier, matching Memory's
+    MERKEN_PRIMARY=nanogpt production wiring.
+    """
+    import os
+    from merken.classifiers.nanogpt import NanoGPTWriteDecider
+    from merken.policies.should_remember import (
+        ChainedWriteDecider,
+        HeuristicWriteDecider,
+    )
+
+    nanogpt_dir = os.environ.get(
+        "NANOGPT_REPO",
+        "/Users/jaysonsteffens/Desktop/Personal/Projects/nanoGPT",
+    )
+    ckpt = f"{nanogpt_dir}/out-merken-bpe-v7/ckpt.pt"
+    meta = f"{nanogpt_dir}/data/merken_bpe_v7/meta.pkl"
+
+    calibrator = None
+    if with_calibrator:
+        from pathlib import Path
+        from merken.classifiers.calibration import CalibrationHead
+        head_path = (
+            Path(__file__).resolve().parent.parent.parent.parent
+            / "merken" / "classifiers" / "calibration_v7.json"
+        )
+        calibrator = CalibrationHead.from_json(head_path, source="v7_locomo")
+
+    classifier = NanoGPTWriteDecider(ckpt, meta, calibrator=calibrator)
+    return ChainedWriteDecider(HeuristicWriteDecider(), classifier)
+
+
+def _v7_turn_filter(*, with_calibrator: bool):
+    """Build a per-turn v7 filter callable for H17 turn-granularity probe.
+
+    The v7 model was trained on per-event labels; H16 showed it loses
+    ~8pp on LoCoMo temporal when applied at session granularity. H17
+    puts the filter back on its native unit: each turn is scored
+    individually; only v7-approved turns are concatenated into the
+    session text before ingest.
+    """
+    decider = _v7_chained_decider(with_calibrator=with_calibrator)
+    from merken.policies.types import Event, WriteContext
+    ctx = WriteContext(project="locomo_turn")
+
+    def _filter(text: str) -> bool:
+        return decider.decide(Event(text=text), ctx).write
+
+    return _filter
+
+
 CONFIGS = {
     "vstash-raw": lambda proj, db: VstashAdapter(proj, db),
     "merken-recall": lambda proj, db: MerkenAdapter(
@@ -258,6 +329,26 @@ CONFIGS = {
     ),
     "merken-full": lambda proj, db: MerkenAdapter(
         "merken-full", proj, db, do_consolidate=True, do_forget=True,
+    ),
+    # v7 filter variants (H16): chain Heuristic -> v7 as the write
+    # decider so LoCoMo sessions that v7 considers NOISE are NOT
+    # ingested. Measures whether the filter changes retrieval
+    # accuracy downstream.
+    "merken-v7": lambda proj, db: MerkenAdapter(
+        "merken-v7", proj, db,
+        write_decider=_v7_chained_decider(with_calibrator=False),
+    ),
+    "merken-v7-cal": lambda proj, db: MerkenAdapter(
+        "merken-v7-cal", proj, db,
+        write_decider=_v7_chained_decider(with_calibrator=True),
+    ),
+    # H17: apply v7 at turn granularity (its training unit) rather
+    # than session granularity. Session text is built from the
+    # surviving turns only; write_decider stays AlwaysWrite so the
+    # filter is not applied a second time at session level.
+    "merken-v7-turnfilter": lambda proj, db: MerkenAdapter(
+        "merken-v7-turnfilter", proj, db,
+        turn_filter=_v7_turn_filter(with_calibrator=False),
     ),
 }
 
@@ -291,6 +382,12 @@ def _build_judge_prompt(question: str, gold: str, predicted: str) -> str:
 
 
 class Judge:
+    # Backoff schedule for 429 RESOURCE_EXHAUSTED. The genai client has
+    # its own short tenacity retry that does not honor per-minute
+    # Gemini quotas; we add a longer outer retry so a mid-run rate
+    # limit does not abort the whole benchmark.
+    _RATE_LIMIT_BACKOFF_S = (30, 60, 120, 240)
+
     def __init__(self, model: str = DEFAULT_MODEL) -> None:
         from google import genai
         api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
@@ -300,21 +397,32 @@ class Judge:
         self._model = model
         self._calls = 0
 
+    def _generate(self, prompt: str) -> str:
+        from google.genai import errors as genai_errors
+        for i, delay in enumerate((*self._RATE_LIMIT_BACKOFF_S, None)):
+            try:
+                resp = self._client.models.generate_content(
+                    model=self._model, contents=prompt,
+                )
+                self._calls += 1
+                return (resp.text or "").strip()
+            except genai_errors.ClientError as e:
+                status = getattr(e, "status_code", None) or getattr(e, "code", None)
+                if status != 429 or delay is None:
+                    raise
+                print(
+                    f"  [judge] 429 rate limit; sleeping {delay}s "
+                    f"(attempt {i+1}/{len(self._RATE_LIMIT_BACKOFF_S)})",
+                    file=sys.stderr,
+                )
+                time.sleep(delay)
+        raise RuntimeError("unreachable")
+
     def generate_answer(self, context_chunks: list[str], question: str) -> str:
-        prompt = _build_answerer_prompt(context_chunks, question)
-        resp = self._client.models.generate_content(
-            model=self._model, contents=prompt,
-        )
-        self._calls += 1
-        return (resp.text or "").strip()
+        return self._generate(_build_answerer_prompt(context_chunks, question))
 
     def judge_answer(self, question: str, gold: str, predicted: str) -> bool:
-        prompt = _build_judge_prompt(question, gold, predicted)
-        resp = self._client.models.generate_content(
-            model=self._model, contents=prompt,
-        )
-        self._calls += 1
-        text = (resp.text or "").strip().upper()
+        text = self._generate(_build_judge_prompt(question, gold, predicted)).upper()
         return text.startswith("YES")
 
     @property
@@ -405,8 +513,20 @@ def run_conversation(
     # 1. Ingest sessions as whole documents
     t0 = time.perf_counter()
     ingested = 0
+    turn_filter = getattr(adapter, "turn_filter", None)
     for session in conv.sessions:
-        lines = [f"{turn.speaker}: {turn.text}" for turn in session.turns]
+        turns = session.turns
+        if turn_filter is not None:
+            kept = [t for t in turns if turn_filter(t.text)]
+            # Track keep rate so the runner can report the filter's
+            # turn-level selectivity even when the session ingest
+            # succeeds as a whole.
+            adapter._turns_total += len(turns)
+            adapter._turns_kept += len(kept)
+            turns = kept
+            if not turns:
+                continue
+        lines = [f"{turn.speaker}: {turn.text}" for turn in turns]
         session_text = f"[{session.date_time}]\n" + "\n".join(lines)
         title = f"{conv.speaker_a} & {conv.speaker_b} - Session {session.index} ({session.date_time})"
         if adapter.ingest_session(session_text, title=title):

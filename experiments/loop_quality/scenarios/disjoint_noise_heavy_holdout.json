@@ -1,0 +1,292 @@
+{
+  "name": "disjoint_noise_heavy_holdout",
+  "description": "Disjoint-topic noise-heavy held-out scenario, generated 2026-04-18 via Gemini 2.0 Flash. Topics span accessibility, billing, i18n, ml_ops, mobile_ops, observability, product_rollouts, security_response -- intentionally DISJOINT from the knowledge_update* training scenarios (no cache, auth, db, deploy). Used to measure v7 generalization on noise-heavy content it did NOT see in training. Replaces the contaminated knowledge_update_50t eval -- see experiments/nanogpt/contamination_audit.json and H_v9_pragmatic in HYPOTHESES.md for context.",
+  "events": [
+    {
+      "id": "product_rollouts__dec__01",
+      "text": "A/B test on `checkout_redesign` concluded: variant B increased conversion by 3.1% (p=0.04, n=22k).",
+      "topic": "product_rollouts"
+    },
+    {
+      "id": "security_response__dec__02",
+      "text": "CVE-2023-40001 (imagemagick) marked 'low' risk due to restricted user upload policies. Postponing patch until next major release.",
+      "topic": "security_response"
+    },
+    {
+      "id": "billing__noi__04",
+      "text": "Calculating sales tax liability for various jurisdictions.",
+      "topic": "noise"
+    },
+    {
+      "id": "mobile_ops__dec__00",
+      "text": "Staged rollout of v2.1.7 (Android) to 25% of users. Monitoring crash reports.",
+      "topic": "mobile_ops"
+    },
+    {
+      "id": "mobile_ops__dec__05",
+      "text": "Targeting SDK 33 (Android 13) to leverage new notification permissions in app build 6.2.",
+      "topic": "mobile_ops"
+    },
+    {
+      "id": "mobile_ops__noi__04",
+      "text": "Users ramping up, monitoring performance metrics closely.",
+      "topic": "noise"
+    },
+    {
+      "id": "billing__noi__05",
+      "text": "Validating vendor invoices against purchase orders.",
+      "topic": "noise"
+    },
+    {
+      "id": "i18n__noi__04",
+      "text": "Running pseudo-localization to find expansion issues.",
+      "topic": "noise"
+    },
+    {
+      "id": "ml_ops__noi__04",
+      "text": "Verifying the latest image build process; saw an odd warning.",
+      "topic": "noise"
+    },
+    {
+      "id": "mobile_ops__noi__03",
+      "text": "Flipping the switch to live, prepare for brief turbulence.",
+      "topic": "noise"
+    },
+    {
+      "id": "observability__noi__03",
+      "text": "Executing standard memory utilization script... collecting baseline data.",
+      "topic": "noise"
+    },
+    {
+      "id": "product_rollouts__noi__04",
+      "text": "Scaling up the resources to handle the increasing user traffic load.",
+      "topic": "noise"
+    },
+    {
+      "id": "ml_ops__noi__02",
+      "text": "Need to trace that data pipeline job; something seems off in the flow.",
+      "topic": "noise"
+    },
+    {
+      "id": "product_rollouts__dec__00",
+      "text": "Feature flag `shipping_recalc_beta` enabled for 20% of users after file `user_segment_v4.csv` import.",
+      "topic": "product_rollouts"
+    },
+    {
+      "id": "ml_ops__noi__01",
+      "text": "Checking resource utilization metrics on Grafana; things seem stable.",
+      "topic": "noise"
+    },
+    {
+      "id": "product_rollouts__noi__00",
+      "text": "Time to flip the switch and open the gates for the early adopters!",
+      "topic": "noise"
+    },
+    {
+      "id": "observability__dec__03",
+      "text": "Adjusted the sampling rate for high-cardinality metrics from 10% to 1% in agent configuration file /etc/telegraf/telegraf.conf.",
+      "topic": "observability"
+    },
+    {
+      "id": "security_response__dec__00",
+      "text": "CVE-2024-5678 (openssl) requires immediate patching. Critical systems updated by 2024-07-05, others by 2024-07-12.",
+      "topic": "security_response"
+    },
+    {
+      "id": "billing__noi__01",
+      "text": "Reviewing accounts receivable aging report for overdue invoices.",
+      "topic": "noise"
+    },
+    {
+      "id": "observability__dec__04",
+      "text": "Enabled automatic resolution of incidents in PagerDuty after 3 consecutive successful heartbeats from the monitored service.",
+      "topic": "observability"
+    },
+    {
+      "id": "ml_ops__noi__00",
+      "text": "Poking around at the compute instances to see if they're properly provisioned.",
+      "topic": "noise"
+    },
+    {
+      "id": "observability__noi__04",
+      "text": "Announcing periodic log rotation to maintain disk space.",
+      "topic": "noise"
+    },
+    {
+      "id": "product_rollouts__dec__03",
+      "text": "Feature flag `recommendations_v3` ramped to 50% after CPU utilization remained below 70%.",
+      "topic": "product_rollouts"
+    },
+    {
+      "id": "security_response__dec__01",
+      "text": "/etc/shadow access audit revealed anomalous activity from user 'buildbot' on 2024-06-28. Account locked, incident ongoing.",
+      "topic": "security_response"
+    },
+    {
+      "id": "product_rollouts__dec__04",
+      "text": "A/B test for `notification_timing` shows 12% more opens with morning delivery; switching to arm B.",
+      "topic": "product_rollouts"
+    },
+    {
+      "id": "security_response__dec__03",
+      "text": "API key 'EXAMPLE_KEY_ID_01' rotated after unauthorized access attempt logged on 2024-07-01. New key distributed via config management.",
+      "topic": "security_response"
+    },
+    {
+      "id": "observability__dec__00",
+      "text": "Increased the default metrics retention period in VictoriaMetrics from 14 days to 30 days to facilitate longer-term trend analysis.",
+      "topic": "observability"
+    },
+    {
+      "id": "product_rollouts__noi__01",
+      "text": "Initial feedback trickling in, let's monitor those first impressions closely.",
+      "topic": "noise"
+    },
+    {
+      "id": "security_response__dec__04",
+      "text": "/opt/application/logs/server.log shows excessive disk I/O. Investigate potential logging loop impacting performance by 2024-07-08.",
+      "topic": "security_response"
+    },
+    {
+      "id": "billing__noi__02",
+      "text": "Preparing journal entries for accrued expenses for month-end close.",
+      "topic": "noise"
+    },
+    {
+      "id": "mobile_ops__noi__02",
+      "text": "Smoke tests passed on staging, looking good so far.",
+      "topic": "noise"
+    },
+    {
+      "id": "security_response__noi__05",
+      "text": "Performing forensic analysis on intrusion artifacts.",
+      "topic": "noise"
+    },
+    {
+      "id": "product_rollouts__noi__05",
+      "text": "Alright, let's open this up to the wider audience!",
+      "topic": "noise"
+    },
+    {
+      "id": "security_response__dec__05",
+      "text": "CVE-2024-3147 (curl) mitigation: WAF rule implemented 2024-07-03 to block malicious requests. Full patch targeted for next sprint.",
+      "topic": "security_response"
+    },
+    {
+      "id": "mobile_ops__dec__01",
+      "text": "Disabled location access for background activity in app version 4.5.1 due to battery drain reports.",
+      "topic": "mobile_ops"
+    },
+    {
+      "id": "i18n__noi__05",
+      "text": "Confirming text directionality support for Arabic.",
+      "topic": "noise"
+    },
+    {
+      "id": "ml_ops__noi__03",
+      "text": "Running basic model scoring validation on the test split again.",
+      "topic": "noise"
+    },
+    {
+      "id": "billing__noi__03",
+      "text": "Auditing expense reports for policy compliance and potential errors.",
+      "topic": "noise"
+    },
+    {
+      "id": "mobile_ops__dec__02",
+      "text": "Adjusted push notification frequency for promotional offers; capped at 3 per user per week.",
+      "topic": "mobile_ops"
+    },
+    {
+      "id": "product_rollouts__noi__03",
+      "text": "Analyzing user behavior funnels, identifying potential sticking points.",
+      "topic": "noise"
+    },
+    {
+      "id": "i18n__noi__03",
+      "text": "We're reviewing the translated user interface elements.",
+      "topic": "noise"
+    },
+    {
+      "id": "observability__dec__02",
+      "text": "Implemented rate limiting on the metrics ingestion pipeline using a token bucket algorithm, configured to 50,000 events per second to prevent overload.",
+      "topic": "observability"
+    },
+    {
+      "id": "security_response__noi__00",
+      "text": "Examining endpoint logs for unusual traffic patterns.",
+      "topic": "noise"
+    },
+    {
+      "id": "product_rollouts__dec__02",
+      "text": "Kill switch `urgent_pricing_fix` activated due to error rate exceeding 5% based on `error_log_v1.txt`.",
+      "topic": "product_rollouts"
+    },
+    {
+      "id": "observability__dec__05",
+      "text": "Configured Prometheus to scrape service metrics every 15 seconds instead of 30 seconds for finer-grained monitoring.",
+      "topic": "observability"
+    },
+    {
+      "id": "ml_ops__noi__05",
+      "text": "Reviewing the monitoring dashboards; gotta keep an eye on that drift score.",
+      "topic": "noise"
+    },
+    {
+      "id": "product_rollouts__noi__02",
+      "text": "Diving into the metrics to see how the new feature is performing.",
+      "topic": "noise"
+    },
+    {
+      "id": "observability__noi__00",
+      "text": "Checking the pulse of the system, everything seems nominal.",
+      "topic": "noise"
+    },
+    {
+      "id": "i18n__noi__02",
+      "text": "Localizers are pushing updates to the German strings.",
+      "topic": "noise"
+    },
+    {
+      "id": "observability__noi__02",
+      "text": "Just a quick ping to confirm network connectivity across all zones.",
+      "topic": "noise"
+    },
+    {
+      "id": "mobile_ops__dec__03",
+      "text": "Increased minimum Android API level to 24 (Nougat) for the upcoming 5.0 release.",
+      "topic": "mobile_ops"
+    },
+    {
+      "id": "mobile_ops__dec__04",
+      "text": "Renamed background process \"sync_module.jar\" to \"data_refresh.jar\" to clarify function.",
+      "topic": "mobile_ops"
+    },
+    {
+      "id": "mobile_ops__noi__00",
+      "text": "Poking the build pipeline, watching the logs for movement.",
+      "topic": "noise"
+    },
+    {
+      "id": "billing__noi__00",
+      "text": "Reconciling payment processor reports to ensure accurate financials.",
+      "topic": "noise"
+    },
+    {
+      "id": "observability__dec__01",
+      "text": "Rolled out consistent naming conventions across all Grafana dashboards, following the pattern 'Service-Area-Metric'. This improves searchability.",
+      "topic": "observability"
+    },
+    {
+      "id": "observability__noi__01",
+      "text": "Routine server status update: all systems operational.",
+      "topic": "noise"
+    },
+    {
+      "id": "product_rollouts__dec__05",
+      "text": "Kill switch for `image_upload_api` engaged; error count spiked above threshold in `api_metrics_v5.log`.",
+      "topic": "product_rollouts"
+    }
+  ],
+  "queries": []
+}

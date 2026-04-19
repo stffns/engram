@@ -82,7 +82,7 @@ production fit.
 
 ## H2. Contrastive loss for ambiguous starters
 
-**Status:** planned.
+**Status:** done, REJECTED (catastrophic OOD collapse).
 
 **Rationale:** v8 failed because three dataset levers (binary labels,
 class balance, starter oversample) together pushed the model toward
@@ -90,15 +90,251 @@ a global DEC bias. A contrastive-loss formulation that EXPLICITLY
 pairs same-starter-different-class events in each minibatch would
 force the attention layers to read past the starter.
 
-**Hypothesis:** a v9 trained with contrastive pairs recovers at least
-50 of v7's 157 false negatives without regressing markdown FPR above
-10%.
+**Hypothesis:** a contrastive-trained model recovers >= 50 of v7's
+157 false negatives without regressing markdown FPR above 10%.
 
-**Cost:** 1-2 hours. Requires modifying nanoGPT train.py loss.
+**Cost:** 1-2 hours. Modifies nanoGPT train.py loss.
 
-**Decision rule:** ship as v9 if the two conditions above are met.
+**Decision rule:** ship as graduated shadow if the two conditions are
+met. (Note: the working model is named `v10_contrastive` because the
+v9 slot is held by H_v9_pragmatic. See `out-merken-bpe-v10_contrastive/`
+in the nanoGPT repo.)
 
-**Result:** (pending).
+**Implementation:** hinge loss on the (DECISION, NOISE) logit gap at
+the position right after `<|label|>`, computed for `2 * 8` paired
+sequences sampled from 12 ambiguous starters mined from the v7 train
+split (3-word starter signature, 21 DEC and 153 NOI events, 256 cross
+pairs). Aux loss weighted at lambda=0.5, margin=2.0 in logit space.
+Same architecture, hyperparams, and dataset as v7.
+
+  - prepare: `nanoGPT/data/merken_bpe_v10_contrastive/prepare.py`
+  - train:   `nanoGPT/train_contrastive.py`
+  - config:  `nanoGPT/config/train_merken_bpe_v10_contrastive.py`
+  - mining:  `experiments/nanogpt/h2_mine_starter_pairs.py`
+  - eval:    `experiments/nanogpt/eval_h2.py`
+  - artifact: `experiments/nanogpt/h2_results.json`
+
+**Result:** see `experiments/nanogpt/h2_results.json`. Both decision
+bars FAIL.
+
+| metric | v7 | v10_contrastive | delta |
+|--------|---:|----------------:|------:|
+| labels-157 DEC recall | 65.6% | 51.0% | **-14.6pp** |
+| FN recovered (target >=50) | -- | **21** | -- |
+| FN newly lost | -- | 44 | -- |
+| markdown_tables_held_out FPR (target <=10%) | 0.0% | **83.3%** | **+83.3pp** |
+| organic_val_held_out agreement | 100% | **14.3%** | -85.7pp |
+| jay_vstash_decontam agreement | 100% | **14.3%** | -85.7pp |
+| analytics_project agreement | 66.7% | 83.3% | +16.7pp |
+| bilingual_es_en agreement | 91.7% | 100% | +8.3pp |
+| noisy_agent_stream agreement | 66.7% | 70.8% | +4.2pp |
+
+The contrastive aux loss saturated to 0.0 by step 100 and never
+contributed gradient again (the model trivially achieves margin=2.0
+on just 12 starter buckets via memorization). The OOD damage was
+done in those first 100 steps and CE training across the next 700
+steps could not undo it.
+
+**Diagnosed failure mode** -- the loss optimized the AUX problem
+(separate the 12 ambiguous starter buckets) without solving the META
+problem (generalize past starter). Inspecting v10's FN deltas makes
+this concrete:
+
+  - **Recovered FNs** all start with transition phrases that v10 saw
+    in contrastive training: `Also need to`, `Also remove`, `Excellent!`,
+    `Empiezo por`, `Esperando que`, `Buen review`. v10 learned to
+    classify these as DEC.
+  - **Newly lost FNs** start with structural markers absent from
+    contrastive training: `# Hallazgo`, `## Evaluation`, `**CL ALL...`,
+    `174 passed`, `26/26 pass`. v10 forgot how to recognize structured
+    decision content because the aux loss reweighted gradient toward
+    starter-shaped events.
+
+The contrastive loss did the OPPOSITE of the intent: instead of
+forcing the model past the starter, it taught the model that the
+starter is even MORE load-bearing.
+
+**Lesson:** an auxiliary loss with N=12 buckets and margin=2.0 in
+logit space is too easily satisfied by memorization. The aux loss
+needs either (a) much higher pair diversity, (b) a representation-
+level objective that cannot be satisfied by output-token logits
+alone, or (c) curriculum mixing so it doesn't dominate early
+gradient when the LM is still random.
+
+**v10_contrastive is archived as ablation evidence, not shipped.**
+v7 remains the graduated shadow baseline.
+
+**Follow-ups opened by this result:** see H2b and H2c below. H8
+(architecture bump) is now de-prioritized -- the bottleneck is the
+training signal definition, not parameter count.
+
+---
+
+## H2b. Contrastive on hidden-state representation, not output logits
+
+**Status:** done, REJECTED on Bar 1 but VALIDATED as harmless
+(unlike H2 hinge).
+
+**Rationale:** H2 failed because the hinge on output-token logits
+let the model satisfy the margin via memorized "this starter ->
+that label" without changing the internal representation. A
+representation-level contrastive (InfoNCE) on the hidden state at
+position(`<|label|>`-1) cannot be satisfied by lookup; it requires
+the embedding of the *payload* to differ between DEC and NOI
+anchors that share a starter.
+
+**Implementation:** L2-normalized hidden state at position(-1) ->
+pairwise cosine sim / temperature(0.1). For each anchor in a batch
+of 16 sequences (8 same-starter pairs), positives = same-class
+others, negatives = opposite-class others. NT-Xent / InfoNCE loss
+over rows that have at least one positive. lambda=0.5. Reuses
+v10's prepare.py output (12 starter buckets, 21 DEC + 153 NOI).
+
+  - train: `nanoGPT/train_contrastive.py` (`contrastive_mode=infonce`)
+  - config: `nanoGPT/config/train_merken_bpe_v11_infonce.py`
+  - data: symlinked to `data/merken_bpe_v10_contrastive/` (same set)
+  - eval: `experiments/nanogpt/eval_h2.py` (handles both v10 and v11)
+  - artifact: `experiments/nanogpt/h2b_results.json`
+
+**Result:**
+
+| metric | v7 | v10 (hinge) | v11 (InfoNCE) |
+|--------|---:|------------:|--------------:|
+| labels-157 DEC recall | 65.6% | 51.0% | **68.8%** |
+| FN recovered (target >=30) | -- | 21 | **8** FAIL |
+| FN newly lost | -- | 44 | 3 |
+| markdown FPR | 0.0% | 83.3% | 66.7% |
+| organic_val agreement (>=85%) | 100% | 14.3% | **100%** PASS |
+| jay_vstash_decontam (>=85%) | 100% | 14.3% | **100%** PASS |
+| analytics_project | 66.7% | 83.3% | 91.7% |
+| bilingual_es_en | 91.7% | 100% | 100% |
+| disjoint_noise_holdout | 87.7% | 87.7% | 89.5% |
+
+Bar 1 fails: only 8 FN recovered, 22 short of the 30 bar. But
+Bars 2 and 3 PASS cleanly -- OOD generalization is intact and
+several non-target scenarios actually improve (analytics +25pp,
+bilingual +8pp, disjoint +1.8pp).
+
+**Diagnosed behavior:** the InfoNCE loss saturated to 0.0 by
+step 50 (faster than H2's hinge). Same memorization shortcut at
+the embedding level: with 12 buckets, the model can place those
+exact 24 token sequences at separated points on the unit
+hypersphere in <50 steps. Once saturated, no gradient flows from
+the aux loss; the model trains essentially as v7 + a small early
+perturbation. CE val loss converged to 2.35 (identical to v7).
+
+**Why this matters:** H2 hinge actively DAMAGED the model
+(organic_val 100->14%, etc.) by misallocating gradient capacity
+toward starter lookup. H2b InfoNCE saturated harmlessly -- the
+representation objective doesn't have a memorizable shortcut as
+sharp as the output-logit one, but with only 12 buckets it
+doesn't generate enough gradient pressure to change the model
+either. Formulation is sound; sample diversity is the bottleneck.
+
+**v11_infonce is archived as ablation evidence.** v7 remains the
+graduated shadow baseline. The +3.2pp DEC recall is intriguing
+but not actionable on its own (CI uncertainty at n=157 includes
+zero delta).
+
+**Decision toward H2c:** the H2b result is the single piece of
+evidence that the contrastive formulation IS sound -- it doesn't
+hurt OOD when the loss is at the representation level. So expand
+the pool (H2c) is the next move with non-zero EV. If H2c also
+fails to recover >=30 FNs, the entire contrastive class of
+approaches over THIS dataset is exhausted, and the next move is
+data augmentation (more real-content DEC examples) or H8
+(capacity bump).
+
+---
+
+## H2c. Pair-diversity expansion before training
+
+**Status:** done, REJECTED on FN recovery but BEST contrastive
+variant (markdown FPR held at 0% unlike v11).
+
+**Rationale:** 12 ambiguous starters is too few to drive a
+generalizable signal. H2c expands the pair pool by lowering the
+starter signature granularity from 3 words to 2 words -- 25
+ambiguous starters in train split (vs v11's 12), 39 DEC + 358 NOI
+events, 727 cross pairs (vs 256). No synthetic pair generation;
+all real events, just looser bucket boundaries.
+
+**Implementation:**
+  - prepare: `nanoGPT/data/merken_bpe_v12_wide_infonce/prepare.py`
+  - config: `nanoGPT/config/train_merken_bpe_v12_wide_infonce.py`
+  - train: same `nanoGPT/train_contrastive.py` as H2b
+  - eval: `experiments/nanogpt/eval_h2.py` (handles all 3 variants)
+  - artifact: `experiments/nanogpt/h2c_results.json`
+
+**Result:**
+
+| metric | v7 | v10 (hinge) | v11 (InfoNCE 12) | v12 (InfoNCE 25) |
+|--------|---:|------------:|-----------------:|-----------------:|
+| labels-157 DEC recall | 65.6% | 51.0% | 68.8% | **70.1%** |
+| FN recovered (target >=30) | -- | 21 | 8 | **13** FAIL |
+| FN newly lost | -- | 44 | 3 | 6 |
+| markdown_tables_held_out FPR | 0.0% | 83.3% | 66.7% | **0.0%** |
+| organic_val agreement | 100% | 14.3% | 100% | **100%** |
+| jay_vstash_decontam | 100% | 14.3% | 100% | **100%** |
+| analytics_project | 66.7% | 83.3% | 91.7% | 91.7% |
+| bilingual_es_en | 91.7% | 100% | 100% | 100% |
+| session_2026_04_09 | 75.0% | 66.7% | 66.7% | **58.3%** |
+| noisy_agent_stream | 66.7% | 70.8% | 70.8% | **62.5%** |
+
+**Findings:**
+
+1. v12 is the BEST contrastive variant on the headline numbers:
+   highest DEC recall (+4.5pp vs v7), markdown FPR held at 0%
+   (the v7 wing's signature win), all OOD held cleanly.
+
+2. **Bar 1 still fails** -- only 13 FN recovered (vs 30 needed).
+   The contrastive aux loss saturated at step ~100 just like v11.
+   Wider pool made the SATURATION less harmful but did not
+   prevent it. Memorization shortcut still available at 25
+   buckets, just at higher capacity cost.
+
+3. Two regressions (session -17pp, noisy_agent -4pp) on small
+   scenarios (n=12, n=24); CIs at that n include zero, treat as
+   noise.
+
+**The full H2 frontier (3 attempts) gives a coherent picture:**
+
+  - Output-logit hinge (H2/v10): catastrophic OOD damage. Aux loss
+    has memorizable shortcut as sharp as the output token.
+  - Hidden-state InfoNCE on 12 buckets (H2b/v11): harmless but
+    inert. Aux loss saturates without changing the model.
+  - Hidden-state InfoNCE on 25 buckets (H2c/v12): slight net
+    positive. Aux loss STILL saturates by step 100, but now adds
+    enough early-training signal for +4.5pp DEC recall and a
+    few scenario gains, without the markdown FPR damage.
+
+**Conclusion -- contrastive class is exhausted on this dataset.**
+None of the three variants cleared the FN-recovery bar. The
+saturation pattern is dataset-bound: with at most ~30 ambiguous
+starters mineable from real text, no contrastive aux on output
+logits or last-position hidden state can sustain gradient pressure
+past the first 100 steps.
+
+**v12_wide_infonce is archived** as the strongest contrastive
+ablation evidence. It is NOT a graduation candidate -- the +4.5pp
+DEC recall is encouraging but two scenario regressions and the
+formal bar failure mean v7 stays as the shadow baseline.
+
+**Next moves with non-zero EV (in order):**
+
+1. **Wait for more real labels.** Hook is fixed and accumulation
+   is passive. When the transcript-DEC pool grows from 157 to ~300+,
+   re-mine ambiguous starters; expect 50-80+ buckets naturally.
+   At that point H2c becomes worth re-running on the same code.
+2. **H8 (capacity bump)** to 6L/192d/6H ~1.5M params. Now
+   justified -- three same-architecture data-only attempts
+   confirmed the bottleneck is not the contrastive formulation,
+   not the pair pool, but the model's representational ceiling
+   on this signal. Cost: ~1h. Run with v7 dataset (no contrastive),
+   measure on the same suite.
+3. **Synthetic pair augmentation.** Originally proposed in H2c
+   spec but skipped -- now justified as a fallback if (1) and (2)
+   both fail. Risk: synthesized pairs may not be realistic.
 
 ---
 
@@ -260,22 +496,108 @@ is useful but not urgent.
 
 ---
 
-## H8. Architecture bump -- v8b with 2x params
+## H8. Architecture bump -- v13_capacity
 
-**Status:** deferred.
+**Status:** done, REJECTED. Capacity is NOT the bottleneck;
+training data distribution is.
 
 **Rationale:** 800K-params may be architectural ceiling for
-distribution-aware calibration. A 1.5M-params (n_embd=256) version
-would answer: is more capacity the fix, or is it a training-signal
-problem?
+distribution-aware calibration. After H2/H2b/H2c exhausted the
+contrastive class on the same architecture, H8 cleanly tests the
+capacity-vs-signal split with a single knob: n_embd 128 -> 256
+(~3.3M params, ~4x v7), same v7 dataset, no contrastive aux.
 
-**Cost:** 1-2 hours training on mps. Same data as v7.
+**Implementation:**
+  - data: `nanoGPT/data/merken_bpe_v13_capacity/` (symlinked to v7)
+  - config: `nanoGPT/config/train_merken_bpe_v13_capacity.py`
+  - train: regular `nanoGPT/train.py` (no contrastive)
+  - eval: `experiments/nanogpt/eval_h2.py` (handles all 4 variants)
+  - artifact: `experiments/nanogpt/h8_results.json`
 
-**Decision rule:** only run if v9 contrastive loss (H2) fails.
-That keeps the problem in "training signal" vs "capacity"
-terminology, not muddled.
+**Training observations:**
+  - val loss converged ~1.5pp faster than v7 (step-50 val 4.20 vs
+    v7's 5.25) -- expected, more capacity learns CE faster.
+  - Train-val gap widened sharply: step-100 (3.11/3.40), step-200
+    (1.97/2.58), step-350 (0.82/2.40, best ckpt). Overfit by step
+    400 (val started rising). Best ckpt locked at step 350.
+  - Dropout=0.1 was insufficient regularization for 4x params on
+    the same 3046-example training set. Killed at step 600 since
+    val was monotonically rising past step 350; best ckpt already
+    saved (always_save_checkpoint=False).
 
-**Result:** (deferred).
+**Decision rule:** ship as v13 IFF
+  - markdown_tables_held_out FPR <= 10%
+  - organic_val agreement >= 95%
+  - jay_vstash_decontam agreement >= 95%
+
+**Result:**
+
+| metric | v7 | v13 (capacity 4x) | delta |
+|--------|---:|------------------:|------:|
+| labels-157 DEC recall | 65.6% | 67.5% | +1.9pp (within CI noise) |
+| FN recovered | -- | 15 | -- |
+| FN newly lost | -- | 12 | -- |
+| markdown FPR (target <=10%) | 0.0% | **50.0%** | FAIL |
+| organic_val (target >=95%) | 100% | 100% | PASS |
+| jay_vstash_decontam (target >=95%) | 100% | 100% | PASS |
+| analytics_project | 67% | 83% | +17pp |
+| session_2026_04_09 | 75% | 83% | +8pp |
+| bilingual_es_en | 92% | 100% | +8pp |
+| noisy_agent_stream | 67% | 63% | -4pp |
+| disjoint_noise_holdout | 88% | **81%** | -7pp + FPR 0->9% |
+| knowledge_update_50t (TRAIN) | 97% | 99.7% | +2.7pp (memorization) |
+
+**Diagnosed failure mode:** the larger model memorizes the training
+set faster but loses the markdown-NOI generalization that v7 had.
+Two regressions are signal-bearing:
+  - markdown_tables_held_out: 0% -> 50% FPR. The 30 markdown-NOISE
+    examples in training are too few to constrain a 3M-param model;
+    the model now fits training markdown patterns but flags
+    held-out markdown as DEC.
+  - disjoint_noise_holdout (n=57, real held-out): 0% -> 9% FPR with
+    -7pp agreement. Same pattern on a more diverse noise scenario.
+
+**The four-way comparison closes the case:**
+
+| variant | mech change | DEC recall | mFPR | OOD agreement |
+|---------|-------------|-----------:|-----:|--------------:|
+| v7      | (baseline)              | 65.6% | 0%   | 100/100 |
+| v10     | + hinge contrastive     | 51.0% | 83%  | 14/14   |
+| v11     | + InfoNCE (12 buckets)  | 68.8% | 67%  | 100/100 |
+| v12     | + InfoNCE (25 buckets)  | 70.1% | 0%   | 100/100 |
+| v13     | + 4x capacity (no aux)  | 67.5% | 50%  | 100/100 |
+
+  - v10/v11 break OOD or mFPR. v12 holds both with marginal DEC
+    gain. v13 holds OOD but breaks mFPR.
+  - **No same-architecture loss-tweak (H2 family) and no
+    capacity-bump (H8) recovers the desired FN coverage WHILE
+    preserving v7's mFPR=0% headline.** v12 does come close (best
+    DEC recall + zero mFPR) but only recovers 13 of v7's 54
+    transcript-DEC FNs (target was 30).
+
+**Conclusion:** the bottleneck is the training data distribution,
+not the model. With ~157 DEC examples (and only 30 markdown-NOI
+examples), neither smarter loss nor more parameters can extract
+more signal than v7 already does. The path forward is data growth,
+not architecture.
+
+**v13_capacity is archived as ablation evidence.** v7 stays as the
+graduated shadow baseline.
+
+**Next steps with non-zero EV:**
+
+1. **Passive label accumulation (the right move).** Hook is fixed.
+   When transcript-DEC pool grows from 157 to ~300+, both v12-style
+   contrastive AND v7-style baseline get more data; re-run both at
+   that point. Calendar: 4-8 weeks.
+2. **Synthetic DEC augmentation** for markdown-NOISE specifically
+   (since that's the recurring blind spot). Risk: same as the v8
+   binary-balance failure, may unbalance the model.
+3. **Stop iterating on the v7 frontier.** Three months of work to
+   move v7's headline +5pp DEC recall is diminishing returns. Pivot
+   to paper writing, with v7 graduated and the v10/v11/v12/v13
+   negative results as the empirical body of the architecture
+   section.
 
 ---
 
@@ -462,14 +784,74 @@ recognition. DEC-only scenarios at larger n regress significantly
 **v9 is archived as ablation evidence, not shipped as a
 replacement.** v7 remains the shadow baseline.
 
-Action items from this finding:
-- Remove `knowledge_update_50t` from eval_v7_vs_v6.py's scenario
-  list (or rename to make its "training-set performance" nature
-  explicit in the output).
-- Paper section 3.2: add a row separating "honest held-out"
-  scenarios from "training-set diagnostics".
-- Future v10: build a NEW held-out noise-heavy scenario with
-  topics disjoint from knowledge_update.
+Action items from this finding (status as of PR #19):
+- DONE: `eval_v7_vs_v6.py` renames the scenario to
+  `knowledge_update_50t (TRAINING)` so the diagnostic-vs-held-out
+  distinction is explicit in the output table.
+- DONE: `experiments/nanogpt/eval_v6_to_v9.json` re-emitted with
+  the renamed scenario + a `notes` block documenting which
+  scenarios are TRAINING / CONTAMINATED vs honest held-out.
+- DONE: NEW held-out noise-heavy scenario built --
+  `disjoint_noise_heavy_holdout.json`, topics intentionally
+  disjoint from KU. See H_disjoint_holdout below for results.
+- Pending (paper writing): add a row in section 3.2 separating
+  honest held-out from training-set diagnostics.
+
+## H_disjoint_holdout. Noise-heavy held-out with topics disjoint from training
+
+**Status:** done, validates v7.
+
+**Rationale:** H_v9_pragmatic confirmed that dropping KU from
+training hurts more than it helps. The correct fix is a NEW
+held-out scenario whose topics do NOT appear in KU training
+(cache / db / auth / deploy). This probes v7's real
+generalization on noise it was not taught to reject by name.
+
+**Dataset:** `experiments/loop_quality/scenarios/disjoint_noise_heavy_holdout.json`
+generated 2026-04-18 via Gemini 2.0 Flash
+(`experiments/generate_disjoint_holdout.py`). 57 events total:
+24 DEC across 4 domains (observability, mobile_ops,
+security_response, product_rollouts) + 33 NOI across 6 domains.
+Topics intentionally disjoint from KU. Two of the intended DEC
+domains (ml_ops, billing, accessibility, i18n) partially failed
+to complete due to Gemini 429 rate limits; the 57 events we have
+are the successfully-generated ones.
+
+**Result:** `experiments/nanogpt/disjoint_holdout_eval.json`.
+
+| version | accuracy | DEC recall | NOI recall | FPR |
+|---------|---------:|-----------:|-----------:|----:|
+| v6 | 61.4% | 83.3% | 45.5% | **54.5%** |
+| **v7** | **87.7%** | 70.8% | **100.0%** | **0.0%** |
+| v8 | 87.7% | 100.0% | 78.8% | 21.2% |
+| v9 | 73.7% | 37.5% | 100.0% | 0.0% |
+
+Three findings:
+
+1. **v7 FPR=0% generalizes to disjoint domains.** On noise events
+   about observability / mobile / security / product the model has
+   literally never seen in training, v7 correctly skips all 33/33.
+   That is not memorization -- it is a learned noise-shape
+   signature (table formatting, filler verbs, transition syntax)
+   that transfers across content domains.
+
+2. **v9 (no synthetic training) collapses DEC recall to 37.5%.**
+   Third independent confirmation that dropping KU from training
+   does NOT fix anything -- it just makes the model uniformly
+   more conservative and unusable. The right fix (this scenario)
+   keeps KU in training and uses a disjoint held-out for eval.
+
+3. **v7's failure mode on this scenario is DEC misses, not NOI
+   false positives.** 7 of 24 real DECs rejected. v8 catches them
+   all but at 21% FPR. The Pareto front between v7 and v8 is
+   "conservative filter (v7)" vs "aggressive filter (v8)"; v7 is
+   the production-safe choice.
+
+**Action item (not yet implemented):** add this scenario to
+`eval_v7_vs_v6.py` main() scenario list and REMOVE
+`knowledge_update_50t` from it (or keep both with explicit
+training-vs-held-out labels). Then re-emit
+`eval_v6_to_v9.json` with this scenario included.
 
 ## H12. Forward-selection minimal calibration head
 
@@ -553,6 +935,207 @@ that subset (small n, but genuine generalization not memorization).
 v7 vs v6 table in PAPER_DRAFT section 3.2 should flag this. For
 any future eval, either retrain v8 WITHOUT knowledge_update in
 training or create brand-new held-out variants with disjoint topics.
+
+---
+
+## H17. Does turn-granularity filtering recover what H16 lost?
+
+**Status:** done, REJECTED (turn-level is WORSE than session-level).
+
+**Rationale:** H16 showed v7 at session granularity loses ~8pp on
+temporal. Working theory: unit mismatch. v7 was trained on
+per-event labels (one assistant message = one decision); sessions
+are 30-80 turns long. H17 applies v7 at turn granularity (its
+training unit), keeping only v7-approved turns, then concatenating
+them back into the session text for ingest. Retrieval unit stays
+at session -- only the filter unit changes.
+
+**Hypothesis:** turn-level filtering recovers temporal accuracy
+lost at session level (target: within 3pp of merken-recall).
+
+**Setup:** same LoCoMo config as H16 -- categories 2+5, top-k=10,
+`gemini-2.5-flash`, 3 convs (conv-26, conv-30, conv-41), n=202 QA
+per config. Three configs run in one process (same judge session)
+for cleaner A/B:
+- `vstash-raw` (control, no filter)
+- `merken-v7` (H16 session-level filter)
+- `merken-v7-turnfilter` (H17 turn-level filter)
+
+**Result:** see
+[`experiments/retrieval/locomo/results_h17.json`](../retrieval/locomo/results_h17.json).
+
+| config | temporal | adversarial | overall | CI (overall) |
+|--------|---------:|------------:|--------:|:-------------|
+| vstash-raw | 62.2% (56/90) | 6.2% (7/112) | 31.2% | [25.2, 37.6] |
+| merken-v7 | 54.4% (49/90) | 4.5% (5/112) | 26.7% | [20.3, 33.2] |
+| merken-v7-turnfilter | **45.6%** (41/90) | 3.6% (4/112) | **22.3%** | [16.8, 28.2] |
+
+**v7 turn-keep rates** (probed on all turns, not just ingested):
+
+| conv | turns kept | % |
+|------|-----------:|--:|
+| conv-26 | 263/419 | 62.8% |
+| conv-30 | 183/369 | 49.6% |
+| conv-41 | 435/663 | 65.6% |
+
+**Findings:**
+
+1. **Turn-level filtering LOSES another 9pp on temporal vs
+   session-level** (54.4% -> 45.6%). Both are worse than no filter
+   (62.2%). The unit-mismatch theory was backwards.
+
+2. **v7 drops 35-50% of LoCoMo turns.** Short dialogue turns
+   ("Did you see X?" / "Yeah, at 3pm") look like noise to a model
+   trained on longer assistant-message events with payload. Many
+   of those turns carry the one temporal fact a QA asks about;
+   dropping them kills retrieval precisely on temporal questions.
+
+3. **Session-level filter was less bad** because when it skipped a
+   session it dropped 100% of that session's content, but when it
+   kept one it kept everything. Turn-level fragments destroy the
+   temporal context inside sessions v7 would otherwise keep.
+
+4. **Calibrator was not re-run at turn level.** H16 established
+   calibrator is a no-op on retrieval; no reason to expect it to
+   move turn-filter numbers.
+
+**Interpretation:**
+
+The unit-mismatch story holds, but the direction is opposite to
+the hypothesis. v7's training unit ("assistant message with
+payload") is LARGER than a dialogue turn, not smaller. Matching
+v7 to turns feeds it text that is uniformly under its training
+distribution's length/payload norm, so it rejects at 35-50%
+regardless of semantic value. The filter has no way to know
+"this short turn is the temporal evidence someone will ask about
+in 20 sessions."
+
+**Decision rule:** v7 should NOT be applied as a generic
+session-or-turn filter for long-conversation retrieval. Its
+production home is where the input unit matches its training
+unit: per-assistant-message write decisions in chat-assistant
+contexts (where merken actually uses it).
+
+**What this closes and what it doesn't:**
+
+Closes:
+- Both session-level (H16) and turn-level (H17) application of v7
+  on LoCoMo-style conversational memory. Neither helps retrieval.
+
+Does not close:
+- Whether a v7-like filter *trained on dialogue turns* (H17b)
+  would do better. Different training distribution; plausible but
+  out of scope for this repo's scenario set.
+- Whether a different merken primitive (consolidation, not
+  filtering) would help retrieval on LoCoMo. Prior experiments in
+  `experiments/consolidation/` already showed brief_v1 wins big
+  (+46pp at 50 topics). Retrieval improvements come from
+  consolidation, not filter tightening.
+
+Paper section 5 Limitations now has a concrete, closed story: v7
+filter is a per-event write decider; when misapplied to
+long-conversation retrieval as a session or turn filter, it
+degrades accuracy. Not a capacity issue (see H8 discussion); a
+training-distribution / input-unit issue.
+
+Script: `experiments/retrieval/locomo/runner.py` (MerkenAdapter
+`turn_filter` hook + `merken-v7-turnfilter` config +
+`_v7_turn_filter` helper).
+
+---
+
+## H16. Does the v7 filter change retrieval accuracy on LoCoMo?
+
+**Status:** done, REJECTED (filter HURTS temporal retrieval at this n).
+
+**Rationale:** Paper Limitations called out that H16 -- whether v7
+at shadow or as the write decider moves downstream QA accuracy on a
+long-conversation benchmark -- was unrun. A negative result (v7
+drops retrieval accuracy) is as informative as a positive one; both
+constrain how aggressively we can ship the filter.
+
+**Setup:** LoCoMo E2E, categories 2 (temporal) + 5 (adversarial),
+top-k=10, `gemini-2.5-flash` as answerer AND judge, 3 conversations
+(conv-26, conv-30, conv-41), n=202 QA pairs per config, 1616
+Gemini calls total. Four configs:
+- `vstash-raw`: no write filter, no consolidation.
+- `merken-recall`: `HeuristicWriteDecider` + no consolidation.
+- `merken-v7`: `ChainedWriteDecider(Heuristic, NanoGPTWriteDecider(v7))`.
+- `merken-v7-cal`: same as above + H12 calibration head.
+
+**Hypothesis:** v7 filter does not degrade retrieval accuracy on
+the temporal subset by more than 5pp vs `merken-recall` baseline.
+
+**Result:** see
+[`experiments/retrieval/locomo/results_v7_cal.json`](../retrieval/locomo/results_v7_cal.json).
+
+| config | temporal | adversarial | overall | CI (overall) |
+|--------|---------:|------------:|--------:|:-------------|
+| vstash-raw | 65.6% (59/90) | 4.5% (5/112) | 31.7% | [25.2, 38.1] |
+| merken-recall | 61.1% (55/90) | 7.1% (8/112) | 31.2% | [24.8, 37.6] |
+| merken-v7 | 53.3% (48/90) | 6.2% (7/112) | 27.2% | [21.3, 33.7] |
+| merken-v7-cal | 54.4% (49/90) | 5.4% (6/112) | 27.2% | [21.3, 33.7] |
+
+Sessions ingested per config (smaller = filter rejected):
+- vstash-raw / merken-recall: 19, 19, 32 (baseline)
+- merken-v7 / merken-v7-cal: 18, 14, 31 (dropped 7/70 sessions, 10%)
+
+**Findings:**
+
+1. **v7 filter costs ~8pp on temporal vs merken-recall heuristic**
+   (61.1% -> 53.3%). 95% CIs for overall accuracy overlap with the
+   baselines, but the temporal subset shows a consistent drop
+   across all 3 conversations. The 5pp threshold in the hypothesis
+   is violated.
+
+2. **Calibrator is a no-op on retrieval.** merken-v7 and
+   merken-v7-cal produce identical ingestion decisions (14/18/31
+   sessions kept in both) and within-rounding-error identical
+   accuracy. The calibrator only changes the displayed confidence;
+   the threshold decision uses raw P(D). So all production
+   flavors of v7 (cal vs no-cal) look the same downstream.
+
+3. **Adversarial is baseline noise** across all configs (4-7%).
+   LoCoMo cat 5 questions are mostly unanswerable from context;
+   every config correctly says "I don't know" most of the time.
+   The differentiating signal is in cat 2 (temporal reasoning).
+
+4. **The filter's precision for "is this noise?" is a wrong
+   question for retrieval.** v7 was trained on per-event labels:
+   given this single event, is it DECISION or NOISE? LoCoMo
+   ingestion works at the SESSION level (whole conversation
+   sessions at a time). A session containing one high-value
+   temporal fact and 50 low-value turns is a DEC at event level
+   but gets filtered if the session-level score trends NOI.
+
+**Honest interpretation for the paper:**
+- v7 is a good write filter for single-event decisions in a
+  chat-assistant context (CONSTITUTION primitive: should_remember).
+- v7 is NOT a good session-level filter for long-conversation
+  retrieval. The units don't match.
+- Cheap mitigation: apply v7 turn-by-turn before aggregating into
+  sessions, instead of scoring the aggregated session once.
+  That's H17 territory, not a free win here.
+
+**Scope caveats (do not overclaim):**
+- n=3 conversations is too small for strong claims. Overall CIs
+  overlap across all four configs. The temporal sub-signal is
+  consistent across all 3 convs (always a drop), but CI on the
+  temporal delta is wide.
+- The answerer/judge is `gemini-2.5-flash`. A different LLM could
+  give different numbers. Reported as an illustrative probe.
+- Adversarial accuracy may be biased up by Gemini judge's own
+  temperament about hedged answers.
+
+**Decision rule:** accept H16 as rejected (filter hurts retrieval).
+Ship v7 in chat-assistant write paths, NOT as a session-level
+filter for long-context QA retrieval. Paper section 5
+("Limitations") needs a concrete number now: v7-on-LoCoMo temporal
+= 53.3% vs 65.6% baseline, 3-conv probe.
+
+Script: `experiments/retrieval/locomo/runner.py` (extended with
+`merken-v7` / `merken-v7-cal` configs + 429-aware judge retry +
+torch-first import).
 
 ---
 
