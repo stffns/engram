@@ -43,6 +43,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import sys
 from datetime import datetime, timezone
@@ -51,8 +52,16 @@ from pathlib import Path
 # Staging dir kept inside the pilot package so it's covered by the
 # experiments/* gitignore. Promotion to protocols/ is a separate
 # manual step (see module docstring).
+#
+# PDF source: prefer the MERKEN_WHO_PDF_DIR env var so the script
+# is portable. Falls back to the medlocal sibling repo's standard
+# layout if the env var isn't set; either way the user can override
+# with --pdf-dir.
+_MEDLOCAL_DEFAULT = Path.home() / (
+    "Desktop/Personal/Projects/medlocal/data/core/who"
+)
 DEFAULT_PDF_DIR = Path(
-    "/Users/jaysonsteffens/Desktop/Personal/Projects/medlocal/data/core/who"
+    os.environ.get("MERKEN_WHO_PDF_DIR", str(_MEDLOCAL_DEFAULT))
 )
 DEFAULT_OUT = Path(__file__).parent / "staging" / "who_extracted"
 
@@ -94,11 +103,17 @@ def extract_full_text(pdf_path: Path) -> tuple[str, int]:
 
 def _header(pdf_path: Path, n_pages: int, mode: str) -> str:
     """Front-matter block recording provenance. Plain text so it
-    survives any markdown linter; treat as comments downstream."""
+    survives any markdown linter; treat as comments downstream.
+
+    Records only the PDF's basename, not its absolute path -- the
+    full path leaks local directory layout, makes the staged file
+    environment-dependent, and isn't needed downstream (the
+    chunking pass uses the basename to look up the source PDF
+    via MERKEN_WHO_PDF_DIR or its own --pdf-dir flag).
+    """
     return (
         "<!--\n"
         f"source_pdf: {pdf_path.name}\n"
-        f"source_path: {pdf_path}\n"
         f"page_count: {n_pages}\n"
         f"extraction_mode: {mode}\n"
         f"extracted_at: {datetime.now(timezone.utc).isoformat()}\n"
@@ -112,7 +127,13 @@ def dump_pdf(pdf_path: Path, out_dir: Path) -> Path:
     """Write one .md per PDF containing all extracted text."""
     text, n_pages = extract_full_text(pdf_path)
     out_path = out_dir / f"{pdf_path.stem}.md"
-    out_path.write_text(_header(pdf_path, n_pages, "dump") + text)
+    # Explicit utf-8 because WHO PDFs contain non-ASCII characters
+    # (medication names, foreign-language terms, typographic
+    # quotes). Default encoding can be cp1252 on Windows runners
+    # and silently mangle the output.
+    out_path.write_text(
+        _header(pdf_path, n_pages, "dump") + text, encoding="utf-8"
+    )
     return out_path
 
 
@@ -123,7 +144,12 @@ def split_sections(pdf_path: Path, out_dir: Path) -> list[Path]:
     A leading ``00-front-matter.md`` captures any text BEFORE the
     first detected heading so nothing is silently dropped (TOC,
     foreword, etc.). If the regex finds zero headings the whole
-    text lands in 00-front-matter.md (effectively a dump)."""
+    text lands in 00-front-matter.md (effectively a dump).
+
+    Sections shorter than 250 chars are skipped (TOC line items,
+    addresses that slipped past the regex), but each skip is logged
+    to stderr so a legitimate-but-short section that gets dropped
+    is visible to the caller, not silent. Per PR #27 review (Gemini)."""
     text, n_pages = extract_full_text(pdf_path)
     matches = list(_SECTION_RE.finditer(text))
 
@@ -134,7 +160,10 @@ def split_sections(pdf_path: Path, out_dir: Path) -> list[Path]:
     if not matches:
         # No structure detected; preserve the full text in a single file.
         front = section_dir / "00-front-matter.md"
-        front.write_text(_header(pdf_path, n_pages, "sections") + text)
+        front.write_text(
+            _header(pdf_path, n_pages, "sections") + text,
+            encoding="utf-8",
+        )
         return [front]
 
     # Front matter = anything before the first section start.
@@ -142,7 +171,8 @@ def split_sections(pdf_path: Path, out_dir: Path) -> list[Path]:
         front = section_dir / "00-front-matter.md"
         front.write_text(
             _header(pdf_path, n_pages, "sections")
-            + text[: matches[0].start()]
+            + text[: matches[0].start()],
+            encoding="utf-8",
         )
         written.append(front)
 
@@ -153,10 +183,20 @@ def split_sections(pdf_path: Path, out_dir: Path) -> list[Path]:
     MIN_BODY_CHARS = 250
 
     seen: dict[str, int] = {}
+    n_dropped = 0
     for i, m in enumerate(matches):
         end = matches[i + 1].start() if i + 1 < len(matches) else len(text)
         body = text[m.start():end]
         if len(body.strip()) < MIN_BODY_CHARS:
+            # Log each drop so a legitimate short section that got
+            # filtered is visible (not lost silently).
+            print(
+                f"  drop ({pdf_path.name}): "
+                f"section {m.group('num')} '{m.group('title')[:50]}' "
+                f"({len(body.strip())} chars < {MIN_BODY_CHARS})",
+                file=sys.stderr,
+            )
+            n_dropped += 1
             continue
         slug = _slugify(m.group("title"))
         # Prefix with section number so files sort meaningfully.
@@ -168,8 +208,18 @@ def split_sections(pdf_path: Path, out_dir: Path) -> list[Path]:
         seen[base] = seen.get(base, 0) + 1
         suffix = "" if seen[base] == 1 else f"__{seen[base]:02d}"
         path = section_dir / f"{base}{suffix}.md"
-        path.write_text(_header(pdf_path, n_pages, "sections") + body)
+        path.write_text(
+            _header(pdf_path, n_pages, "sections") + body,
+            encoding="utf-8",
+        )
         written.append(path)
+
+    if n_dropped:
+        print(
+            f"  ({pdf_path.name}: {n_dropped} short sections dropped; "
+            f"see lines above)",
+            file=sys.stderr,
+        )
 
     return written
 

@@ -25,6 +25,15 @@ python -m experiments.midloop_pilot.extract_pdfs --mode sections
 python -m experiments.midloop_pilot.extract_pdfs --only snakebite
 ```
 
+PDF source dir resolves in this order:
+
+1. `--pdf-dir <path>` if given
+2. `MERKEN_WHO_PDF_DIR` env var if set
+3. Fallback: `~/Desktop/Personal/Projects/medlocal/data/core/who`
+   (the medlocal sibling repo's standard layout)
+
+The script errors with a clear message if none of the above exists.
+
 ## What the 7 PDFs actually look like
 
 | PDF | pages | extracted size | structure | suitable mode |

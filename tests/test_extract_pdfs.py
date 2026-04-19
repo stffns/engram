@@ -96,12 +96,37 @@ def test_dump_writes_one_file_with_header(tmp_path, fake_pdf) -> None:
     fake_pdf("Body text of the PDF.\nSecond line.", n_pages=3)
     out = ep.dump_pdf(Path("/fake/snakebite.pdf"), tmp_path)
     assert out.name == "snakebite.md"
-    content = out.read_text()
+    content = out.read_text(encoding="utf-8")
     assert "source_pdf: snakebite.pdf" in content
     assert "page_count: 3" in content
     assert "extraction_mode: dump" in content
     assert "Body text of the PDF." in content
     assert "promotion_status: STAGED" in content
+
+
+def test_header_omits_absolute_source_path(tmp_path, fake_pdf) -> None:
+    """Headers must record only the basename, not the absolute path
+    (which leaks local directory layout and makes staged files
+    environment-dependent). Per PR #27 review (Gemini)."""
+    fake_pdf("body", n_pages=1)
+    out = ep.dump_pdf(Path("/secret/local/path/private.pdf"), tmp_path)
+    content = out.read_text(encoding="utf-8")
+    assert "source_pdf: private.pdf" in content
+    assert "/secret/local/path" not in content
+    assert "source_path:" not in content
+
+
+def test_dump_handles_non_ascii_text(tmp_path, fake_pdf) -> None:
+    """WHO PDFs contain non-ASCII characters (drug names, foreign-
+    language terms, typographic quotes). The explicit utf-8 encoding
+    on write_text avoids cp1252/UnicodeEncodeError on non-UTF8
+    locales. Per PR #27 review (Copilot)."""
+    fake_pdf("Paracetamol \u2014 \u00b5g/mL \u2018trade-name\u2019")
+    out = ep.dump_pdf(Path("/fake/x.pdf"), tmp_path)
+    content = out.read_text(encoding="utf-8")
+    assert "\u2014" in content
+    assert "\u00b5g/mL" in content
+    assert "\u2018trade-name\u2019" in content
 
 
 # ----------------------------------------------------------------- sections mode
@@ -126,9 +151,11 @@ def test_sections_splits_on_numbered_headings(tmp_path, fake_pdf) -> None:
     assert any("1_2__" in n for n in names)
 
 
-def test_sections_filters_short_bodies(tmp_path, fake_pdf) -> None:
+def test_sections_filters_short_bodies(tmp_path, fake_pdf, capsys) -> None:
     """Sections with <250 chars of body are dropped (TOC line
-    items, address lines that slipped past the regex, etc.)."""
+    items, address lines that slipped past the regex, etc.). Each
+    drop is logged to stderr so a legitimate-but-short section that
+    gets filtered is visible, not silent. Per PR #27 review (Gemini)."""
     body = (
         "1 Real section with a real body\n"
         + ("paragraph " * 50) + "\n"
@@ -140,6 +167,10 @@ def test_sections_filters_short_bodies(tmp_path, fake_pdf) -> None:
     names = [p.name for p in written]
     assert any("1__real-section" in n for n in names)
     assert not any("20__avenue-appia" in n for n in names)
+    # The drop must surface on stderr, not vanish silently.
+    err = capsys.readouterr().err
+    assert "drop (x.pdf): section 20" in err
+    assert "1 short sections dropped" in err
 
 
 def test_sections_disambiguates_slug_collisions(tmp_path, fake_pdf) -> None:
