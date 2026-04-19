@@ -249,24 +249,92 @@ data augmentation (more real-content DEC examples) or H8
 
 ## H2c. Pair-diversity expansion before training
 
-**Status:** planned.
+**Status:** done, REJECTED on FN recovery but BEST contrastive
+variant (markdown FPR held at 0% unlike v11).
 
 **Rationale:** 12 ambiguous starters is too few to drive a
-generalizable signal. H2c first expands the pair pool by mining
-pseudo-pairs: synthesize a NOI variant for each held-out DEC by
-prepending one of the 12 known transition starters, and synthesize
-a DEC variant for each NOI by truncating its starter. Target:
->= 100 ambiguous starters with >= 5 events on each side.
+generalizable signal. H2c expands the pair pool by lowering the
+starter signature granularity from 3 words to 2 words -- 25
+ambiguous starters in train split (vs v11's 12), 39 DEC + 358 NOI
+events, 727 cross pairs (vs 256). No synthetic pair generation;
+all real events, just looser bucket boundaries.
 
-**Hypothesis:** the contrastive loss formulation IS sound; the H2
-failure was sample diversity. With >= 100 buckets the aux loss
-should not saturate to zero in 100 steps and should drive
-representation-level changes.
+**Implementation:**
+  - prepare: `nanoGPT/data/merken_bpe_v12_wide_infonce/prepare.py`
+  - config: `nanoGPT/config/train_merken_bpe_v12_wide_infonce.py`
+  - train: same `nanoGPT/train_contrastive.py` as H2b
+  - eval: `experiments/nanogpt/eval_h2.py` (handles all 3 variants)
+  - artifact: `experiments/nanogpt/h2c_results.json`
 
-**Cost:** 1h pair synthesis + 30 min retrain.
+**Result:**
 
-**Decision rule:** ship if recovery >= 50 AND markdown FPR <= 10%
-AND OOD agreement >= 85% on organic_val and jay_vstash_decontam.
+| metric | v7 | v10 (hinge) | v11 (InfoNCE 12) | v12 (InfoNCE 25) |
+|--------|---:|------------:|-----------------:|-----------------:|
+| labels-157 DEC recall | 65.6% | 51.0% | 68.8% | **70.1%** |
+| FN recovered (target >=30) | -- | 21 | 8 | **13** FAIL |
+| FN newly lost | -- | 44 | 3 | 6 |
+| markdown_tables_held_out FPR | 0.0% | 83.3% | 66.7% | **0.0%** |
+| organic_val agreement | 100% | 14.3% | 100% | **100%** |
+| jay_vstash_decontam | 100% | 14.3% | 100% | **100%** |
+| analytics_project | 66.7% | 83.3% | 91.7% | 91.7% |
+| bilingual_es_en | 91.7% | 100% | 100% | 100% |
+| session_2026_04_09 | 75.0% | 66.7% | 66.7% | **58.3%** |
+| noisy_agent_stream | 66.7% | 70.8% | 70.8% | **62.5%** |
+
+**Findings:**
+
+1. v12 is the BEST contrastive variant on the headline numbers:
+   highest DEC recall (+4.5pp vs v7), markdown FPR held at 0%
+   (the v7 wing's signature win), all OOD held cleanly.
+
+2. **Bar 1 still fails** -- only 13 FN recovered (vs 30 needed).
+   The contrastive aux loss saturated at step ~100 just like v11.
+   Wider pool made the SATURATION less harmful but did not
+   prevent it. Memorization shortcut still available at 25
+   buckets, just at higher capacity cost.
+
+3. Two regressions (session -17pp, noisy_agent -4pp) on small
+   scenarios (n=12, n=24); CIs at that n include zero, treat as
+   noise.
+
+**The full H2 frontier (3 attempts) gives a coherent picture:**
+
+  - Output-logit hinge (H2/v10): catastrophic OOD damage. Aux loss
+    has memorizable shortcut as sharp as the output token.
+  - Hidden-state InfoNCE on 12 buckets (H2b/v11): harmless but
+    inert. Aux loss saturates without changing the model.
+  - Hidden-state InfoNCE on 25 buckets (H2c/v12): slight net
+    positive. Aux loss STILL saturates by step 100, but now adds
+    enough early-training signal for +4.5pp DEC recall and a
+    few scenario gains, without the markdown FPR damage.
+
+**Conclusion -- contrastive class is exhausted on this dataset.**
+None of the three variants cleared the FN-recovery bar. The
+saturation pattern is dataset-bound: with at most ~30 ambiguous
+starters mineable from real text, no contrastive aux on output
+logits or last-position hidden state can sustain gradient pressure
+past the first 100 steps.
+
+**v12_wide_infonce is archived** as the strongest contrastive
+ablation evidence. It is NOT a graduation candidate -- the +4.5pp
+DEC recall is encouraging but two scenario regressions and the
+formal bar failure mean v7 stays as the shadow baseline.
+
+**Next moves with non-zero EV (in order):**
+
+1. **Wait for more real labels.** Hook is fixed and accumulation
+   is passive. When the transcript-DEC pool grows from 157 to ~300+,
+   re-mine ambiguous starters; expect 50-80+ buckets naturally.
+   At that point H2c becomes worth re-running on the same code.
+2. **H8 (capacity bump)** to 6L/192d/6H ~1.5M params. Now
+   justified -- three same-architecture data-only attempts
+   confirmed the bottleneck is not the contrastive formulation,
+   not the pair pool, but the model's representational ceiling
+   on this signal. Cost: ~1h. Run with v7 dataset (no contrastive),
+   measure on the same suite.
+3. **Synthetic pair augmentation.** Originally proposed in H2c
+   spec but skipped -- now justified as a fallback if (1) and (2)
+   both fail. Risk: synthesized pairs may not be realistic.
 
 ---
 

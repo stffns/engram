@@ -35,8 +35,9 @@ V7_CKPT = NANOGPT / "out-merken-bpe-v7" / "ckpt.pt"
 V7_META = NANOGPT / "data" / "merken_bpe_v7" / "meta.pkl"
 
 CONTRASTIVE_VARIANTS = [
-    ("v10_contrastive", "h2",  "h2_results.json"),
-    ("v11_infonce",     "h2b", "h2b_results.json"),
+    ("v10_contrastive",   "h2",  "h2_results.json"),
+    ("v11_infonce",       "h2b", "h2b_results.json"),
+    ("v12_wide_infonce",  "h2c", "h2c_results.json"),
 ]
 
 
