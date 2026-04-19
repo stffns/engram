@@ -54,6 +54,7 @@ from merken.policies.should_forget import (
     ForgetDecision,
     NeverForget,
 )
+from merken.sourcing import is_safely_mutable
 from merken.policies.should_recall import (
     LayeredRecaller,
     RecallContext,
@@ -542,8 +543,16 @@ class Memory:
             layer="episodic",
         )
 
+        # Type-B (authoritative) events are excluded from consolidation
+        # via the fail-closed `is_safely_mutable` predicate -- see
+        # `merken/sourcing.py`. An event with an unrecognized
+        # `source:<value>` tag is conservatively treated as immutable
+        # so that protocol-class content cannot be silently summarized
+        # away.
         events: list[tuple[str, str]] = []
         for doc in docs:
+            if not is_safely_mutable(getattr(doc, "tags", None)):
+                continue
             chunks = self._vstash.get_document_chunks(
                 doc.path,
                 collection=self.collection,
@@ -773,6 +782,16 @@ class Memory:
             collection=self.collection,
             layer="episodic",
         )
+
+        # Type-B (authoritative) events are excluded from forget via
+        # the fail-closed `is_safely_mutable` predicate -- see
+        # `merken/sourcing.py`. An event with an unrecognized
+        # `source:<value>` tag is conservatively treated as immutable
+        # so a clinical protocol cannot be tombstoned by accident.
+        episodic = [
+            e for e in episodic
+            if is_safely_mutable(getattr(e, "tags", None))
+        ]
 
         # Build supersession map: for each event, which newer events
         # claim to supersede it? An event B with tag

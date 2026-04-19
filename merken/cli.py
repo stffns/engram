@@ -94,12 +94,25 @@ def cmd_remember(args: argparse.Namespace) -> int:
         )
         return 2
 
+    # --immutable adds `source:authoritative` so the event is
+    # excluded from consolidate / forget by the fail-closed predicate
+    # in `merken/sourcing.py`. If the user already supplied a
+    # `source:` tag, theirs takes precedence (don't double-tag).
+    tags = args.tags
+    if args.immutable:
+        existing = {t.strip().split(":", 1)[0] for t in (tags or "").split(",") if t.strip()}
+        if "source" not in existing:
+            tags = (
+                f"{tags},source:authoritative" if tags
+                else "source:authoritative"
+            )
+
     with Memory(project=args.project, db=_resolve_db(args)) as mem:
         result = mem.remember(
             text,
             layer=args.layer,
             title=args.title,
-            tags=args.tags,
+            tags=tags,
         )
 
     if args.json:
@@ -631,6 +644,17 @@ def build_parser() -> argparse.ArgumentParser:
     rem.add_argument("--title", default=None, help="optional doc title")
     rem.add_argument("--layer", default="episodic", help="layer tag (default: episodic)")
     rem.add_argument("--tags", default=None, help="comma-separated tags")
+    rem.add_argument(
+        "--immutable",
+        action="store_true",
+        help=(
+            "Mark this event as Type B (authoritative, immutable). Adds "
+            "`source:authoritative` to the tags. Mutative ops "
+            "(consolidate, forget, future decay) skip Type B events. "
+            "Use for protocols, specs, fixed corpora, laws, anything "
+            "that must survive every consolidation/forget cycle."
+        ),
+    )
     rem.set_defaults(func=cmd_remember)
 
     rec = sub.add_parser("recall", help="query memory through should_recall")
