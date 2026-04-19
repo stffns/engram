@@ -82,7 +82,7 @@ production fit.
 
 ## H2. Contrastive loss for ambiguous starters
 
-**Status:** planned.
+**Status:** done, REJECTED (catastrophic OOD collapse).
 
 **Rationale:** v8 failed because three dataset levers (binary labels,
 class balance, starter oversample) together pushed the model toward
@@ -90,15 +90,131 @@ a global DEC bias. A contrastive-loss formulation that EXPLICITLY
 pairs same-starter-different-class events in each minibatch would
 force the attention layers to read past the starter.
 
-**Hypothesis:** a v9 trained with contrastive pairs recovers at least
-50 of v7's 157 false negatives without regressing markdown FPR above
-10%.
+**Hypothesis:** a contrastive-trained model recovers >= 50 of v7's
+157 false negatives without regressing markdown FPR above 10%.
 
-**Cost:** 1-2 hours. Requires modifying nanoGPT train.py loss.
+**Cost:** 1-2 hours. Modifies nanoGPT train.py loss.
 
-**Decision rule:** ship as v9 if the two conditions above are met.
+**Decision rule:** ship as graduated shadow if the two conditions are
+met. (Note: the working model is named `v10_contrastive` because the
+v9 slot is held by H_v9_pragmatic. See `out-merken-bpe-v10_contrastive/`
+in the nanoGPT repo.)
 
-**Result:** (pending).
+**Implementation:** hinge loss on the (DECISION, NOISE) logit gap at
+the position right after `<|label|>`, computed for `2 * 8` paired
+sequences sampled from 12 ambiguous starters mined from the v7 train
+split (3-word starter signature, 21 DEC and 153 NOI events, 256 cross
+pairs). Aux loss weighted at lambda=0.5, margin=2.0 in logit space.
+Same architecture, hyperparams, and dataset as v7.
+
+  - prepare: `nanoGPT/data/merken_bpe_v10_contrastive/prepare.py`
+  - train:   `nanoGPT/train_contrastive.py`
+  - config:  `nanoGPT/config/train_merken_bpe_v10_contrastive.py`
+  - mining:  `experiments/nanogpt/h2_mine_starter_pairs.py`
+  - eval:    `experiments/nanogpt/eval_h2.py`
+  - artifact: `experiments/nanogpt/h2_results.json`
+
+**Result:** see `experiments/nanogpt/h2_results.json`. Both decision
+bars FAIL.
+
+| metric | v7 | v10_contrastive | delta |
+|--------|---:|----------------:|------:|
+| labels-157 DEC recall | 65.6% | 51.0% | **-14.6pp** |
+| FN recovered (target >=50) | -- | **21** | -- |
+| FN newly lost | -- | 44 | -- |
+| markdown_tables_held_out FPR (target <=10%) | 0.0% | **83.3%** | **+83.3pp** |
+| organic_val_held_out agreement | 100% | **14.3%** | -85.7pp |
+| jay_vstash_decontam agreement | 100% | **14.3%** | -85.7pp |
+| analytics_project agreement | 66.7% | 83.3% | +16.7pp |
+| bilingual_es_en agreement | 91.7% | 100% | +8.3pp |
+| noisy_agent_stream agreement | 66.7% | 70.8% | +4.2pp |
+
+The contrastive aux loss saturated to 0.0 by step 100 and never
+contributed gradient again (the model trivially achieves margin=2.0
+on just 12 starter buckets via memorization). The OOD damage was
+done in those first 100 steps and CE training across the next 700
+steps could not undo it.
+
+**Diagnosed failure mode** -- the loss optimized the AUX problem
+(separate the 12 ambiguous starter buckets) without solving the META
+problem (generalize past starter). Inspecting v10's FN deltas makes
+this concrete:
+
+  - **Recovered FNs** all start with transition phrases that v10 saw
+    in contrastive training: `Also need to`, `Also remove`, `Excellent!`,
+    `Empiezo por`, `Esperando que`, `Buen review`. v10 learned to
+    classify these as DEC.
+  - **Newly lost FNs** start with structural markers absent from
+    contrastive training: `# Hallazgo`, `## Evaluation`, `**CL ALL...`,
+    `174 passed`, `26/26 pass`. v10 forgot how to recognize structured
+    decision content because the aux loss reweighted gradient toward
+    starter-shaped events.
+
+The contrastive loss did the OPPOSITE of the intent: instead of
+forcing the model past the starter, it taught the model that the
+starter is even MORE load-bearing.
+
+**Lesson:** an auxiliary loss with N=12 buckets and margin=2.0 in
+logit space is too easily satisfied by memorization. The aux loss
+needs either (a) much higher pair diversity, (b) a representation-
+level objective that cannot be satisfied by output-token logits
+alone, or (c) curriculum mixing so it doesn't dominate early
+gradient when the LM is still random.
+
+**v10_contrastive is archived as ablation evidence, not shipped.**
+v7 remains the graduated shadow baseline.
+
+**Follow-ups opened by this result:** see H2b and H2c below. H8
+(architecture bump) is now de-prioritized -- the bottleneck is the
+training signal definition, not parameter count.
+
+---
+
+## H2b. Contrastive on hidden-state representation, not output logits
+
+**Status:** planned.
+
+**Rationale:** H2 failed because the hinge on output-token logits
+let the model satisfy the margin via memorized "this starter ->
+that label" without changing the internal representation. A
+representation-level contrastive (InfoNCE) on the hidden state at
+position(`<|label|>`-1) cannot be satisfied by lookup; it requires
+the embedding of the *payload* to differ between DEC and NOI
+anchors that share a starter.
+
+**Hypothesis:** swap the output-logit hinge for InfoNCE over the
+last-position hidden state. Same 12 starter buckets. Recover >=50
+of v7's 157 FNs without crashing OOD recall (organic_val and
+jay_vstash_decontam stay >= 85% agreement).
+
+**Cost:** 30 min. Same train_contrastive.py, swap the loss term.
+
+**Decision rule:** if OOD recall holds AND FN recovery >= 30 (a
+relaxed bar; demonstrates the formulation is sound), iterate.
+Otherwise mark "contrastive class of approaches" as exhausted.
+
+---
+
+## H2c. Pair-diversity expansion before training
+
+**Status:** planned.
+
+**Rationale:** 12 ambiguous starters is too few to drive a
+generalizable signal. H2c first expands the pair pool by mining
+pseudo-pairs: synthesize a NOI variant for each held-out DEC by
+prepending one of the 12 known transition starters, and synthesize
+a DEC variant for each NOI by truncating its starter. Target:
+>= 100 ambiguous starters with >= 5 events on each side.
+
+**Hypothesis:** the contrastive loss formulation IS sound; the H2
+failure was sample diversity. With >= 100 buckets the aux loss
+should not saturate to zero in 100 steps and should drive
+representation-level changes.
+
+**Cost:** 1h pair synthesis + 30 min retrain.
+
+**Decision rule:** ship if recovery >= 50 AND markdown FPR <= 10%
+AND OOD agreement >= 85% on organic_val and jay_vstash_decontam.
 
 ---
 

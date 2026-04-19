@@ -1,0 +1,241 @@
+{
+  "h2_verdict": "REJECTED",
+  "labels_157_DEC": {
+    "v7_dec_recall": 0.6560509554140127,
+    "v10_dec_recall": 0.5095541401273885,
+    "v7_noi_recall": 0.9712313003452244,
+    "v10_noi_recall": 0.9516685845799769,
+    "v7_fn_count": 54,
+    "v10_fn_count": 77,
+    "fn_recovered": [
+      "**5. session.py** — read mode from card, not from config:",
+      "Also need to add `import re` reference since we're using `_re` in the new code:",
+      "Also need to pass `language` from config to consult calls in the benchmark.",
+      "Also remove `balanceVersion` from the data reads since we no longer need it.",
+      "Buen review. Un issue accionable y varias mejoras de hardening. Deja arreglo todo.",
+      "Empiezo por lo más barato. **#154 cierre con pointer**:",
+      "Esperando que terminen los 3. Te aviso cuando lleguen todos. Los que ya tenemos:\n\n| Dataset | Paper (base) | **Tuned (real pipeline)** | **vs base** | **vs ColBERTv2** |\n|---|---|---|---|---|\n| SciFact | 0.7263 | **0.7526** | **+3.6%** | **+8.6%** |\n| NFCorpus | 0.3590 | **0.4124** | **+14.9%** | **+19.9%** |\n| SciDocs | 0.1943 | corriendo | | |\n| FiQA | 0.3917 | corriendo | | |\n| ArguAna | 0.4370 | corriendo | | |",
+      "Excellent! The cosine similarity is only 0.43, which is quite low. The embedding model is English-focused. Now let me trace through what happens in the Swahili query path. Let me create a test to understand the root cause:",
+      "Guardo el mensaje sobre Acknowledgments y termino primero el Case 2 en el notebook. Luego actualizo los Acknowledgments en los 3 lugares.",
+      "I'll add a `_gamma_override` parameter for testing purposes. Cleaner: let the experiment run on two separate store instances from the same DB. Actually, even simpler — I'll just have the experiment use `rerank_with_decay` directly for the \"fixed\" case, since that's what the grid search experiments already do. Let me update the experiment:",
+      "Let me check the Variables files to see how URLs are configured in Eddie:",
+      "Listo. Repo creado y PR abierto: **stffns/recall#1**",
+      "Now I have a clear picture. The default chunking is 1024 tokens per chunk with 128 token overlap. The `add_document` takes pre-chunked text and pre-computed embeddings. The experiment currently manually splits single sentences.\n\nI need to either:\n1. Use `chunk_text` from `vstash.ingest` to chunk the documents, then embed each chunk, then call `store.add_document`\n2. Or use the `ingest` function directly\n\nOption 1 is cleaner for the experiment since we're generating synthetic text. Let me now wri",
+      "Now I need to include the triage_questions data in the result dict so the UI can render them as chips. The formatter produces text, but for chips we need structured data passed to the frontend. I'll add the triage data to the consultation result:",
+      "Now update the `.env.example` to reflect Azure OpenAI as the primary provider:",
+      "The main production callers are `cli.py:101`, `cli.py:736`, `memory.py:67`, and `mcp.py:106/181`. Let me update the critical ones that use config.",
+      "The semantic recall path returns SearchResult objects which have `title` and `path` but no `added_at`. I need to look up the document's `added_at` for each result. Let me check what's available on the search results.",
+      "Todo en verde. Resumen del ciclo completo:\n\n| Paso | Status |\n|------|--------|\n| PR #115 → develop | merged |\n| Version bump 0.18.1 → 0.18.2 | done |\n| PR #116 (release) → main | merged |\n| PyPI publish | [vstash 0.18.2](https://pypi.org/project/vstash/0.18.2/) |\n| GitHub release | [v0.18.2](https://github.com/stffns/vstash/releases/tag/v0.18.2) |\n| Issue #93 | closed |",
+      "`SearchResult` exposes `text`, `title`, `chunk_id`, `path`, `score` — no `tags`/`layer`/`collection`. So for the LongMemEval eval I'll encode `session_id` in the **title** (clean field, no content pollution) and match recall hits via `title.startswith(f\"{qid}:{sid}:\")`.",
+      "`added_at` is populated with ISO timestamps. The scores are very close (0.016572 vs 0.016488) -- a tiny difference. In cases where v1 and v3 are equally similar to the query, the temporal signal would be the tiebreaker that ensures v3 wins.\n\nNow I have enough context to design the plan. Let me also look at the `Memory.__init__` to see how to pass the reranker configuration.",
+      "`response_format` is used on line 107 before it's defined on line 118."
+    ],
+    "fn_newly_lost": [
+      "# 🚨 Hallazgo crítico — estaba equivocado en varios de mis claims sobre Gemini\n\nHaciendo el manual audit con la data real, **TODOS los 7 fails de Gemini 3.1 Pro son harness artifacts**, no clinical errors. Y **varias de mis claims en el writeup están FACTUALMENTE EQUIVOCADAS**. Déjame ser crudo:\n\n## 📋 Audit manual caso por caso — Gemini 3.1 Pro\n\n### **ST04** — fever + paracetamol/ibuprofen allergy\n**Respuesta real:**\n> \"Desvista al niño... **Paños de agua tibia**... debe bajar la fiebre usando **",
+      "## Evaluación del Repositorio `qa-automate-pluxee`\n\nEste es un **framework de automatización QA a nivel empresarial** para el ecosistema de productos de Pluxee. Aquí está el resumen de las herramientas/tecnologías principales que podrían convertirse en skills:\n\n---\n\n### Herramientas Principales Identificadas\n\n| # | Herramienta | Uso | Volumen |\n|---|-------------|-----|---------|\n| 1 | **Robot Framework + Playwright** | UI testing web | ~1,102 archivos .robot |\n| 2 | **Gatling (Scala/Maven)** |",
+      "## Summary\n\nI've found comprehensive benchmark infrastructure using real FIQA and BGE-small embeddings in the snapvec repo:\n\n### **Benchmark Scripts Using FIQA/BGE-small:**\n\n1. **`/Users/jaysonsteffens/Desktop/Personal/Projects/snapvec/experiments/bench_ivf_pq_fiqa_recall.py`** (154 lines)\n   - Primary recall@10 vs nprobe benchmark on real FIQA data\n   - Tests IVF-PQ with N=~57k FIQA documents using BGE-small embeddings\n   - Config: NLIST=512, M=192, K=256, nprobe range: [1-512]\n   - Uses ground",
+      "**Buena noticia:** el proceso está vivísimo — múltiples conexiones HTTPS establecidas con `1e100.net` (el dominio de IPs de Google). Está haciendo calls al API de Gemini como esperamos. Lo que pasa es que **Python buffer-ea stdout cuando se redirige a un archivo** (no a una terminal), así que el output se va a acumular hasta que termine el proceso o se llene el buffer (~4-8 KB).\n\n**Estamos a ~2-3 min de 20 min esperados.** Te aviso cuando cierre.\n\nMientras tanto, también puedo forzar que podamos",
+      "**CL ALL: 4,875 OK / 0 KO — 100% success!** All Chile endpoints (JWKS, ContentStack, SPL, CheckUser, CardServices, DynamicKey, CardMgmt) pass.\n\nSummary of the ContentStack fix:\n\n| Issue | Root Cause | Fix |\n|-------|-----------|-----|\n| `segmented-entries` 422 | Wrong endpoint — was using `GetEntries` | Changed to `getSegmentedEntries` |\n| `segmented-entries` 422 | Locale case — `es-MX` rejected, needs `es-mx` | Added `.toLowerCase` in request |\n| `get_carrousel` 422 | Wrong endpoint — was using",
+      "**Resultados SPL RO STA:**\n\n| Request | OK | KO |\n|---------|----|----|\n| GET_CONSUMER_FOR_CARD | 1,080 | 0 |\n| GET_BALANCE | 719 | 0 |\n| GET_CARD_DETAILS | 719 | 0 |\n| GET_TRANSACTIONS | 719 | 0 |\n| GET_CARD_LIST_BY_CIAM | 0 | 359 |\n| GET_CONSUMER_FOR_CIAM | 0 | 359 |\n| GET_CARD_INFO | 0 | 359 |\n| **Total** | **3,237 (75%)** | **1,077 (25%)** |\n\n4 de 7 endpoints **100% OK**. Los 3 KO son problemas de datos (la CIAM lookup con el ciamId devuelve error porque ese consumidor no está registrado en",
+      "174 passed, 0 failed. Here's the summary:\n\n**Query LRU cache - done.** Files changed:\n\n- **`vstash/config.py`** -- new `CacheConfig` model with `query_cache_size: int = 0`\n- **`vstash/store.py`** -- LRU cache with epoch-based invalidation in `search()`, `_bump_cache_epoch()` called on every write mutation (add, delete, batch add, delete_by_prefix, reindex)\n- **`vstash/cli.py`** + **`vstash/memory.py`** -- wire `cfg.cache` to `VstashStore`\n- **`tests/test_query_cache.py`** -- 11 tests: hit, miss,",
+      "26/26 pass — the XML error is from a stale output file, not a test failure. Let me also fix the `tool.uv.dev-dependencies` deprecation warning:",
+      "3 datasets corriendo. Van llegando. Resultados hasta ahora:\n\n| Dataset | Paper (base) | **Tuned** | **Delta** | **vs ColBERTv2** |\n|---|---|---|---|---|\n| SciFact | 0.7263 | **0.7526** | **+3.6%** | **+8.6%** |\n| NFCorpus | 0.3590 | **0.4124** | **+14.9%** | **+19.9%** |\n| SciDocs | corriendo | | | |\n| FiQA | corriendo | | | |\n| ArguAna | corriendo | | | |\n\nTe aviso cuando los tres terminen.",
+      "Ahora tengo el panorama completo. Aquí va el resumen:\n\n---\n\n## Estado actual de migraciones (perf)\n\n| App | BU | Simulación | Países | Data files | Estado |\n|-----|----|-----------|--------|------------|--------|\n| **EVA** | B2C | `DYNAMIC.scala` | RO, LU, BE, FR | 4 JSONs | Migrada |\n| **CWC** | B2C | `DYNAMIC.scala` | RO, TN, AT, LU | 6 JSONs | Migrada |\n| **ONEAPP** | B2C | `DYNAMIC.scala` | MX, PA, CO, CL, UY, PE | 6 JSONs | Migrada |\n| **PLUXEECONNECT** | B2C | `DYNAMIC.scala` | NA, BR | 4",
+      "Ahora veo el problema claro. El modelo está siguiendo los STEP 1/2/3 correctamente:\n- **STEP 1**: Age 4 years, Symptom fever ✅\n- **STEP 2**: Missing temperature, duration, severity ✅\n- **STEP 3**: Assessment mode (ask ONE question)\n\nPero **no ejecutó PRIORITY 0** (contraindication scan para aspirina). ¿Por qué? Porque los protocolos que recibió (Snakebite, Epilepsy, Pneumonia, etc.) **no contienen la contraindication de aspirina en niños**. El protocolo Infant Safety que sí la tiene está en rank",
+      "All 59 tests pass. Summary of fixes made:\n\n**`--verbose` noise fix** ([cli.py:29-37](reforge/cli.py#L29-L37))  \n`--verbose` now only elevates the `reforge` logger to DEBUG. `httpx`, `openai`, `vstash` HTTP logs stay at INFO/silent.\n\n**Memory context quality fix** ([memory.py:84-130](reforge/memory.py#L84-L130))  \n- Failures/runs now stored as permanent `.txt` files in `~/.reforge/failures/` and `~/.reforge/runs/` — no markdown chunking so the lesson text is always returned intact\n- `feedback.tas",
+      "All 9 review comments addressed. Here's the summary:\n\n| # | Issue | Fix |\n|---|-------|-----|\n| 1 | Auto-title minute-precision collision | Changed format to `%H:%M:%S.%f` (microsecond precision) |\n| 2 | `get_document_chunks` subquery uniqueness | Added `LIMIT 1` to subquery |\n| 3 | `journal_recall` docstring mismatch | Fixed: \"auto-detected if None\" → \"None = all projects\" |\n| 4 | Chunk overlap in recall reconstruction | Changed `\\n` → `\\n\\n` separator |\n| 5 | MCP/SDK parity | Added `vstash_jou",
+      "Aquí va el análisis completo del repo legacy y el roadmap de migración.\n\n---\n\n## Inventario del Repo Legacy `qa-automate-pluxee`\n\n### Totales\n| Tipo | Archivos |\n|------|----------|\n| Robot tests (.robot) | 345 |\n| Resource files (.resource) | 260 |\n| Python (.py) | 146 |\n| Scala/Gatling (.scala) | 83 |\n| Postman collections (.json) | 127 |\n| Postman environments (.json) | 212 |\n| Pipeline YAML (.yml) | 104 |\n\n### Proyectos descubiertos que NO están en tu CLAUDE.md\nEl legacy tiene **más proyecto",
+      "Buen review. Los issues importantes:\n\n| # | Severidad | Issue |\n|---|-----------|-------|\n| 1 | **Media** | Rich markup injection en `c.title` / `c.path` |\n| 2 | **Media** | MMR penalty recalculado — capturar durante el loop principal |\n| 3 | Baja | RRF rounding: partes redondeadas vs total redondeado |\n| 4 | Baja | FTS explain data para chunks filtrados |\n| 5 | Baja | MCP ahora emite `\"explain\": null` en cada resultado |\n| 6 | Baja | `fts_terms` description dice \"matched\" pero es \"queried\" |\n\nC",
+      "Confirmed — `${EXECDIR}` must be the repo root. Fix the Makefile to run robot from there:",
+      "El overlay oscuro ahora se ve (el fondo se oscureció), el label rojo \"CRITICAL: aria-allowed-attr\" es visible, y el elemento se destaca con el borde rojo brillante. En el segundo screenshot el highlight del `button-name` es más sutil porque el elemento es pequeño.\n\nLos cambios:\n\n1. **Screenshots debajo del texto** — cada violación ahora muestra primero la tabla con la info (Rule, Issue, Description, WCAG, Elements) y luego el screenshot correspondiente debajo\n2. **Overlay oscuro** — fondo semi-t",
+      "Excellent! Now I have all the information. Let me compile the complete findings.\n\n## Summary of PluxeeConnect HTTP Request Implementations\n\nI've found the complete HTTP request implementations in the legacy PluxeeConnect performance test simulations. Here are the four requests you requested:\n\n### File Locations\nAll requests are located in the PLUXEECONNECT performance simulation files:\n- `/Users/jaysonsteffens/Desktop/pluxee/qa-automate-pluxee/app/app-b2c/PLUXEECONNECT/perf/simulations/`\n\n---\n\n#",
+      "Good — FLORA has no auth imports. Let me update the todo list and proceed to Step 5 (validation via compile).",
+      "Good. Also need `usesCleartextTraffic` for HTTP (not HTTPS) on local network:",
+      "Here is the complete analysis of the CLM legacy perf simulation.\n\n---\n\n## CLM Performance Simulation -- Full Analysis\n\n### Files Inventory\n\nThe CLM perf directory is minimal. Only two items exist:\n\n| File | Path |\n|------|------|\n| Simulation | `/Users/jaysonsteffens/Desktop/pluxee/qa-automate-pluxee/app/app-b2b/CLM/perf/simulations/CLM_FR_UAT_ALL.scala` |\n| Placeholder | `/Users/jaysonsteffens/Desktop/pluxee/qa-automate-pluxee/app/app-b2b/CLM/perf/resources/.gitkeep` (empty) |\n\nSupporting conte",
+      "Here is the full summary of everything found.\n\n---\n\n## SPL Current State in the New Repo\n\n### 1. Existing SPL-related files\n\n**Only one SPL source file exists on the `develop` branch:**\n- `/Users/jaysonsteffens/Desktop/pluxee/global-qa-automate/core/perf/src/test/scala/common/requests/SPLRequests.scala` -- a legacy-style requests file with 3 endpoints (`getProducts`, `getBalance`, `getTransactions`). It has a critical anti-pattern: **hardcoded `spl-api-sta` in all URL paths** instead of paramete",
+      "HuggingFace works. But this dataset doesn't have categories. Let me use the official Cornell dataset which has categories:",
+      "I have all the information I need. Now I will produce the implementation plan.\n\n---\n\n## Implementation Plan: Centralize OIDC Token Generation in Python\n\n### Overview\n\nRemove the 16-file Scala OIDC auth stack from `core/perf/` and make the Python `connect_token_generator.py` the single token generator. The token is generated by `run.py` before Gatling launches and passed as a JVM system property `-Dtoken=<value>`. Simulations read it from `System.getProperty(\"token\")`.\n\n---\n\n### Phase 1: Extend t",
+      "Let me create a summary document with my findings:\n\n## Summary: Temporal Reranking Support in Engram\n\n### 1. vstash SearchResult Exposes `added_at`\n\n**Status: YES** ✓\n\nThe `SearchResult` model in `/Users/jaysonsteffens/Desktop/Personal/Projects/vex/vstash/models.py` (lines 50-91) includes:\n```python\nadded_at: str | None = Field(default=None, description=\"ISO timestamp of document ingestion\")\n```\n\nThis field is available on every search result returned by `vstash.Memory.search()`. It's already be",
+      "Listo — `docs/architecture.md`, 390 líneas cubriendo:\n\n1. **Overview** — qué es y qué hace\n2. **System Architecture** — diagrama ASCII + two-database design\n3. **LLM Role Architecture** — Teacher/Judge/Student con configs por provider\n4. **FSRS-4.5 Scheduler** — variables, fórmulas, 17 parámetros\n5. **Level Unlock System** — progresión y lógica de desbloqueo\n6. **Study Session Flow** — diagrama completo del loop interactivo\n7. **Token Tracking** — incluyendo thinking tokens de Gemini\n8. **RAG Ch",
+      "Mientras entrena, te explico la diferencia fundamental:\n\n**Character-level (v1-v3b):**\n```\nInput: R  e  p  l  a  c  e  d     R  e  d  i  s\n       |  |  |  |  |  |  |  |     |  |  |  |  |\n       14 tokens, cada uno es 1 caracter\n       El modelo tiene que reconstruir \"Replaced\" y \"Redis\" como conceptos\n       a traves de 4 capas de atencion sobre 14 posiciones\n```\n\n**BPE (v4):**\n```\nInput: R  eplaced  Redis\n       |  |        |\n       3 tokens, cada uno ya es un concepto\n       El modelo puede ap",
+      "No public method for \"get all chunks for a document\". Better approach: use search to find chunks, or access `_store` directly. Since this is our own project, using `_store` is fine. Let me fix the teacher to use the proper approach:",
+      "Now I have enough information. Let me create a comprehensive summary of my findings:\n\n## Android MedLocal Port Analysis\n\nI've thoroughly explored the Android MedLocal implementation at `/Users/jaysonsteffens/Desktop/Personal/Projects/medlocal-android/Android/src/app/src/main/java/com/google/ai/edge/gallery/medlocal/`. Here's what I found:\n\n### 1. **How the Consultation Pipeline Works on Android**\n\nThe Android pipeline is a **two-stage process** that mirrors the Python version but with strategic",
+      "Now fix #8 — wire up dismissed tracking in CLI. The natural \"dismiss\" signal: if the user runs `search` and gets results but doesn't follow up with `ask`, the search was likely not useful. For `search` specifically, we can't detect post-search behavior since it exits. But for `chat`, we can detect if the user changes topic. The simplest approach: mark as dismissed if `tier != \"high\"` and let the telemetry summary show the distribution. Actually, the real signal is simpler — in `search`, there's",
+      "Now the critical ones — postEmail, postPassword, followRedirects, and other methods that still use `${}`:",
+      "Números brutales. Resumen:\n\n```\nRetrieval  sqlite-vec: 1.84ms  |  TurboQuant: 1.65ms  ← ambos irrelevantes\nCerebras LLM:          0.72s   |  127 t/s avg\nEnd-to-end:            ~0.72s\nvs Qwen 9B local:      18x más rápido\n```\n\n**Qwen 235B en Cerebras responde en 0.72s** — un modelo 26× más grande que el local, pero en datacenter con chips dedicados. La calidad también sube:\n\n- La query sobre turbo3 vs turbo4 reconoció honestamente que el contexto no tenía suficiente detalle — sin alucinar\n- La de",
+      "PR creado: https://github.com/stffns/vstash/pull/45\n\n---\n\n## Cómo funciona\n\nEl flujo anterior (3 pasos):\n```\nagente → escribe /tmp/note.md → vstash add /tmp/note.md → borra /tmp/note.md\n```\n\nEl flujo nuevo (1 paso):\n```\nagente → vstash remember \"texto\"\n```\n\n**Internamente**, `ingest_text()` hace exactamente lo que hace `ingest()` pero sin las fases de filesystem:\n\n```\ntexto raw\n  ↓\n_extract_frontmatter()    ← extrae project/tags/layer si hay YAML ---/---\n  ↓\n_strip_frontmatter()      ← limpia el",
+      "Perfect! I found the actual APIM keys. Here's my report:\n\n## EVA APIM Subscription Keys Found\n\n**Location:** `/Users/jaysonsteffens/Desktop/pluxee/global-qa-automate/projects/b2c/eva/.env`\n\nThe actual EVA APIM subscription keys are stored in the local `.env` file (which is gitignored). Here are the values:\n\n### OCP APIM Keys (Azure API Management):\n- **OCP_APIM_KEY_BE_STA:** `58633aa3810f43828e8fa68699aa092d`\n- **OCP_APIM_KEY_BE_UAT:** (empty)\n- **OCP_APIM_KEY_RO_STA:** `6cd9f5c3a0f6450d87cbd72a",
+      "Perfect! I have all the information. Let me provide you a comprehensive answer based on the official documentation.\n\n## Hook Event Types in Claude Code\n\nBased on the official Claude Code documentation, here's the complete reference:\n\n### **Your Specific Questions Answered:**\n\n1. **PreCompact hook?** YES - `PreCompact` exists (fires before context compaction)\n2. **PreContextWindowCompress hook?** NO - not available\n3. **SessionEnd hook?** YES - `SessionEnd` exists (fires when session terminates)",
+      "Perfect! Now I have a complete picture. Let me create a comprehensive report.\n\n## Complete Project Overview: vstash-swarm-1\n\n### **Project Purpose & Architecture**\n\n**vstash-swarm** is a multi-agent shared memory framework built on top of [vstash](https://github.com/stffns/vstash), a local RAG (Retrieval-Augmented Generation) system. Instead of agents passing state through message brokers or shared dictionaries, they communicate exclusively through a shared SQLite database. This enables:\n\n- **St",
+      "Perfect! Now I have a comprehensive understanding. Let me create a detailed written summary:\n\n## COMPREHENSIVE PERFORMANCE TESTING ENGINE ANALYSIS\n\nI've thoroughly explored the performance testing engine. Here's the complete implementation pattern:\n\n---\n\n### **1. ARCHITECTURE OVERVIEW**\n\nThe perf-core engine is a **three-layer system**:\n\n1. **Python Orchestrator** (`run.py`) — Natural language → Config resolution → Gatling execution\n2. **Pydantic Models** (`models.py`) — Validate config and agen",
+      "The `quiet=True` path returns `IngestResult(status=\"error\")` which IS captured in the results list. The caller does see it. The Copilot comment was about console output being suppressed. But the IngestResult with status=\"error\" and the error message is already in the results list -- the caller (ingest_directory) can surface it. That's actually fine -- the error IS reported via the return value, just not printed to stderr during the progress bar.\n\nLet me revert to `quiet=True` but add a console w",
+      "The dry-run fails because `${EXECDIR}` would resolve to `projects/b2c/eva` instead of the repo root. Robot must run from the repo root. Let me fix the Makefile:",
+      "This test expects that scoring changes results. With adaptive scoring, in a fresh store with < 10 accessed chunks, γ=0 means scoring is skipped. The test needs to create enough access history for γ > 0. Let me read the test:",
+      "Todos los 14 comentarios resueltos:\n\n| # | Comentario | Fix |\n|---|---|---|\n| 1 | RRF key incluye profile | Key ahora `(path, chunk)` — fusion real |\n| 2 | RRF off-by-one | `1/(k+rank)` como store.py |\n| 3 | Unused `profile_name` | Renombrado a `_` |\n| 4 | Profile validation en callback | `typer.BadParameter` temprano |\n| 5 | Exception silenciosa | `logger.warning` con exc_info |\n| 6 | `active_profile_info` sin validacion | Valida explicit y env |\n| 7 | Score no actualizado | `result.score = rrf",
+      "Ya tengo todo lo necesario. Aquí va la validación:\n\n---\n\n## Validación de hallazgos\n\n### 1. Alta: Reindex puede actuar sobre una base distinta — **CONFIRMADO**\n\nEl CLI general (cli.py:130-137) tiene lógica de 3 ramas para resolver el DB path:\n- `VSTASH_DB_PATH` env → usa `resolve_db_path`\n- `cfg.storage.db_path != default` → usa config directamente\n- else → usa `resolve_db_path`\n\nPero `reindex` (cli.py:868) **siempre** usa `resolve_db_path()` sin el paso 2 de `cfg.storage.db_path` personalizado.",
+      "`instance` type gives per-occurrence rows. For df(term) I need `row` type instead which gives aggregates:",
+      "merken LoCoMo E2E benchmark (2026-04-16). 2 conversaciones, categorías temporal + adversarial, n=134 queries. Resultados: | Config | adversarial | temporal | ov"
+    ],
+    "n_recovered": 21,
+    "n_newly_lost": 44
+  },
+  "scenarios": {
+    "markdown_tables_held_out": {
+      "n": 12,
+      "n_dec": 6,
+      "n_noi": 6,
+      "v7": {
+        "agreement": 1.0,
+        "dec_recall": 1.0,
+        "noi_recall": 1.0,
+        "fpr": 0.0
+      },
+      "v10": {
+        "agreement": 0.5,
+        "dec_recall": 0.8333333333333334,
+        "noi_recall": 0.16666666666666666,
+        "fpr": 0.8333333333333334
+      }
+    },
+    "organic_val_held_out": {
+      "n": 7,
+      "n_dec": 7,
+      "n_noi": 0,
+      "v7": {
+        "agreement": 1.0,
+        "dec_recall": 1.0,
+        "noi_recall": 0.0,
+        "fpr": 0.0
+      },
+      "v10": {
+        "agreement": 0.14285714285714285,
+        "dec_recall": 0.14285714285714285,
+        "noi_recall": 0.0,
+        "fpr": 0.0
+      }
+    },
+    "jay_vstash_snapshot_decontam": {
+      "n": 7,
+      "n_dec": 7,
+      "n_noi": 0,
+      "v7": {
+        "agreement": 1.0,
+        "dec_recall": 1.0,
+        "noi_recall": 0.0,
+        "fpr": 0.0
+      },
+      "v10": {
+        "agreement": 0.14285714285714285,
+        "dec_recall": 0.14285714285714285,
+        "noi_recall": 0.0,
+        "fpr": 0.0
+      }
+    },
+    "knowledge_update_50t (TRAINING)": {
+      "n": 1100,
+      "n_dec": 150,
+      "n_noi": 950,
+      "v7": {
+        "agreement": 0.9736363636363636,
+        "dec_recall": 0.8066666666666666,
+        "noi_recall": 1.0,
+        "fpr": 0.0
+      },
+      "v10": {
+        "agreement": 0.98,
+        "dec_recall": 0.8533333333333334,
+        "noi_recall": 1.0,
+        "fpr": 0.0
+      }
+    },
+    "analytics_project": {
+      "n": 12,
+      "n_dec": 12,
+      "n_noi": 0,
+      "v7": {
+        "agreement": 0.6666666666666666,
+        "dec_recall": 0.6666666666666666,
+        "noi_recall": 0.0,
+        "fpr": 0.0
+      },
+      "v10": {
+        "agreement": 0.8333333333333334,
+        "dec_recall": 0.8333333333333334,
+        "noi_recall": 0.0,
+        "fpr": 0.0
+      }
+    },
+    "session_2026_04_09": {
+      "n": 12,
+      "n_dec": 12,
+      "n_noi": 0,
+      "v7": {
+        "agreement": 0.75,
+        "dec_recall": 0.75,
+        "noi_recall": 0.0,
+        "fpr": 0.0
+      },
+      "v10": {
+        "agreement": 0.6666666666666666,
+        "dec_recall": 0.6666666666666666,
+        "noi_recall": 0.0,
+        "fpr": 0.0
+      }
+    },
+    "bilingual_es_en_2026_04_14": {
+      "n": 12,
+      "n_dec": 12,
+      "n_noi": 0,
+      "v7": {
+        "agreement": 0.9166666666666666,
+        "dec_recall": 0.9166666666666666,
+        "noi_recall": 0.0,
+        "fpr": 0.0
+      },
+      "v10": {
+        "agreement": 1.0,
+        "dec_recall": 1.0,
+        "noi_recall": 0.0,
+        "fpr": 0.0
+      }
+    },
+    "noisy_agent_stream": {
+      "n": 24,
+      "n_dec": 24,
+      "n_noi": 0,
+      "v7": {
+        "agreement": 0.6666666666666666,
+        "dec_recall": 0.6666666666666666,
+        "noi_recall": 0.0,
+        "fpr": 0.0
+      },
+      "v10": {
+        "agreement": 0.7083333333333334,
+        "dec_recall": 0.7083333333333334,
+        "noi_recall": 0.0,
+        "fpr": 0.0
+      }
+    },
+    "disjoint_noise_heavy_holdout": {
+      "n": 57,
+      "n_dec": 24,
+      "n_noi": 33,
+      "v7": {
+        "agreement": 0.8771929824561403,
+        "dec_recall": 0.7083333333333334,
+        "noi_recall": 1.0,
+        "fpr": 0.0
+      },
+      "v10": {
+        "agreement": 0.8771929824561403,
+        "dec_recall": 0.75,
+        "noi_recall": 0.9696969696969697,
+        "fpr": 0.030303030303030304
+      }
+    }
+  },
+  "decision_rule": {
+    "bar_1_recovered_fn_ge_50": false,
+    "bar_2_markdown_fpr_le_10pct": false
+  }
+}

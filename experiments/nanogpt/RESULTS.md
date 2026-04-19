@@ -13,6 +13,8 @@ the lesson learned.
 | v6 | 2026-04-17 mid | Markdown-NOISE synthesis -> 66.7% FPR. Prior shadow default. 84.7% oracle agreement on skip-set | superseded |
 | **v7** | **2026-04-17 late** | **First to clear markdown blind spot (FPR 0%). Real-label training. Graduated shadow baseline** | **live shadow** |
 | v8 | 2026-04-17 late | Negative result: binary + balance + starter-oversample together broke markdown FPR (0 -> 100%) | archived |
+| v9 (H_v9_pragmatic) | 2026-04-18 | Negative result: dropping knowledge_update from training restored a 50% markdown FPR (was 0 in v7); confirms KU is in EVAL not training | archived |
+| v10_contrastive (H2) | 2026-04-19 | Negative result: hinge loss on output logits over 12 starter buckets saturated to 0 by step 100. OOD DEC recall collapsed (organic_val 100->14%, jay_vstash_decontam 100->14%); markdown FPR exploded 0->83%. Reweighted gradient TOWARD trusting the contrastive starters, opposite of the intent | archived |
 
 **Post-graduation characterization (2026-04-18 session):** see
 [CONFUSION_MATRIX.md](CONFUSION_MATRIX.md) for v7's full confusion
@@ -150,25 +152,41 @@ labels.
 ## Open frontiers (documented, not scheduled)
 
 ### v9 hypothesis: same architecture, better training signal
-- Binary labels (keep from v8)
-- Milder class balance (target 20-25% DEC, not 40%)
-- Milder starter oversample (min 10 per class)
-- Contrastive loss OR batch-sampling that guarantees same-starter
-  mixed-class pairs in every minibatch
-- **Test:** does this cross 95% on criterion #4 without losing
-  markdown FPR?
+- DONE as `H_v9_pragmatic` (different framing): tested whether
+  dropping `knowledge_update` from training holds the v7 numbers.
+  REJECTED -- markdown FPR rebounded to 50%. KU is in EVAL not
+  training. v9 archived as ablation evidence.
 
-If v9 passes: confirms the v7->v8 failure was a learning-signal
-problem, not an architectural limit. The 4-head / 128-dim / 4-layer
-/ 800K-param recipe is sufficient.
+### v10_contrastive (H2) -- DONE, REJECTED
+- 4L/4H/128d, block=256, identical to v7. Aux hinge loss on the
+  (DECISION, NOISE) logit gap at position(`<|label|>`-1) for 8
+  same-starter (DEC, NOI) pairs per step, 12 ambiguous starters
+  mined from train split (3-word signature, 21 DEC + 153 NOI).
+- Aux loss saturated to 0.0 by step 100; CE loss converged to
+  val=2.38 (v7 was 2.35, slightly worse).
+- E2E result: labels-157 DEC recall 51% (v7 65.6%, -14.6pp), only
+  21 of v7's 54 FNs recovered while losing 44 new ones; markdown
+  FPR exploded to 83.3%; OOD DEC scenarios collapsed
+  (organic_val 100->14%, jay_vstash_decontam 100->14%).
+- Diagnosed failure: aux loss memorized "starter -> class" on the
+  12 buckets without forcing the model to read past the starter.
+  Newly lost FNs all start with structural markdown markers absent
+  from contrastive training; recovered FNs all start with the 12
+  contrastive transition phrases. The aux loss did the OPPOSITE
+  of intent: trusted starters MORE, not less.
+- Follow-ups: H2b (representation-level InfoNCE instead of output
+  hinge), H2c (mine >=100 starter buckets via synthesis before
+  retraining). Both deferred until next session.
 
-### v10 hypothesis: if v9 fails, bump capacity
-- 6 layers / 192-dim / 6 heads (~1.5M params)
-- Still well within "small specialized model" constraint
-- Tests whether 800K params is the physical ceiling for
-  payload-conditional discrimination on ambiguous starters
+### v11 hypothesis: capacity bump (DEFERRED)
+- Original "v10 hypothesis" in this section (6L/192d/6H, ~1.5M
+  params) is now de-prioritized. H2 demonstrated that the
+  bottleneck on v7 is the training-signal definition, not
+  parameter count -- v10_contrastive at the same capacity got
+  WORSE on every OOD slice. Bump capacity only after H2b and H2c
+  exhaust the loss-formulation space.
 
-### v11 onward: out of scope
+### Out of scope for nanoGPT filter
 - position encoding for transcript turn index (memory note)
 - entity persistence features (memory note)
 - nanoGPT-as-connector (cross-store idea from 2026-04-16)
