@@ -1,0 +1,940 @@
+[
+  {
+    "query": "Que resultados tenemos, que es merken en este momento?",
+    "result": {
+      "briefs": [
+        "## Merken Label Accumulation Bug\n- **What happened:** The `merken-save.sh` hook was failing silently because it was attempting to parse JSONL transcripts as JSON, resulting in no new labels being accumulated.\n- **Impact:** The label accumulation was at zero, preventing the graduation criteria from being met. Shadow mode never executes because the pipeline never generates events.\n- **Resolution:** Propose two PRs: (A) fix the hook to correctly parse JSONL and extract relevant data, and (B) create a script to bootstrap labels from existing transcripts by replaying them and labeling v6 skips with Gemini.\n- **Follow-ups:** Implement PR A (high priority) and PR B. Start with end-to-end pipeline with the 2 real disagreements.",
+        "## H2 Training Decision\n- [v1]: Next training session will use H2 (contrastive loss, same 800K architecture) instead of H8 (2x-3x capacity bump). This is based on the principle that improvements in training signal are more effective than simply increasing model capacity.\n- **Current state:** H2 is the active training path. The acceptance criteria for H2 is achieving a recovery of >=50 of v7's 157 false negatives without increasing the markdown false positive rate above 10%. H8 is deferred until H2 fails.",
+        "## LoCoMo E2E v7 Performance\n- **What happened:** Experiments H16 and H17 showed that v7, when used as a write filter at session granularity (H16) or a turn granularity (H17), hurts temporal retrieval performance in the LoCoMo E2E pipeline compared to raw data.\n- **Impact:** v7 is unsuitable as a retrieval filter at any granularity and as a write filter at session granularity. Unit mismatch direction: v7 trained on LARGER units than dialogue turns.\n- **Resolution:** Rejection of v7 as a write or retrieval filter in the LoCoMo E2E pipeline.\n- **Follow-ups:** None specified."
+      ],
+      "episodic": [
+        {
+          "title": "nanoGPT write filter validación honesta: 100/100 en easy, 90% en novel, 19% en subtle noise — límite identificado",
+          "path": "text://nanoGPT write filter validación honesta: 100/100 en easy, 90% en novel, 19% en subtle noise — límite identificado",
+          "text": "PRÓXIMO PASO PARA MEJORAR:\nEl modelo necesita features adicionales que capturen rol:\n- Position en la secuencia temporal (primero = más probable investigación, último = más probable decisión).\n- Entity tags (qué entidades se mencionan y en qué contexto).\n- Structural cues (formato del texto: bullet points, headers, etc.).\n- Idealmente: embeddings semánticos como features del classifier, no solo n-grams de caracteres.\n\nEso es trabajo para el paper post-Mundial, no para ahora. El modelo actual de 800K params es Stage 1 funcional con límites claros documentados.\n\nSTATUS: resultado real y publicable, con caveats honestos identificados. Guardado con calibración completa.",
+          "score": 0.016491,
+          "chunk": 1
+        },
+        {
+          "title": "solo-2-disagreements-del-audit-20260418-103858282214",
+          "path": "text://solo-2-disagreements-del-audit-20260418-103858282214",
+          "text": "Solo 2 disagreements del audit histórico — el scope es chico porque los audit rows son eventos ya curados por ti. Los disagreements reales están en el **firehose de transcripts** que la hook aún no procesó. Voy a ver si vale expandir allí.",
+          "score": 0.016408,
+          "chunk": 0
+        },
+        {
+          "title": "brief_649aff62d040",
+          "path": "text://brief_649aff62d040",
+          "text": "## Merken Label Accumulation Bug\n- **What happened:** The `merken-save.sh` hook was failing silently because it was attempting to parse JSONL transcripts as JSON, resulting in no new labels being accumulated.\n- **Impact:** The label accumulation was at zero, preventing the graduation criteria from being met. Shadow mode never executes because the pipeline never generates events.\n- **Resolution:** Propose two PRs: (A) fix the hook to correctly parse JSONL and extract relevant data, and (B) create a script to bootstrap labels from existing transcripts by replaying them and labeling v6 skips with Gemini.\n- **Follow-ups:** Implement PR A (high priority) and PR B. Start with end-to-end pipeline with the 2 real disagreements.",
+          "score": 0.015714,
+          "chunk": 0
+        },
+        {
+          "title": "hay-58-shouldremember-rows-reales-20260418-103854722077",
+          "path": "text://hay-58-shouldremember-rows-reales-20260418-103854722077",
+          "text": "Hay ~58 `should_remember` rows reales en total (menos de lo que pensaba). Antes de expandir scope, corro el dry-run completo y luego etiqueto los disagreements.",
+          "score": 0.015665,
+          "chunk": 0
+        },
+        {
+          "title": "brief_1be3ef9e9935",
+          "path": "text://brief_1be3ef9e9935",
+          "text": "## H2 Training Decision\n- [v1]: Next training session will use H2 (contrastive loss, same 800K architecture) instead of H8 (2x-3x capacity bump). This is based on the principle that improvements in training signal are more effective than simply increasing model capacity.\n- **Current state:** H2 is the active training path. The acceptance criteria for H2 is achieving a recovery of >=50 of v7's 157 false negatives without increasing the markdown false positive rate above 10%. H8 is deferred until H2 fails.",
+          "score": 0.011049,
+          "chunk": 0
+        }
+      ]
+    }
+  },
+  {
+    "query": "En resumen que se a conseguido con Merken hasta aca?",
+    "result": {
+      "briefs": [
+        "## Merken Project State (2026-04-17)\n- **Current state:** Codebase is clean with 11 PRs merged, 207 tests passing, and the CLI is complete. Hooks are live in `~/.claude/hooks/`. However, the accumulation of labels is at ZERO across all projects.\n- **Key facts:**\n  - Existing audit rows are limited (~58 rows, already curated).\n  - `merken-save.sh` only triggers on PreCompact, which hasn't occurred in recent sessions.\n- **Next Steps**\n  - Implement backward bootstrap process with `bootstrap_from_transcripts.py` to classify disagreements offline with v6 + Gemini 1B for the ~60+ rows of `should_remember`.\n  - Expand the trigger of the `merken-save.sh` hook to other events (UserPromptSubmit, SessionEnd)",
+        "## Merken Label Accumulation Bug\n- **What happened:** The `merken-save.sh` hook was failing silently because it was attempting to parse JSONL transcripts as JSON, resulting in no new labels being accumulated.\n- **Impact:** The label accumulation was at zero, preventing the graduation criteria from being met. Shadow mode never executes because the pipeline never generates events.\n- **Resolution:** Propose two PRs: (A) fix the hook to correctly parse JSONL and extract relevant data, and (B) create a script to bootstrap labels from existing transcripts by replaying them and labeling v6 skips with Gemini.\n- **Follow-ups:** Implement PR A (high priority) and PR B. Start with end-to-end pipeline with the 2 real disagreements.",
+        "## nanoGPT-as-connector\n- **Identity:** A small, specialized LLM (nanoGPT-class) designed to \"connect the dots\" within the vstash, snapvec, and merken stack.\n- **Key facts:**\n  - The LLM's primary function is to decide which retrieval actions to take, how to combine results, and when to consolidate information.\n  - Could be trained from scratch with a corpus of 10-50M tokens based on real usage logs and decision traces from vstash, snapvec, and merken.\n  - The training signal exists in audit logs, vstash journals, and reproducible benchmarks.\n- **Last update:** The LLM acts as a router/connector, minimizing the use of the larger, more expensive LLM by preprocessing and determining what information to pass along.\n```"
+      ],
+      "episodic": [
+        {
+          "title": "nanoGPT write filter validación honesta: 100/100 en easy, 90% en novel, 19% en subtle noise — límite identificado",
+          "path": "text://nanoGPT write filter validación honesta: 100/100 en easy, 90% en novel, 19% en subtle noise — límite identificado",
+          "text": "PRÓXIMO PASO PARA MEJORAR:\nEl modelo necesita features adicionales que capturen rol:\n- Position en la secuencia temporal (primero = más probable investigación, último = más probable decisión).\n- Entity tags (qué entidades se mencionan y en qué contexto).\n- Structural cues (formato del texto: bullet points, headers, etc.).\n- Idealmente: embeddings semánticos como features del classifier, no solo n-grams de caracteres.\n\nEso es trabajo para el paper post-Mundial, no para ahora. El modelo actual de 800K params es Stage 1 funcional con límites claros documentados.\n\nSTATUS: resultado real y publicable, con caveats honestos identificados. Guardado con calibración completa.",
+          "score": 0.016222,
+          "chunk": 1
+        },
+        {
+          "title": "antes-de-escalar-a-transcripts-20260418-103901861259",
+          "path": "text://antes-de-escalar-a-transcripts-20260418-103901861259",
+          "text": "Antes de escalar a transcripts (hay ~415 archivos; algo grande), voy a terminar el end-to-end pipeline con los 2 disagreements reales para verificar que el loop cierra.",
+          "score": 0.015978,
+          "chunk": 0
+        },
+        {
+          "title": "brief_649aff62d040",
+          "path": "text://brief_649aff62d040",
+          "text": "## Merken Label Accumulation Bug\n- **What happened:** The `merken-save.sh` hook was failing silently because it was attempting to parse JSONL transcripts as JSON, resulting in no new labels being accumulated.\n- **Impact:** The label accumulation was at zero, preventing the graduation criteria from being met. Shadow mode never executes because the pipeline never generates events.\n- **Resolution:** Propose two PRs: (A) fix the hook to correctly parse JSONL and extract relevant data, and (B) create a script to bootstrap labels from existing transcripts by replaying them and labeling v6 skips with Gemini.\n- **Follow-ups:** Implement PR A (high priority) and PR B. Start with end-to-end pipeline with the 2 real disagreements.",
+          "score": 0.016217,
+          "chunk": 0
+        },
+        {
+          "title": "solo-2-disagreements-del-audit-20260418-103858282214",
+          "path": "text://solo-2-disagreements-del-audit-20260418-103858282214",
+          "text": "Solo 2 disagreements del audit histórico — el scope es chico porque los audit rows son eventos ya curados por ti. Los disagreements reales están en el **firehose de transcripts** que la hook aún no procesó. Voy a ver si vale expandir allí.",
+          "score": 0.015583,
+          "chunk": 0
+        },
+        {
+          "title": "brief_b7fa0b28e60d",
+          "path": "text://brief_b7fa0b28e60d",
+          "text": "## Merken Project State (2026-04-17)\n- **Current state:** Codebase is clean with 11 PRs merged, 207 tests passing, and the CLI is complete. Hooks are live in `~/.claude/hooks/`. However, the accumulation of labels is at ZERO across all projects.\n- **Key facts:**\n  - Existing audit rows are limited (~58 rows, already curated).\n  - `merken-save.sh` only triggers on PreCompact, which hasn't occurred in recent sessions.\n- **Next Steps**\n  - Implement backward bootstrap process with `bootstrap_from_transcripts.py` to classify disagreements offline with v6 + Gemini 1B for the ~60+ rows of `should_remember`.\n  - Expand the trigger of the `merken-save.sh` hook to other events (UserPromptSubmit, SessionEnd)",
+          "score": 0.016211,
+          "chunk": 0
+        }
+      ]
+    }
+  },
+  {
+    "query": "Dame un resumen de que es merken hoy en dia",
+    "result": {
+      "briefs": [
+        "## nanoGPT-as-connector\n- **Identity:** A small, specialized LLM (nanoGPT-class) designed to \"connect the dots\" within the vstash, snapvec, and merken stack.\n- **Key facts:**\n  - The LLM's primary function is to decide which retrieval actions to take, how to combine results, and when to consolidate information.\n  - Could be trained from scratch with a corpus of 10-50M tokens based on real usage logs and decision traces from vstash, snapvec, and merken.\n  - The training signal exists in audit logs, vstash journals, and reproducible benchmarks.\n- **Last update:** The LLM acts as a router/connector, minimizing the use of the larger, more expensive LLM by preprocessing and determining what information to pass along.\n```",
+        "## Merken Project State (2026-04-17)\n- **Current state:** Codebase is clean with 11 PRs merged, 207 tests passing, and the CLI is complete. Hooks are live in `~/.claude/hooks/`. However, the accumulation of labels is at ZERO across all projects.\n- **Key facts:**\n  - Existing audit rows are limited (~58 rows, already curated).\n  - `merken-save.sh` only triggers on PreCompact, which hasn't occurred in recent sessions.\n- **Next Steps**\n  - Implement backward bootstrap process with `bootstrap_from_transcripts.py` to classify disagreements offline with v6 + Gemini 1B for the ~60+ rows of `should_remember`.\n  - Expand the trigger of the `merken-save.sh` hook to other events (UserPromptSubmit, SessionEnd)",
+        "## Merken Label Accumulation Bug\n- **What happened:** The `merken-save.sh` hook was failing silently because it was attempting to parse JSONL transcripts as JSON, resulting in no new labels being accumulated.\n- **Impact:** The label accumulation was at zero, preventing the graduation criteria from being met. Shadow mode never executes because the pipeline never generates events.\n- **Resolution:** Propose two PRs: (A) fix the hook to correctly parse JSONL and extract relevant data, and (B) create a script to bootstrap labels from existing transcripts by replaying them and labeling v6 skips with Gemini.\n- **Follow-ups:** Implement PR A (high priority) and PR B. Start with end-to-end pipeline with the 2 real disagreements."
+      ],
+      "episodic": [
+        {
+          "title": "nanoGPT write filter validación honesta: 100/100 en easy, 90% en novel, 19% en subtle noise — límite identificado",
+          "path": "text://nanoGPT write filter validación honesta: 100/100 en easy, 90% en novel, 19% en subtle noise — límite identificado",
+          "text": "PRÓXIMO PASO PARA MEJORAR:\nEl modelo necesita features adicionales que capturen rol:\n- Position en la secuencia temporal (primero = más probable investigación, último = más probable decisión).\n- Entity tags (qué entidades se mencionan y en qué contexto).\n- Structural cues (formato del texto: bullet points, headers, etc.).\n- Idealmente: embeddings semánticos como features del classifier, no solo n-grams de caracteres.\n\nEso es trabajo para el paper post-Mundial, no para ahora. El modelo actual de 800K params es Stage 1 funcional con límites claros documentados.\n\nSTATUS: resultado real y publicable, con caveats honestos identificados. Guardado con calibración completa.",
+          "score": 0.0165,
+          "chunk": 1
+        },
+        {
+          "title": "solo-2-disagreements-del-audit-20260418-103858282214",
+          "path": "text://solo-2-disagreements-del-audit-20260418-103858282214",
+          "text": "Solo 2 disagreements del audit histórico — el scope es chico porque los audit rows son eventos ya curados por ti. Los disagreements reales están en el **firehose de transcripts** que la hook aún no procesó. Voy a ver si vale expandir allí.",
+          "score": 0.0165,
+          "chunk": 0
+        },
+        {
+          "title": "brief_725f44a5c22c",
+          "path": "text://brief_725f44a5c22c",
+          "text": "## nanoGPT-as-connector\n- **Identity:** A small, specialized LLM (nanoGPT-class) designed to \"connect the dots\" within the vstash, snapvec, and merken stack.\n- **Key facts:**\n  - The LLM's primary function is to decide which retrieval actions to take, how to combine results, and when to consolidate information.\n  - Could be trained from scratch with a corpus of 10-50M tokens based on real usage logs and decision traces from vstash, snapvec, and merken.\n  - The training signal exists in audit logs, vstash journals, and reproducible benchmarks.\n- **Last update:** The LLM acts as a router/connector, minimizing the use of the larger, more expensive LLM by preprocessing and determining what information to pass along.\n```",
+          "score": 0.016155,
+          "chunk": 0
+        },
+        {
+          "title": "dryrun-en-un-proyecto-chico-20260418-103851120775",
+          "path": "text://dryrun-en-un-proyecto-chico-20260418-103851120775",
+          "text": "Dry-run en un proyecto chico primero para ver cuántos disagreements reales hay.",
+          "score": 0.016008,
+          "chunk": 0
+        },
+        {
+          "title": "nanoGPT 800K write filter: 100% precision/recall, +18pp retrieval, primer resultado self-supervised validado",
+          "path": "text://nanoGPT 800K write filter: 100% precision/recall, +18pp retrieval, primer resultado self-supervised validado",
+          "text": "nanoGPT write filter — PRIMER RESULTADO MEDIDO del pipeline self-supervised (2026-04-16, sesión paralela de Jay).\n\nMIENTRAS redactábamos el paper de merken, Jay en sesión paralela con otro Claude entrenó y validó el primer modelo del stack self-supervised.\n\nModelo: nanoGPT ~800K params, clasificador signal vs noise.\nTraining data: labels generados por merken should_remember sobre el scenario de 50 topics / 1100 eventos.\nInference: ~1ms por clasificación en CPU.\n\nRESULTADOS:\n\nClasificación:\n| Métrica         | Valor          |\n|-----------------|----------------|\n| Signal kept     | 150/150 (100%) |\n| Noise filtered  | 950/950 (100%) |\n| False negatives | 0              |\n| False positives | 0              |\n| Store reduction | 86%            |\n\n100% precision, 100% recall en clasificación signal vs noise. Cero false negatives, cero false positives. De 1100 eventos, solo guarda 150 (los que importan).\n\nImpacto en retrieval downstream:\n| Config                    | Events stored | Accuracy    |\n|---------------------------|---------------|-------------|\n| All events (1100)         | 1100          | 42% (21/50) |\n| nanoGPT filtered          | 150           | 60% (30/50) |\n| briefs-only (referencia)  | --            | 96%         |\n\n+18pp accuracy por filtrado de noise ANTES del retrieval. Store 86% más pequeño.\n\nComparación con las otras intervenciones medidas hoy:\n- Sin filtro, sin briefs: 42% (baseline).\n- Con nanoGPT filter: 60% (+18pp sobre baseline).\n- Con briefs sin filtro: 96% (+54pp sobre baseline).\n- Con nanoGPT filter + briefs: ??? (NO MEDIDO AÚN, es el siguiente experimento).\n\nIMPLICACIONES PARA EL PAPER DE SELF-SUPERVISED STACK:\n\n1. El primer modelo del pipeline FUNCIONA con números medibles. Ya no es \"idea post-Mundial\" — hay evidencia empírica HOY.\n\n2. 800K params es ínfimo. Corre en CPU a ~1ms. No necesita GPU, no necesita API, no necesita nada excepto el modelo entrenado.\n\n3. Los training labels vienen de merken should_remember, que es exactamente el patrón self-supervised que articulamos: el sistema genera sus propios labels al operar.\n\n4. La combinación nanoGPT filter + briefs probablemente da el mejor resultado posible, porque:\n   - nanoGPT limpia el store (150 eventos limpios).\n   - Briefs se generan sobre store limpio (clusters SIN noise).\n   - Si el clustering bottleneck que identificamos en el paper se debe a noise en los clusters, un store pre-filtrado podría resolver incluso la consolidation-as-retrieval-document.\n\n5. El pipeline completo del stack self-supervised (nanoGPT classifier → embedder custom → Gemma brief generator) tiene ahora Stage 1 validado empíricamente.\n\nCÓDIGO COMMITTED:\n- merken/classifiers/ — implementación del nanoGPT write filter.\n- experiments/consolidation/test_write_filter.py — benchmark.\n- Branch develop, commit 17dbae0.\n\nCONEXIÓN CON EL PAPER DE MERKEN YA REDACTADO:\nSección 12 (future work) item 5 (\"Self-supervised model specialization\") ya menciona este concepto. Ahora hay números reales que podrían agregarse como nota al pie o como sección extendida si Jay decide ampliar el paper antes de submit.\n\nAlternativamente, nanoGPT filter + merken briefs podrían ser un paper SEPARADO:\n\"Stage 1 of Self-Supervised Agent Memory: An 800K-Parameter Write Filter That Improves Retrieval Accuracy by 18 Percentage Points\"\n\nO integrado en el paper de merken como \"bonus\" sección que muestra que el pipeline self-supervised ya produce valor medible.\n\nOBSERVACIÓN SOBRE EL PROCESO:\nJay estaba en una reunión aburrida. En paralelo, mientras redactábamos el paper de merken en ESTA sesión, entrenó y validó un nanoGPT classifier en OTRA sesión. Ultra-paralelismo real: redacción de paper + entrenamiento de modelo + reunión de trabajo simultáneamente. El resultado es que al final del día tiene paper completo + primer modelo del pipeline validado + snapshots de tres proyectos actualizados.",
+          "score": 0.016119,
+          "chunk": 0
+        }
+      ]
+    }
+  },
+  {
+    "query": "A quedo guardado para empezar otra sesion?",
+    "result": {
+      "briefs": [
+        "## Merken Project State (2026-04-17)\n- **Current state:** Codebase is clean with 11 PRs merged, 207 tests passing, and the CLI is complete. Hooks are live in `~/.claude/hooks/`. However, the accumulation of labels is at ZERO across all projects.\n- **Key facts:**\n  - Existing audit rows are limited (~58 rows, already curated).\n  - `merken-save.sh` only triggers on PreCompact, which hasn't occurred in recent sessions.\n- **Next Steps**\n  - Implement backward bootstrap process with `bootstrap_from_transcripts.py` to classify disagreements offline with v6 + Gemini 1B for the ~60+ rows of `should_remember`.\n  - Expand the trigger of the `merken-save.sh` hook to other events (UserPromptSubmit, SessionEnd)",
+        "## Merken Label Accumulation Bug\n- **What happened:** The `merken-save.sh` hook was failing silently because it was attempting to parse JSONL transcripts as JSON, resulting in no new labels being accumulated.\n- **Impact:** The label accumulation was at zero, preventing the graduation criteria from being met. Shadow mode never executes because the pipeline never generates events.\n- **Resolution:** Propose two PRs: (A) fix the hook to correctly parse JSONL and extract relevant data, and (B) create a script to bootstrap labels from existing transcripts by replaying them and labeling v6 skips with Gemini.\n- **Follow-ups:** Implement PR A (high priority) and PR B. Start with end-to-end pipeline with the 2 real disagreements.",
+        "## H2 Training Decision\n- [v1]: Next training session will use H2 (contrastive loss, same 800K architecture) instead of H8 (2x-3x capacity bump). This is based on the principle that improvements in training signal are more effective than simply increasing model capacity.\n- **Current state:** H2 is the active training path. The acceptance criteria for H2 is achieving a recovery of >=50 of v7's 157 false negatives without increasing the markdown false positive rate above 10%. H8 is deferred until H2 fails."
+      ],
+      "episodic": [
+        {
+          "title": "nanoGPT write filter validación honesta: 100/100 en easy, 90% en novel, 19% en subtle noise — límite identificado",
+          "path": "text://nanoGPT write filter validación honesta: 100/100 en easy, 90% en novel, 19% en subtle noise — límite identificado",
+          "text": "PRÓXIMO PASO PARA MEJORAR:\nEl modelo necesita features adicionales que capturen rol:\n- Position en la secuencia temporal (primero = más probable investigación, último = más probable decisión).\n- Entity tags (qué entidades se mencionan y en qué contexto).\n- Structural cues (formato del texto: bullet points, headers, etc.).\n- Idealmente: embeddings semánticos como features del classifier, no solo n-grams de caracteres.\n\nEso es trabajo para el paper post-Mundial, no para ahora. El modelo actual de 800K params es Stage 1 funcional con límites claros documentados.\n\nSTATUS: resultado real y publicable, con caveats honestos identificados. Guardado con calibración completa.",
+          "score": 0.016278,
+          "chunk": 1
+        },
+        {
+          "title": "dryrun-en-un-proyecto-chico-20260418-103851120775",
+          "path": "text://dryrun-en-un-proyecto-chico-20260418-103851120775",
+          "text": "Dry-run en un proyecto chico primero para ver cuántos disagreements reales hay.",
+          "score": 0.015924,
+          "chunk": 0
+        },
+        {
+          "title": "nanoGPT 800K write filter: 100% precision/recall, +18pp retrieval, primer resultado self-supervised validado",
+          "path": "text://nanoGPT 800K write filter: 100% precision/recall, +18pp retrieval, primer resultado self-supervised validado",
+          "text": "nanoGPT write filter — PRIMER RESULTADO MEDIDO del pipeline self-supervised (2026-04-16, sesión paralela de Jay).\n\nMIENTRAS redactábamos el paper de merken, Jay en sesión paralela con otro Claude entrenó y validó el primer modelo del stack self-supervised.\n\nModelo: nanoGPT ~800K params, clasificador signal vs noise.\nTraining data: labels generados por merken should_remember sobre el scenario de 50 topics / 1100 eventos.\nInference: ~1ms por clasificación en CPU.\n\nRESULTADOS:\n\nClasificación:\n| Métrica         | Valor          |\n|-----------------|----------------|\n| Signal kept     | 150/150 (100%) |\n| Noise filtered  | 950/950 (100%) |\n| False negatives | 0              |\n| False positives | 0              |\n| Store reduction | 86%            |\n\n100% precision, 100% recall en clasificación signal vs noise. Cero false negatives, cero false positives. De 1100 eventos, solo guarda 150 (los que importan).\n\nImpacto en retrieval downstream:\n| Config                    | Events stored | Accuracy    |\n|---------------------------|---------------|-------------|\n| All events (1100)         | 1100          | 42% (21/50) |\n| nanoGPT filtered          | 150           | 60% (30/50) |\n| briefs-only (referencia)  | --            | 96%         |\n\n+18pp accuracy por filtrado de noise ANTES del retrieval. Store 86% más pequeño.\n\nComparación con las otras intervenciones medidas hoy:\n- Sin filtro, sin briefs: 42% (baseline).\n- Con nanoGPT filter: 60% (+18pp sobre baseline).\n- Con briefs sin filtro: 96% (+54pp sobre baseline).\n- Con nanoGPT filter + briefs: ??? (NO MEDIDO AÚN, es el siguiente experimento).\n\nIMPLICACIONES PARA EL PAPER DE SELF-SUPERVISED STACK:\n\n1. El primer modelo del pipeline FUNCIONA con números medibles. Ya no es \"idea post-Mundial\" — hay evidencia empírica HOY.\n\n2. 800K params es ínfimo. Corre en CPU a ~1ms. No necesita GPU, no necesita API, no necesita nada excepto el modelo entrenado.\n\n3. Los training labels vienen de merken should_remember, que es exactamente el patrón self-supervised que articulamos: el sistema genera sus propios labels al operar.\n\n4. La combinación nanoGPT filter + briefs probablemente da el mejor resultado posible, porque:\n   - nanoGPT limpia el store (150 eventos limpios).\n   - Briefs se generan sobre store limpio (clusters SIN noise).\n   - Si el clustering bottleneck que identificamos en el paper se debe a noise en los clusters, un store pre-filtrado podría resolver incluso la consolidation-as-retrieval-document.\n\n5. El pipeline completo del stack self-supervised (nanoGPT classifier → embedder custom → Gemma brief generator) tiene ahora Stage 1 validado empíricamente.\n\nCÓDIGO COMMITTED:\n- merken/classifiers/ — implementación del nanoGPT write filter.\n- experiments/consolidation/test_write_filter.py — benchmark.\n- Branch develop, commit 17dbae0.\n\nCONEXIÓN CON EL PAPER DE MERKEN YA REDACTADO:\nSección 12 (future work) item 5 (\"Self-supervised model specialization\") ya menciona este concepto. Ahora hay números reales que podrían agregarse como nota al pie o como sección extendida si Jay decide ampliar el paper antes de submit.\n\nAlternativamente, nanoGPT filter + merken briefs podrían ser un paper SEPARADO:\n\"Stage 1 of Self-Supervised Agent Memory: An 800K-Parameter Write Filter That Improves Retrieval Accuracy by 18 Percentage Points\"\n\nO integrado en el paper de merken como \"bonus\" sección que muestra que el pipeline self-supervised ya produce valor medible.\n\nOBSERVACIÓN SOBRE EL PROCESO:\nJay estaba en una reunión aburrida. En paralelo, mientras redactábamos el paper de merken en ESTA sesión, entrenó y validó un nanoGPT classifier en OTRA sesión. Ultra-paralelismo real: redacción de paper + entrenamiento de modelo + reunión de trabajo simultáneamente. El resultado es que al final del día tiene paper completo + primer modelo del pipeline validado + snapshots de tres proyectos actualizados.",
+          "score": 0.008361,
+          "chunk": 0
+        },
+        {
+          "title": "antes-de-escalar-a-transcripts-20260418-103901861259",
+          "path": "text://antes-de-escalar-a-transcripts-20260418-103901861259",
+          "text": "Antes de escalar a transcripts (hay ~415 archivos; algo grande), voy a terminar el end-to-end pipeline con los 2 disagreements reales para verificar que el loop cierra.",
+          "score": 0.015751,
+          "chunk": 0
+        },
+        {
+          "title": "brief_b7fa0b28e60d",
+          "path": "text://brief_b7fa0b28e60d",
+          "text": "## Merken Project State (2026-04-17)\n- **Current state:** Codebase is clean with 11 PRs merged, 207 tests passing, and the CLI is complete. Hooks are live in `~/.claude/hooks/`. However, the accumulation of labels is at ZERO across all projects.\n- **Key facts:**\n  - Existing audit rows are limited (~58 rows, already curated).\n  - `merken-save.sh` only triggers on PreCompact, which hasn't occurred in recent sessions.\n- **Next Steps**\n  - Implement backward bootstrap process with `bootstrap_from_transcripts.py` to classify disagreements offline with v6 + Gemini 1B for the ~60+ rows of `should_remember`.\n  - Expand the trigger of the `merken-save.sh` hook to other events (UserPromptSubmit, SessionEnd)",
+          "score": 0.008167,
+          "chunk": 0
+        }
+      ]
+    }
+  },
+  {
+    "query": "Ya volvi, con que seguimos, o guardas esto e iniciamos una nueva sesion?",
+    "result": {
+      "briefs": [
+        "## Merken Project State (2026-04-17)\n- **Current state:** Codebase is clean with 11 PRs merged, 207 tests passing, and the CLI is complete. Hooks are live in `~/.claude/hooks/`. However, the accumulation of labels is at ZERO across all projects.\n- **Key facts:**\n  - Existing audit rows are limited (~58 rows, already curated).\n  - `merken-save.sh` only triggers on PreCompact, which hasn't occurred in recent sessions.\n- **Next Steps**\n  - Implement backward bootstrap process with `bootstrap_from_transcripts.py` to classify disagreements offline with v6 + Gemini 1B for the ~60+ rows of `should_remember`.\n  - Expand the trigger of the `merken-save.sh` hook to other events (UserPromptSubmit, SessionEnd)",
+        "## H2 Training Decision\n- [v1]: Next training session will use H2 (contrastive loss, same 800K architecture) instead of H8 (2x-3x capacity bump). This is based on the principle that improvements in training signal are more effective than simply increasing model capacity.\n- **Current state:** H2 is the active training path. The acceptance criteria for H2 is achieving a recovery of >=50 of v7's 157 false negatives without increasing the markdown false positive rate above 10%. H8 is deferred until H2 fails.",
+        "## Merken Label Accumulation Bug\n- **What happened:** The `merken-save.sh` hook was failing silently because it was attempting to parse JSONL transcripts as JSON, resulting in no new labels being accumulated.\n- **Impact:** The label accumulation was at zero, preventing the graduation criteria from being met. Shadow mode never executes because the pipeline never generates events.\n- **Resolution:** Propose two PRs: (A) fix the hook to correctly parse JSONL and extract relevant data, and (B) create a script to bootstrap labels from existing transcripts by replaying them and labeling v6 skips with Gemini.\n- **Follow-ups:** Implement PR A (high priority) and PR B. Start with end-to-end pipeline with the 2 real disagreements."
+      ],
+      "episodic": [
+        {
+          "title": "nanoGPT write filter validación honesta: 100/100 en easy, 90% en novel, 19% en subtle noise — límite identificado",
+          "path": "text://nanoGPT write filter validación honesta: 100/100 en easy, 90% en novel, 19% en subtle noise — límite identificado",
+          "text": "PRÓXIMO PASO PARA MEJORAR:\nEl modelo necesita features adicionales que capturen rol:\n- Position en la secuencia temporal (primero = más probable investigación, último = más probable decisión).\n- Entity tags (qué entidades se mencionan y en qué contexto).\n- Structural cues (formato del texto: bullet points, headers, etc.).\n- Idealmente: embeddings semánticos como features del classifier, no solo n-grams de caracteres.\n\nEso es trabajo para el paper post-Mundial, no para ahora. El modelo actual de 800K params es Stage 1 funcional con límites claros documentados.\n\nSTATUS: resultado real y publicable, con caveats honestos identificados. Guardado con calibración completa.",
+          "score": 0.015988,
+          "chunk": 1
+        },
+        {
+          "title": "solo-2-disagreements-del-audit-20260418-103858282214",
+          "path": "text://solo-2-disagreements-del-audit-20260418-103858282214",
+          "text": "Solo 2 disagreements del audit histórico — el scope es chico porque los audit rows son eventos ya curados por ti. Los disagreements reales están en el **firehose de transcripts** que la hook aún no procesó. Voy a ver si vale expandir allí.",
+          "score": 0.01631,
+          "chunk": 0
+        },
+        {
+          "title": "nanoGPT 800K write filter: 100% precision/recall, +18pp retrieval, primer resultado self-supervised validado",
+          "path": "text://nanoGPT 800K write filter: 100% precision/recall, +18pp retrieval, primer resultado self-supervised validado",
+          "text": "nanoGPT write filter — PRIMER RESULTADO MEDIDO del pipeline self-supervised (2026-04-16, sesión paralela de Jay).\n\nMIENTRAS redactábamos el paper de merken, Jay en sesión paralela con otro Claude entrenó y validó el primer modelo del stack self-supervised.\n\nModelo: nanoGPT ~800K params, clasificador signal vs noise.\nTraining data: labels generados por merken should_remember sobre el scenario de 50 topics / 1100 eventos.\nInference: ~1ms por clasificación en CPU.\n\nRESULTADOS:\n\nClasificación:\n| Métrica         | Valor          |\n|-----------------|----------------|\n| Signal kept     | 150/150 (100%) |\n| Noise filtered  | 950/950 (100%) |\n| False negatives | 0              |\n| False positives | 0              |\n| Store reduction | 86%            |\n\n100% precision, 100% recall en clasificación signal vs noise. Cero false negatives, cero false positives. De 1100 eventos, solo guarda 150 (los que importan).\n\nImpacto en retrieval downstream:\n| Config                    | Events stored | Accuracy    |\n|---------------------------|---------------|-------------|\n| All events (1100)         | 1100          | 42% (21/50) |\n| nanoGPT filtered          | 150           | 60% (30/50) |\n| briefs-only (referencia)  | --            | 96%         |\n\n+18pp accuracy por filtrado de noise ANTES del retrieval. Store 86% más pequeño.\n\nComparación con las otras intervenciones medidas hoy:\n- Sin filtro, sin briefs: 42% (baseline).\n- Con nanoGPT filter: 60% (+18pp sobre baseline).\n- Con briefs sin filtro: 96% (+54pp sobre baseline).\n- Con nanoGPT filter + briefs: ??? (NO MEDIDO AÚN, es el siguiente experimento).\n\nIMPLICACIONES PARA EL PAPER DE SELF-SUPERVISED STACK:\n\n1. El primer modelo del pipeline FUNCIONA con números medibles. Ya no es \"idea post-Mundial\" — hay evidencia empírica HOY.\n\n2. 800K params es ínfimo. Corre en CPU a ~1ms. No necesita GPU, no necesita API, no necesita nada excepto el modelo entrenado.\n\n3. Los training labels vienen de merken should_remember, que es exactamente el patrón self-supervised que articulamos: el sistema genera sus propios labels al operar.\n\n4. La combinación nanoGPT filter + briefs probablemente da el mejor resultado posible, porque:\n   - nanoGPT limpia el store (150 eventos limpios).\n   - Briefs se generan sobre store limpio (clusters SIN noise).\n   - Si el clustering bottleneck que identificamos en el paper se debe a noise en los clusters, un store pre-filtrado podría resolver incluso la consolidation-as-retrieval-document.\n\n5. El pipeline completo del stack self-supervised (nanoGPT classifier → embedder custom → Gemma brief generator) tiene ahora Stage 1 validado empíricamente.\n\nCÓDIGO COMMITTED:\n- merken/classifiers/ — implementación del nanoGPT write filter.\n- experiments/consolidation/test_write_filter.py — benchmark.\n- Branch develop, commit 17dbae0.\n\nCONEXIÓN CON EL PAPER DE MERKEN YA REDACTADO:\nSección 12 (future work) item 5 (\"Self-supervised model specialization\") ya menciona este concepto. Ahora hay números reales que podrían agregarse como nota al pie o como sección extendida si Jay decide ampliar el paper antes de submit.\n\nAlternativamente, nanoGPT filter + merken briefs podrían ser un paper SEPARADO:\n\"Stage 1 of Self-Supervised Agent Memory: An 800K-Parameter Write Filter That Improves Retrieval Accuracy by 18 Percentage Points\"\n\nO integrado en el paper de merken como \"bonus\" sección que muestra que el pipeline self-supervised ya produce valor medible.\n\nOBSERVACIÓN SOBRE EL PROCESO:\nJay estaba en una reunión aburrida. En paralelo, mientras redactábamos el paper de merken en ESTA sesión, entrenó y validó un nanoGPT classifier en OTRA sesión. Ultra-paralelismo real: redacción de paper + entrenamiento de modelo + reunión de trabajo simultáneamente. El resultado es que al final del día tiene paper completo + primer modelo del pipeline validado + snapshots de tres proyectos actualizados.",
+          "score": 0.015833,
+          "chunk": 0
+        },
+        {
+          "title": "pipeline-cerrado-endtoend-2-labels-20260418-103905421401",
+          "path": "text://pipeline-cerrado-endtoend-2-labels-20260418-103905421401",
+          "text": "## Lo que propongo\n\nDos PRs independientes:\n\n**A. Fix del hook** (15 min, alta prioridad): parsear JSONL correctamente + extraer `message.content[].text` (formato real). Sin esto, ninguna acumulación futura va a funcionar por muchos shadows que tengamos.\n\n**B. `bootstrap_from_transcripts.py`** (1h): replay offline de los 415 transcripts en `~/.claude/projects/`. Extrae assistant messages, corre primary (HeuristicWriteDecider) + v6 en paralelo, labelea los v6-skip con Gemini. Sample chequeado: engram solo tiene ~7600 candidatos, probablemente 200-400 disagreements reales = más que suficiente para criterio #4.\n\n¿Vamos con A + B? A primero para no acumular otro backlog de transcripts sin procesar.",
+          "score": 0.015839,
+          "chunk": 2
+        },
+        {
+          "title": "Idea: nanoGPT-as-connector entrenado sobre vstash+snapvec+merken, glue layer pequeño y especializado",
+          "path": "text://Idea: nanoGPT-as-connector entrenado sobre vstash+snapvec+merken, glue layer pequeño y especializado",
+          "text": "Jay formuló (2026-04-16) una idea de experimento: entrenar un LLM tipo nanoGPT cuya función específica sea \"conectar los puntos\" sobre vstash + snapvec + merken. Un modelo ínfimo pero especializado en routing / síntesis sobre su propio stack de retrieval.\n\nFraming: \"algo ínfimo pero muy inteligente\" — inteligencia por especialización, no por escala.\n\nEl insight clave que hace esto viable: el problema no es generación de lenguaje general (donde modelos pequeños fallan), sino decidir qué retrieval hacer, cómo combinar resultados, y cuándo consolidar vs cuándo devolver raw. Ese es un espacio de decisiones mucho más estrecho que lenguaje general.\n\nTamaños de referencia para nanoGPT-class:\n- nanoGPT Karpathy: 124M params (GPT-2 small reproducido), entrenable en ~38h en 8xA100.\n- Versiones sub-10M: entrenable en horas en laptop con GPU modesta.\n- Qwen 0.5B que Jay ya experimentó con vstash/Reforge como baseline.\n\nConexión con proyectos existentes:\n- vstash: retrieve hybrid con adaptive RRF. El LLM decide query expansion, modality weighting override, cuándo hacer rerank.\n- snapvec: retrieval a escala con trade-off de bits/recall. El LLM decide nprobe dinámico según query complexity.\n- merken: layers episodic/semantic + audit trail. El LLM decide qué layer consultar.\n- engram: el loop decider (should_recall, should_consolidate) es exactamente el espacio de decisiones donde un modelo pequeño entrenado en tu workload supera a rule-based.\n\nConexión con idea previa ya guardada sobre fine-tuning pipeline:\nEsto conecta directamente con el plan de usar RRF retrieval scores como training labels para un modelo pequeño (Qwen 0.5-1.5B via LoRA). La idea de nanoGPT-as-connector es la versión más ambiciosa: no fine-tune de modelo existente sino entrenamiento desde cero de arquitectura diseñada para el problema.\n\nViabilidad honesta:\n- Desde cero con nanoGPT-style training y corpus de 10-50M tokens sobre logs de uso real de vstash + traces de decisión: viable en semanas, no meses.\n- La señal de training está en los artefactos que Jay ya guarda (audit logs de merken, vstash_journal, benchmarks reproducibles).\n- Baseline contra el cual comparar: deciders rule-based actuales de merken + search directo de vstash.\n\nRiesgos / limitaciones:\n- Modelo <10M probablemente no puede razonar a profundidad suficiente para decisiones multi-step complejas.\n- Sin supervision clara, fácil sobreajustar al estilo específico de Jay.\n- Evaluación requiere benchmark de \"tarea agentic completa\", no perplexity.\n\nFraming de la propuesta para el stack: el modelo pequeño NO reemplaza al LLM grande. Es un router/connector que decide qué pasar al LLM grande, minimizando tokens caros en el contexto. Eso es el problema real en producción: el LLM grande es caro, el modelo pequeño puede ser el preprocessor que hace el stack escalable.\n\nEsta es la pieza que faltaba para cerrar el bucle del stack completo: retrieval (vstash+snapvec) + memory (merken) + glue layer (nanoGPT-as-connector) + final reasoning (LLM grande llamado caro y poco).",
+          "score": 0.015833,
+          "chunk": 0
+        }
+      ]
+    }
+  },
+  {
+    "query": "Y hay algun experimento de la comunidad acerca de memoria agentica",
+    "result": {
+      "briefs": [
+        "## nanoGPT-as-connector\n- **Identity:** A small, specialized LLM (nanoGPT-class) designed to \"connect the dots\" within the vstash, snapvec, and merken stack.\n- **Key facts:**\n  - The LLM's primary function is to decide which retrieval actions to take, how to combine results, and when to consolidate information.\n  - Could be trained from scratch with a corpus of 10-50M tokens based on real usage logs and decision traces from vstash, snapvec, and merken.\n  - The training signal exists in audit logs, vstash journals, and reproducible benchmarks.\n- **Last update:** The LLM acts as a router/connector, minimizing the use of the larger, more expensive LLM by preprocessing and determining what information to pass along.\n```",
+        "## LoCoMo E2E v7 Performance\n- **What happened:** Experiments H16 and H17 showed that v7, when used as a write filter at session granularity (H16) or a turn granularity (H17), hurts temporal retrieval performance in the LoCoMo E2E pipeline compared to raw data.\n- **Impact:** v7 is unsuitable as a retrieval filter at any granularity and as a write filter at session granularity. Unit mismatch direction: v7 trained on LARGER units than dialogue turns.\n- **Resolution:** Rejection of v7 as a write or retrieval filter in the LoCoMo E2E pipeline.\n- **Follow-ups:** None specified.",
+        "## H2 Training Decision\n- [v1]: Next training session will use H2 (contrastive loss, same 800K architecture) instead of H8 (2x-3x capacity bump). This is based on the principle that improvements in training signal are more effective than simply increasing model capacity.\n- **Current state:** H2 is the active training path. The acceptance criteria for H2 is achieving a recovery of >=50 of v7's 157 false negatives without increasing the markdown false positive rate above 10%. H8 is deferred until H2 fails."
+      ],
+      "episodic": [
+        {
+          "title": "nanoGPT write filter validación honesta: 100/100 en easy, 90% en novel, 19% en subtle noise — límite identificado",
+          "path": "text://nanoGPT write filter validación honesta: 100/100 en easy, 90% en novel, 19% en subtle noise — límite identificado",
+          "text": "PRÓXIMO PASO PARA MEJORAR:\nEl modelo necesita features adicionales que capturen rol:\n- Position en la secuencia temporal (primero = más probable investigación, último = más probable decisión).\n- Entity tags (qué entidades se mencionan y en qué contexto).\n- Structural cues (formato del texto: bullet points, headers, etc.).\n- Idealmente: embeddings semánticos como features del classifier, no solo n-grams de caracteres.\n\nEso es trabajo para el paper post-Mundial, no para ahora. El modelo actual de 800K params es Stage 1 funcional con límites claros documentados.\n\nSTATUS: resultado real y publicable, con caveats honestos identificados. Guardado con calibración completa.",
+          "score": 0.016403,
+          "chunk": 1
+        },
+        {
+          "title": "hay-58-shouldremember-rows-reales-20260418-103854722077",
+          "path": "text://hay-58-shouldremember-rows-reales-20260418-103854722077",
+          "text": "Hay ~58 `should_remember` rows reales en total (menos de lo que pensaba). Antes de expandir scope, corro el dry-run completo y luego etiqueto los disagreements.",
+          "score": 0.016393,
+          "chunk": 0
+        },
+        {
+          "title": "brief_725f44a5c22c",
+          "path": "text://brief_725f44a5c22c",
+          "text": "## nanoGPT-as-connector\n- **Identity:** A small, specialized LLM (nanoGPT-class) designed to \"connect the dots\" within the vstash, snapvec, and merken stack.\n- **Key facts:**\n  - The LLM's primary function is to decide which retrieval actions to take, how to combine results, and when to consolidate information.\n  - Could be trained from scratch with a corpus of 10-50M tokens based on real usage logs and decision traces from vstash, snapvec, and merken.\n  - The training signal exists in audit logs, vstash journals, and reproducible benchmarks.\n- **Last update:** The LLM acts as a router/connector, minimizing the use of the larger, more expensive LLM by preprocessing and determining what information to pass along.\n```",
+          "score": 0.008344,
+          "chunk": 0
+        },
+        {
+          "title": "solo-2-disagreements-del-audit-20260418-103858282214",
+          "path": "text://solo-2-disagreements-del-audit-20260418-103858282214",
+          "text": "Solo 2 disagreements del audit histórico — el scope es chico porque los audit rows son eventos ya curados por ti. Los disagreements reales están en el **firehose de transcripts** que la hook aún no procesó. Voy a ver si vale expandir allí.",
+          "score": 0.015882,
+          "chunk": 0
+        },
+        {
+          "title": "brief_59d67836b897",
+          "path": "text://brief_59d67836b897",
+          "text": "## LoCoMo E2E v7 Performance\n- **What happened:** Experiments H16 and H17 showed that v7, when used as a write filter at session granularity (H16) or a turn granularity (H17), hurts temporal retrieval performance in the LoCoMo E2E pipeline compared to raw data.\n- **Impact:** v7 is unsuitable as a retrieval filter at any granularity and as a write filter at session granularity. Unit mismatch direction: v7 trained on LARGER units than dialogue turns.\n- **Resolution:** Rejection of v7 as a write or retrieval filter in the LoCoMo E2E pipeline.\n- **Follow-ups:** None specified.",
+          "score": 0.00821,
+          "chunk": 0
+        }
+      ]
+    }
+  },
+  {
+    "query": "Trabajemos en lo de Locomo, quiero saber si finalmente la memoria sintetica es medible",
+    "result": {
+      "briefs": [
+        "## LoCoMo E2E v7 Performance\n- **What happened:** Experiments H16 and H17 showed that v7, when used as a write filter at session granularity (H16) or a turn granularity (H17), hurts temporal retrieval performance in the LoCoMo E2E pipeline compared to raw data.\n- **Impact:** v7 is unsuitable as a retrieval filter at any granularity and as a write filter at session granularity. Unit mismatch direction: v7 trained on LARGER units than dialogue turns.\n- **Resolution:** Rejection of v7 as a write or retrieval filter in the LoCoMo E2E pipeline.\n- **Follow-ups:** None specified.",
+        "## H2 Training Decision\n- [v1]: Next training session will use H2 (contrastive loss, same 800K architecture) instead of H8 (2x-3x capacity bump). This is based on the principle that improvements in training signal are more effective than simply increasing model capacity.\n- **Current state:** H2 is the active training path. The acceptance criteria for H2 is achieving a recovery of >=50 of v7's 157 false negatives without increasing the markdown false positive rate above 10%. H8 is deferred until H2 fails.",
+        "## nanoGPT-as-connector\n- **Identity:** A small, specialized LLM (nanoGPT-class) designed to \"connect the dots\" within the vstash, snapvec, and merken stack.\n- **Key facts:**\n  - The LLM's primary function is to decide which retrieval actions to take, how to combine results, and when to consolidate information.\n  - Could be trained from scratch with a corpus of 10-50M tokens based on real usage logs and decision traces from vstash, snapvec, and merken.\n  - The training signal exists in audit logs, vstash journals, and reproducible benchmarks.\n- **Last update:** The LLM acts as a router/connector, minimizing the use of the larger, more expensive LLM by preprocessing and determining what information to pass along.\n```"
+      ],
+      "episodic": [
+        {
+          "title": "nanoGPT write filter validación honesta: 100/100 en easy, 90% en novel, 19% en subtle noise — límite identificado",
+          "path": "text://nanoGPT write filter validación honesta: 100/100 en easy, 90% en novel, 19% en subtle noise — límite identificado",
+          "text": "PRÓXIMO PASO PARA MEJORAR:\nEl modelo necesita features adicionales que capturen rol:\n- Position en la secuencia temporal (primero = más probable investigación, último = más probable decisión).\n- Entity tags (qué entidades se mencionan y en qué contexto).\n- Structural cues (formato del texto: bullet points, headers, etc.).\n- Idealmente: embeddings semánticos como features del classifier, no solo n-grams de caracteres.\n\nEso es trabajo para el paper post-Mundial, no para ahora. El modelo actual de 800K params es Stage 1 funcional con límites claros documentados.\n\nSTATUS: resultado real y publicable, con caveats honestos identificados. Guardado con calibración completa.",
+          "score": 0.016446,
+          "chunk": 1
+        },
+        {
+          "title": "hay-58-shouldremember-rows-reales-20260418-103854722077",
+          "path": "text://hay-58-shouldremember-rows-reales-20260418-103854722077",
+          "text": "Hay ~58 `should_remember` rows reales en total (menos de lo que pensaba). Antes de expandir scope, corro el dry-run completo y luego etiqueto los disagreements.",
+          "score": 0.01618,
+          "chunk": 0
+        },
+        {
+          "title": "brief_59d67836b897",
+          "path": "text://brief_59d67836b897",
+          "text": "## LoCoMo E2E v7 Performance\n- **What happened:** Experiments H16 and H17 showed that v7, when used as a write filter at session granularity (H16) or a turn granularity (H17), hurts temporal retrieval performance in the LoCoMo E2E pipeline compared to raw data.\n- **Impact:** v7 is unsuitable as a retrieval filter at any granularity and as a write filter at session granularity. Unit mismatch direction: v7 trained on LARGER units than dialogue turns.\n- **Resolution:** Rejection of v7 as a write or retrieval filter in the LoCoMo E2E pipeline.\n- **Follow-ups:** None specified.",
+          "score": 0.01618,
+          "chunk": 0
+        },
+        {
+          "title": "antes-de-escalar-a-transcripts-20260418-103901861259",
+          "path": "text://antes-de-escalar-a-transcripts-20260418-103901861259",
+          "text": "Antes de escalar a transcripts (hay ~415 archivos; algo grande), voy a terminar el end-to-end pipeline con los 2 disagreements reales para verificar que el loop cierra.",
+          "score": 0.01569,
+          "chunk": 0
+        },
+        {
+          "title": "brief_1be3ef9e9935",
+          "path": "text://brief_1be3ef9e9935",
+          "text": "## H2 Training Decision\n- [v1]: Next training session will use H2 (contrastive loss, same 800K architecture) instead of H8 (2x-3x capacity bump). This is based on the principle that improvements in training signal are more effective than simply increasing model capacity.\n- **Current state:** H2 is the active training path. The acceptance criteria for H2 is achieving a recovery of >=50 of v7's 157 false negatives without increasing the markdown false positive rate above 10%. H8 is deferred until H2 fails.",
+          "score": 0.009516,
+          "chunk": 0
+        }
+      ]
+    }
+  },
+  {
+    "query": "Peor el llm es la ultima fase, aca solo validamos ellimite que podemos lograr sin usar llm",
+    "result": {
+      "briefs": [
+        "## nanoGPT-as-connector\n- **Identity:** A small, specialized LLM (nanoGPT-class) designed to \"connect the dots\" within the vstash, snapvec, and merken stack.\n- **Key facts:**\n  - The LLM's primary function is to decide which retrieval actions to take, how to combine results, and when to consolidate information.\n  - Could be trained from scratch with a corpus of 10-50M tokens based on real usage logs and decision traces from vstash, snapvec, and merken.\n  - The training signal exists in audit logs, vstash journals, and reproducible benchmarks.\n- **Last update:** The LLM acts as a router/connector, minimizing the use of the larger, more expensive LLM by preprocessing and determining what information to pass along.\n```",
+        "## H2 Training Decision\n- [v1]: Next training session will use H2 (contrastive loss, same 800K architecture) instead of H8 (2x-3x capacity bump). This is based on the principle that improvements in training signal are more effective than simply increasing model capacity.\n- **Current state:** H2 is the active training path. The acceptance criteria for H2 is achieving a recovery of >=50 of v7's 157 false negatives without increasing the markdown false positive rate above 10%. H8 is deferred until H2 fails.",
+        "## LoCoMo E2E v7 Performance\n- **What happened:** Experiments H16 and H17 showed that v7, when used as a write filter at session granularity (H16) or a turn granularity (H17), hurts temporal retrieval performance in the LoCoMo E2E pipeline compared to raw data.\n- **Impact:** v7 is unsuitable as a retrieval filter at any granularity and as a write filter at session granularity. Unit mismatch direction: v7 trained on LARGER units than dialogue turns.\n- **Resolution:** Rejection of v7 as a write or retrieval filter in the LoCoMo E2E pipeline.\n- **Follow-ups:** None specified."
+      ],
+      "episodic": [
+        {
+          "title": "brief_725f44a5c22c",
+          "path": "text://brief_725f44a5c22c",
+          "text": "## nanoGPT-as-connector\n- **Identity:** A small, specialized LLM (nanoGPT-class) designed to \"connect the dots\" within the vstash, snapvec, and merken stack.\n- **Key facts:**\n  - The LLM's primary function is to decide which retrieval actions to take, how to combine results, and when to consolidate information.\n  - Could be trained from scratch with a corpus of 10-50M tokens based on real usage logs and decision traces from vstash, snapvec, and merken.\n  - The training signal exists in audit logs, vstash journals, and reproducible benchmarks.\n- **Last update:** The LLM acts as a router/connector, minimizing the use of the larger, more expensive LLM by preprocessing and determining what information to pass along.\n```",
+          "score": 0.016516,
+          "chunk": 0
+        },
+        {
+          "title": "pipeline-cerrado-endtoend-2-labels-20260418-103905421401",
+          "path": "text://pipeline-cerrado-endtoend-2-labels-20260418-103905421401",
+          "text": "## Dos hallazgos importantes\n\n**1. El audit histórico es magro (58 rows, 2 disagreements, 3.4% rate).** Son eventos ya curados por ti vía `/remember`, así que primary y shadow casi siempre coinciden. No llegamos a 200 por aquí ni usando todos los proyectos.\n\n**2. Bug crítico en `~/.claude/hooks/merken-save.sh`:** hace `json.load(f)` sobre transcripts `.jsonl` (JSONL, no JSON). Falla silenciosamente por el `2>/dev/null`. **Por eso la acumulación está en cero** -- el hook no extrae nada desde que los transcripts pasaron a formato JSONL. Shadow mode nunca se ejecuta porque el pipeline ni siquiera genera eventos.",
+          "score": 0.015653,
+          "chunk": 1
+        },
+        {
+          "title": "nanoGPT write filter validación honesta: 100/100 en easy, 90% en novel, 19% en subtle noise — límite identificado",
+          "path": "text://nanoGPT write filter validación honesta: 100/100 en easy, 90% en novel, 19% en subtle noise — límite identificado",
+          "text": "PRÓXIMO PASO PARA MEJORAR:\nEl modelo necesita features adicionales que capturen rol:\n- Position en la secuencia temporal (primero = más probable investigación, último = más probable decisión).\n- Entity tags (qué entidades se mencionan y en qué contexto).\n- Structural cues (formato del texto: bullet points, headers, etc.).\n- Idealmente: embeddings semánticos como features del classifier, no solo n-grams de caracteres.\n\nEso es trabajo para el paper post-Mundial, no para ahora. El modelo actual de 800K params es Stage 1 funcional con límites claros documentados.\n\nSTATUS: resultado real y publicable, con caveats honestos identificados. Guardado con calibración completa.",
+          "score": 0.015873,
+          "chunk": 1
+        },
+        {
+          "title": "antes-de-escalar-a-transcripts-20260418-103901861259",
+          "path": "text://antes-de-escalar-a-transcripts-20260418-103901861259",
+          "text": "Antes de escalar a transcripts (hay ~415 archivos; algo grande), voy a terminar el end-to-end pipeline con los 2 disagreements reales para verificar que el loop cierra.",
+          "score": 0.015634,
+          "chunk": 0
+        },
+        {
+          "title": "nanoGPT 800K write filter: 100% precision/recall, +18pp retrieval, primer resultado self-supervised validado",
+          "path": "text://nanoGPT 800K write filter: 100% precision/recall, +18pp retrieval, primer resultado self-supervised validado",
+          "text": "nanoGPT write filter — PRIMER RESULTADO MEDIDO del pipeline self-supervised (2026-04-16, sesión paralela de Jay).\n\nMIENTRAS redactábamos el paper de merken, Jay en sesión paralela con otro Claude entrenó y validó el primer modelo del stack self-supervised.\n\nModelo: nanoGPT ~800K params, clasificador signal vs noise.\nTraining data: labels generados por merken should_remember sobre el scenario de 50 topics / 1100 eventos.\nInference: ~1ms por clasificación en CPU.\n\nRESULTADOS:\n\nClasificación:\n| Métrica         | Valor          |\n|-----------------|----------------|\n| Signal kept     | 150/150 (100%) |\n| Noise filtered  | 950/950 (100%) |\n| False negatives | 0              |\n| False positives | 0              |\n| Store reduction | 86%            |\n\n100% precision, 100% recall en clasificación signal vs noise. Cero false negatives, cero false positives. De 1100 eventos, solo guarda 150 (los que importan).\n\nImpacto en retrieval downstream:\n| Config                    | Events stored | Accuracy    |\n|---------------------------|---------------|-------------|\n| All events (1100)         | 1100          | 42% (21/50) |\n| nanoGPT filtered          | 150           | 60% (30/50) |\n| briefs-only (referencia)  | --            | 96%         |\n\n+18pp accuracy por filtrado de noise ANTES del retrieval. Store 86% más pequeño.\n\nComparación con las otras intervenciones medidas hoy:\n- Sin filtro, sin briefs: 42% (baseline).\n- Con nanoGPT filter: 60% (+18pp sobre baseline).\n- Con briefs sin filtro: 96% (+54pp sobre baseline).\n- Con nanoGPT filter + briefs: ??? (NO MEDIDO AÚN, es el siguiente experimento).\n\nIMPLICACIONES PARA EL PAPER DE SELF-SUPERVISED STACK:\n\n1. El primer modelo del pipeline FUNCIONA con números medibles. Ya no es \"idea post-Mundial\" — hay evidencia empírica HOY.\n\n2. 800K params es ínfimo. Corre en CPU a ~1ms. No necesita GPU, no necesita API, no necesita nada excepto el modelo entrenado.\n\n3. Los training labels vienen de merken should_remember, que es exactamente el patrón self-supervised que articulamos: el sistema genera sus propios labels al operar.\n\n4. La combinación nanoGPT filter + briefs probablemente da el mejor resultado posible, porque:\n   - nanoGPT limpia el store (150 eventos limpios).\n   - Briefs se generan sobre store limpio (clusters SIN noise).\n   - Si el clustering bottleneck que identificamos en el paper se debe a noise en los clusters, un store pre-filtrado podría resolver incluso la consolidation-as-retrieval-document.\n\n5. El pipeline completo del stack self-supervised (nanoGPT classifier → embedder custom → Gemma brief generator) tiene ahora Stage 1 validado empíricamente.\n\nCÓDIGO COMMITTED:\n- merken/classifiers/ — implementación del nanoGPT write filter.\n- experiments/consolidation/test_write_filter.py — benchmark.\n- Branch develop, commit 17dbae0.\n\nCONEXIÓN CON EL PAPER DE MERKEN YA REDACTADO:\nSección 12 (future work) item 5 (\"Self-supervised model specialization\") ya menciona este concepto. Ahora hay números reales que podrían agregarse como nota al pie o como sección extendida si Jay decide ampliar el paper antes de submit.\n\nAlternativamente, nanoGPT filter + merken briefs podrían ser un paper SEPARADO:\n\"Stage 1 of Self-Supervised Agent Memory: An 800K-Parameter Write Filter That Improves Retrieval Accuracy by 18 Percentage Points\"\n\nO integrado en el paper de merken como \"bonus\" sección que muestra que el pipeline self-supervised ya produce valor medible.\n\nOBSERVACIÓN SOBRE EL PROCESO:\nJay estaba en una reunión aburrida. En paralelo, mientras redactábamos el paper de merken en ESTA sesión, entrenó y validó un nanoGPT classifier en OTRA sesión. Ultra-paralelismo real: redacción de paper + entrenamiento de modelo + reunión de trabajo simultáneamente. El resultado es que al final del día tiene paper completo + primer modelo del pipeline validado + snapshots de tres proyectos actualizados.",
+          "score": 0.015591,
+          "chunk": 0
+        }
+      ]
+    }
+  },
+  {
+    "query": "el siguiente movimiento natural es el ood_X_short solo vs ood_X_short + 0/1/2 otras interacciones",
+    "result": {
+      "briefs": [
+        "## H2 Training Decision\n- [v1]: Next training session will use H2 (contrastive loss, same 800K architecture) instead of H8 (2x-3x capacity bump). This is based on the principle that improvements in training signal are more effective than simply increasing model capacity.\n- **Current state:** H2 is the active training path. The acceptance criteria for H2 is achieving a recovery of >=50 of v7's 157 false negatives without increasing the markdown false positive rate above 10%. H8 is deferred until H2 fails.",
+        "## LoCoMo E2E v7 Performance\n- **What happened:** Experiments H16 and H17 showed that v7, when used as a write filter at session granularity (H16) or a turn granularity (H17), hurts temporal retrieval performance in the LoCoMo E2E pipeline compared to raw data.\n- **Impact:** v7 is unsuitable as a retrieval filter at any granularity and as a write filter at session granularity. Unit mismatch direction: v7 trained on LARGER units than dialogue turns.\n- **Resolution:** Rejection of v7 as a write or retrieval filter in the LoCoMo E2E pipeline.\n- **Follow-ups:** None specified.",
+        "## Merken Project State (2026-04-17)\n- **Current state:** Codebase is clean with 11 PRs merged, 207 tests passing, and the CLI is complete. Hooks are live in `~/.claude/hooks/`. However, the accumulation of labels is at ZERO across all projects.\n- **Key facts:**\n  - Existing audit rows are limited (~58 rows, already curated).\n  - `merken-save.sh` only triggers on PreCompact, which hasn't occurred in recent sessions.\n- **Next Steps**\n  - Implement backward bootstrap process with `bootstrap_from_transcripts.py` to classify disagreements offline with v6 + Gemini 1B for the ~60+ rows of `should_remember`.\n  - Expand the trigger of the `merken-save.sh` hook to other events (UserPromptSubmit, SessionEnd)"
+      ],
+      "episodic": [
+        {
+          "title": "nanoGPT 800K write filter: 100% precision/recall, +18pp retrieval, primer resultado self-supervised validado",
+          "path": "text://nanoGPT 800K write filter: 100% precision/recall, +18pp retrieval, primer resultado self-supervised validado",
+          "text": "nanoGPT write filter — PRIMER RESULTADO MEDIDO del pipeline self-supervised (2026-04-16, sesión paralela de Jay).\n\nMIENTRAS redactábamos el paper de merken, Jay en sesión paralela con otro Claude entrenó y validó el primer modelo del stack self-supervised.\n\nModelo: nanoGPT ~800K params, clasificador signal vs noise.\nTraining data: labels generados por merken should_remember sobre el scenario de 50 topics / 1100 eventos.\nInference: ~1ms por clasificación en CPU.\n\nRESULTADOS:\n\nClasificación:\n| Métrica         | Valor          |\n|-----------------|----------------|\n| Signal kept     | 150/150 (100%) |\n| Noise filtered  | 950/950 (100%) |\n| False negatives | 0              |\n| False positives | 0              |\n| Store reduction | 86%            |\n\n100% precision, 100% recall en clasificación signal vs noise. Cero false negatives, cero false positives. De 1100 eventos, solo guarda 150 (los que importan).\n\nImpacto en retrieval downstream:\n| Config                    | Events stored | Accuracy    |\n|---------------------------|---------------|-------------|\n| All events (1100)         | 1100          | 42% (21/50) |\n| nanoGPT filtered          | 150           | 60% (30/50) |\n| briefs-only (referencia)  | --            | 96%         |\n\n+18pp accuracy por filtrado de noise ANTES del retrieval. Store 86% más pequeño.\n\nComparación con las otras intervenciones medidas hoy:\n- Sin filtro, sin briefs: 42% (baseline).\n- Con nanoGPT filter: 60% (+18pp sobre baseline).\n- Con briefs sin filtro: 96% (+54pp sobre baseline).\n- Con nanoGPT filter + briefs: ??? (NO MEDIDO AÚN, es el siguiente experimento).\n\nIMPLICACIONES PARA EL PAPER DE SELF-SUPERVISED STACK:\n\n1. El primer modelo del pipeline FUNCIONA con números medibles. Ya no es \"idea post-Mundial\" — hay evidencia empírica HOY.\n\n2. 800K params es ínfimo. Corre en CPU a ~1ms. No necesita GPU, no necesita API, no necesita nada excepto el modelo entrenado.\n\n3. Los training labels vienen de merken should_remember, que es exactamente el patrón self-supervised que articulamos: el sistema genera sus propios labels al operar.\n\n4. La combinación nanoGPT filter + briefs probablemente da el mejor resultado posible, porque:\n   - nanoGPT limpia el store (150 eventos limpios).\n   - Briefs se generan sobre store limpio (clusters SIN noise).\n   - Si el clustering bottleneck que identificamos en el paper se debe a noise en los clusters, un store pre-filtrado podría resolver incluso la consolidation-as-retrieval-document.\n\n5. El pipeline completo del stack self-supervised (nanoGPT classifier → embedder custom → Gemma brief generator) tiene ahora Stage 1 validado empíricamente.\n\nCÓDIGO COMMITTED:\n- merken/classifiers/ — implementación del nanoGPT write filter.\n- experiments/consolidation/test_write_filter.py — benchmark.\n- Branch develop, commit 17dbae0.\n\nCONEXIÓN CON EL PAPER DE MERKEN YA REDACTADO:\nSección 12 (future work) item 5 (\"Self-supervised model specialization\") ya menciona este concepto. Ahora hay números reales que podrían agregarse como nota al pie o como sección extendida si Jay decide ampliar el paper antes de submit.\n\nAlternativamente, nanoGPT filter + merken briefs podrían ser un paper SEPARADO:\n\"Stage 1 of Self-Supervised Agent Memory: An 800K-Parameter Write Filter That Improves Retrieval Accuracy by 18 Percentage Points\"\n\nO integrado en el paper de merken como \"bonus\" sección que muestra que el pipeline self-supervised ya produce valor medible.\n\nOBSERVACIÓN SOBRE EL PROCESO:\nJay estaba en una reunión aburrida. En paralelo, mientras redactábamos el paper de merken en ESTA sesión, entrenó y validó un nanoGPT classifier en OTRA sesión. Ultra-paralelismo real: redacción de paper + entrenamiento de modelo + reunión de trabajo simultáneamente. El resultado es que al final del día tiene paper completo + primer modelo del pipeline validado + snapshots de tres proyectos actualizados.",
+          "score": 0.016667,
+          "chunk": 0
+        },
+        {
+          "title": "estado-del-proyecto-20260417-postsesin-20260418-103843823099",
+          "path": "text://estado-del-proyecto-20260417-postsesin-20260418-103843823099",
+          "text": "## Hallazgo crítico: la acumulación de labels está en CERO\n\nChequeé las 14 DBs en `~/.merken/`:\n\n| Proyecto | audit rows | shadow_agree | shadow_disagree | labels |\n|----------|-----------:|-------------:|----------------:|-------:|\n| engram   | 124 | 0 | 0 | 0 |\n| vex      | 120 | 0 | 0 | 0 |\n| snapvec  | 106 | 0 | 0 | 0 |\n| medlocal |  49 | 0 | 0 | 0 |\n| (resto)  |  -- | 0 | 0 | 0 |\n\nÚltimo `should_remember` en engram: **2026-04-16 15:07** (antes de activar shadow el 2026-04-17). Todo lo del 17 son `should_recall`. El hook `merken-save.sh` dispara en **PreCompact** -- solo cuando compactas. Como vienes abriendo sesiones frescas, **no se ha generado NI UN solo write** con shadow activo.\n\n**Consecuencia:** la meta de graduación (criterio #4: >=200 labels con >=95% agreement) está bloqueada no por falta de oráculo sino por falta de *entrada*. A la tasa actual de 0 disagreements/día son \"meses\" como dice la memoria, pero en realidad es infinito.\n\n## Dónde mejorar (por leverage)",
+          "score": 0.016344,
+          "chunk": 1
+        },
+        {
+          "title": "nanoGPT write filter validación honesta: 100/100 en easy, 90% en novel, 19% en subtle noise — límite identificado",
+          "path": "text://nanoGPT write filter validación honesta: 100/100 en easy, 90% en novel, 19% en subtle noise — límite identificado",
+          "text": "nanoGPT write filter — VALIDACIÓN HONESTA de las tres preguntas (2026-04-16).\n\nResultado original: 100% precision, 100% recall, 86% store reduction, +18pp retrieval.\n\nValidación con tres preguntas de robustez:\n\nQ1: Train/test separados?\n- Textos: SÍ, 0 overlap, split limpio.\n- Topics: NO. Todos los val topics aparecen en train. No hay topic holdout. El 100/100 del val set es sobre topics conocidos. Esto es la razón del 100% — el modelo no fue testeado en topics no vistos durante training.\n\nQ2: Generaliza a topics nuevos?\n- Decisions nuevas: 10/10 (100%). El modelo aprendió el patrón léxico \"Replaced/Migrated/Switched X with Y\" a nivel de caracteres. Generaliza perfectamente a decisiones con formato similar.\n- Noise nueva: 9/10 (90%). Un fallo: \"Weekly sync: discussed migration timeline\" clasificado como DECISION porque \"migration\" es un trigger fuerte para el modelo. El modelo aprendió features léxicas, no semánticas.\n\nQ3: Sobrevive noise sutil?\n- 3/16 (19%). SE DERRUMBA.\n- Fallos específicos identificados:\n  * \"Redis memory spiked to 4GB\" → clasificado como DECISION (noise con vocabulario técnico).\n  * \"Reviewed the migration PR\" → clasificado como DECISION (noise que referencia decisión).\n  * \"ClickHouse query timeout\" → clasificado como DECISION (incidencia, no decisión).\n- Diagnóstico: el modelo aprendió \"si menciona una tecnología con detalle técnico, es DECISION\". Eso es heurística léxica, no comprensión de rol semántico.\n\nINTERPRETACIÓN CALIBRADA:\n\nLo que el modelo SÍ hace bien:\n- Filtrar noise OBVIO: tickets, reuniones, comentarios generales sin mención técnica.\n- Identificar decisiones EXPLÍCITAS: texto con patrón claro de \"changed X to Y\", \"switched from A to B\".\n- Reducir store masivamente (86%) con zero false negatives en el régimen fácil.\n\nLo que el modelo NO hace:\n- Distinguir rol semántico (decision vs investigation vs incident) cuando comparten vocabulario técnico.\n- Esto es EXACTAMENTE el mismo límite que identificamos en embedding-based clustering en la sección 7 del paper de merken. El nanoGPT de 800K params hereda el mismo bottleneck: features léxicas no capturan rol.\n\nIMPLICACIONES PARA EL PAPER DE SELF-SUPERVISED STACK:\n\n1. El resultado original (+18pp, 86% reduction) sigue siendo VÁLIDO para noise no-sutil. Ese es el caso de uso real más frecuente en agent memory (la mayoría del noise es obviamente irrelevante).\n\n2. El 19% en noise sutil es el failure mode que define la research question del paper: ¿puede un modelo de 800K params aprender a distinguir rol semántico, o necesita más capacidad (Gemma 2B), más features (entity tags, temporal position), o un mecanismo distinto (graph-based)?\n\n3. Los números publicables honestos son:\n   - Easy noise: 100% precision, 100% recall.\n   - Novel topics: 100% precision decisions, 90% precision noise.\n   - Subtle noise: 19% — falla.\n   - Los tres deben reportarse juntos. Reportar solo el primero es dishonesto.\n\n4. El +18pp en retrieval probablemente refleja el régimen \"easy noise\" (la mayoría de los 950 noise events son obviamente irrelevantes). En un corpus donde la mayoría del noise es sutil, el modelo no ayudaría tanto.\n\nCONEXIÓN CON EL HALLAZGO DEL CLUSTERING BOTTLENECK:\nEl nanoGPT write filter hereda el mismo límite fundamental: features léxicas/superficiales no distinguen rol semántico cuando el vocabulario es compartido. Eso es coherente con la tesis del paper de merken — el problema es estructural al nivel de representación, no al nivel de mecanismo.",
+          "score": 0.016236,
+          "chunk": 0
+        },
+        {
+          "title": "pendientes-vigentes-tras-la-sesin-20260418-103840345101",
+          "path": "text://pendientes-vigentes-tras-la-sesin-20260418-103840345101",
+          "text": "Pendientes vigentes tras la sesión del 2026-04-17 (11 PRs merged, develop limpio, 206 tests):\n\n**Corto plazo / cheap**\n- **v7 nanoGPT feature-aware** (~2h): position en secuencia + entity persistence. Ataca el residual de markdown NOISE (burndown, triage, capacity, oncall_handoff) que v6 deja pasar.\n- **Escalar brief_v1 a 100+ topics** en dominios diversos (médico, legal, research) para el paper.\n- **vstash 0.29.0 validation** (snapvec integration).\n\n**Acumulación pasiva (no hacer, solo dejar correr)**\n- Shadow (`MERKEN_SHADOW=nanogpt` v6) registrando `shadow_agree/disagree` en cada sesión.\n- `brief_v1` generando briefs en PreCompact, inyectados en SessionStart.\n- Ejecutar periódicamente: `merken audit --shadow-disagree` y `--label-with gemini|local`.\n\n**Gatillados por criterios (sin urgencia)**\n- **Análisis oráculo Gemini vs Gemma local** cuando haya ~200 labels reales.\n- **Graduación nanoGPT** (flip `MERKEN_PRIMARY`) solo cuando las 5 barras numéricas se cumplan; meses fuera.\n- **Más escenarios `loop_quality`** (perf migration, MedLocal hackathon).\n\n**Explícitamente NO hacer**\n- No entrenar v7 con más data sintética sin distribución fresca de labels reales (retornos decrecientes confirmados v5→v6).\n- No flipear el default por vibes.\n- No añadir un tercer canal shadow.\n\n**Abierto pero research, no blocker**\n- Ensemble formal (N-of-M) — solo útil con 3+ backends.\n- nanoGPT-as-connector (vstash+snapvec+merken) — idea tuya del 2026-04-16, glue layer especializado.\n- Paper \"structural limits of embedding-based consolidation + briefs as alternative\".\n\n¿Por dónde quieres empezar?",
+          "score": 0.015977,
+          "chunk": 0
+        },
+        {
+          "title": "Idea: nanoGPT-as-connector entrenado sobre vstash+snapvec+merken, glue layer pequeño y especializado",
+          "path": "text://Idea: nanoGPT-as-connector entrenado sobre vstash+snapvec+merken, glue layer pequeño y especializado",
+          "text": "Jay formuló (2026-04-16) una idea de experimento: entrenar un LLM tipo nanoGPT cuya función específica sea \"conectar los puntos\" sobre vstash + snapvec + merken. Un modelo ínfimo pero especializado en routing / síntesis sobre su propio stack de retrieval.\n\nFraming: \"algo ínfimo pero muy inteligente\" — inteligencia por especialización, no por escala.\n\nEl insight clave que hace esto viable: el problema no es generación de lenguaje general (donde modelos pequeños fallan), sino decidir qué retrieval hacer, cómo combinar resultados, y cuándo consolidar vs cuándo devolver raw. Ese es un espacio de decisiones mucho más estrecho que lenguaje general.\n\nTamaños de referencia para nanoGPT-class:\n- nanoGPT Karpathy: 124M params (GPT-2 small reproducido), entrenable en ~38h en 8xA100.\n- Versiones sub-10M: entrenable en horas en laptop con GPU modesta.\n- Qwen 0.5B que Jay ya experimentó con vstash/Reforge como baseline.\n\nConexión con proyectos existentes:\n- vstash: retrieve hybrid con adaptive RRF. El LLM decide query expansion, modality weighting override, cuándo hacer rerank.\n- snapvec: retrieval a escala con trade-off de bits/recall. El LLM decide nprobe dinámico según query complexity.\n- merken: layers episodic/semantic + audit trail. El LLM decide qué layer consultar.\n- engram: el loop decider (should_recall, should_consolidate) es exactamente el espacio de decisiones donde un modelo pequeño entrenado en tu workload supera a rule-based.\n\nConexión con idea previa ya guardada sobre fine-tuning pipeline:\nEsto conecta directamente con el plan de usar RRF retrieval scores como training labels para un modelo pequeño (Qwen 0.5-1.5B via LoRA). La idea de nanoGPT-as-connector es la versión más ambiciosa: no fine-tune de modelo existente sino entrenamiento desde cero de arquitectura diseñada para el problema.\n\nViabilidad honesta:\n- Desde cero con nanoGPT-style training y corpus de 10-50M tokens sobre logs de uso real de vstash + traces de decisión: viable en semanas, no meses.\n- La señal de training está en los artefactos que Jay ya guarda (audit logs de merken, vstash_journal, benchmarks reproducibles).\n- Baseline contra el cual comparar: deciders rule-based actuales de merken + search directo de vstash.\n\nRiesgos / limitaciones:\n- Modelo <10M probablemente no puede razonar a profundidad suficiente para decisiones multi-step complejas.\n- Sin supervision clara, fácil sobreajustar al estilo específico de Jay.\n- Evaluación requiere benchmark de \"tarea agentic completa\", no perplexity.\n\nFraming de la propuesta para el stack: el modelo pequeño NO reemplaza al LLM grande. Es un router/connector que decide qué pasar al LLM grande, minimizando tokens caros en el contexto. Eso es el problema real en producción: el LLM grande es caro, el modelo pequeño puede ser el preprocessor que hace el stack escalable.\n\nEsta es la pieza que faltaba para cerrar el bucle del stack completo: retrieval (vstash+snapvec) + memory (merken) + glue layer (nanoGPT-as-connector) + final reasoning (LLM grande llamado caro y poco).",
+          "score": 0.015794,
+          "chunk": 0
+        }
+      ]
+    }
+  },
+  {
+    "query": "Si, despues podemos volver a trabajar en v7, talvez no hayamos visto algo",
+    "result": {
+      "briefs": [
+        "## LoCoMo E2E v7 Performance\n- **What happened:** Experiments H16 and H17 showed that v7, when used as a write filter at session granularity (H16) or a turn granularity (H17), hurts temporal retrieval performance in the LoCoMo E2E pipeline compared to raw data.\n- **Impact:** v7 is unsuitable as a retrieval filter at any granularity and as a write filter at session granularity. Unit mismatch direction: v7 trained on LARGER units than dialogue turns.\n- **Resolution:** Rejection of v7 as a write or retrieval filter in the LoCoMo E2E pipeline.\n- **Follow-ups:** None specified.",
+        "## H2 Training Decision\n- [v1]: Next training session will use H2 (contrastive loss, same 800K architecture) instead of H8 (2x-3x capacity bump). This is based on the principle that improvements in training signal are more effective than simply increasing model capacity.\n- **Current state:** H2 is the active training path. The acceptance criteria for H2 is achieving a recovery of >=50 of v7's 157 false negatives without increasing the markdown false positive rate above 10%. H8 is deferred until H2 fails.",
+        "## Merken Label Accumulation Bug\n- **What happened:** The `merken-save.sh` hook was failing silently because it was attempting to parse JSONL transcripts as JSON, resulting in no new labels being accumulated.\n- **Impact:** The label accumulation was at zero, preventing the graduation criteria from being met. Shadow mode never executes because the pipeline never generates events.\n- **Resolution:** Propose two PRs: (A) fix the hook to correctly parse JSONL and extract relevant data, and (B) create a script to bootstrap labels from existing transcripts by replaying them and labeling v6 skips with Gemini.\n- **Follow-ups:** Implement PR A (high priority) and PR B. Start with end-to-end pipeline with the 2 real disagreements."
+      ],
+      "episodic": [
+        {
+          "title": "brief_59d67836b897",
+          "path": "text://brief_59d67836b897",
+          "text": "## LoCoMo E2E v7 Performance\n- **What happened:** Experiments H16 and H17 showed that v7, when used as a write filter at session granularity (H16) or a turn granularity (H17), hurts temporal retrieval performance in the LoCoMo E2E pipeline compared to raw data.\n- **Impact:** v7 is unsuitable as a retrieval filter at any granularity and as a write filter at session granularity. Unit mismatch direction: v7 trained on LARGER units than dialogue turns.\n- **Resolution:** Rejection of v7 as a write or retrieval filter in the LoCoMo E2E pipeline.\n- **Follow-ups:** None specified.",
+          "score": 0.016542,
+          "chunk": 0
+        },
+        {
+          "title": "solo-2-disagreements-del-audit-20260418-103858282214",
+          "path": "text://solo-2-disagreements-del-audit-20260418-103858282214",
+          "text": "Solo 2 disagreements del audit histórico — el scope es chico porque los audit rows son eventos ya curados por ti. Los disagreements reales están en el **firehose de transcripts** que la hook aún no procesó. Voy a ver si vale expandir allí.",
+          "score": 0.015854,
+          "chunk": 0
+        },
+        {
+          "title": "brief_1be3ef9e9935",
+          "path": "text://brief_1be3ef9e9935",
+          "text": "## H2 Training Decision\n- [v1]: Next training session will use H2 (contrastive loss, same 800K architecture) instead of H8 (2x-3x capacity bump). This is based on the principle that improvements in training signal are more effective than simply increasing model capacity.\n- **Current state:** H2 is the active training path. The acceptance criteria for H2 is achieving a recovery of >=50 of v7's 157 false negatives without increasing the markdown false positive rate above 10%. H8 is deferred until H2 fails.",
+          "score": 0.016044,
+          "chunk": 0
+        },
+        {
+          "title": "h17-locomo-e2e-20260419-v7-20260419-044617636577",
+          "path": "text://h17-locomo-e2e-20260419-v7-20260419-044617636577",
+          "text": "H17 LoCoMo E2E (2026-04-19): v7 at turn granularity is WORSE than session. vstash-raw 62.2% > merken-v7 54.4% > merken-v7-turnfilter 45.6% temporal. v7 rejects 35-50% of LoCoMo dialogue turns because they are SHORTER than its training unit (assistant message with payload). Unit mismatch direction: v7 trained on LARGER units than dialogue turns. v7 is not a retrieval filter at any granularity. Artifact: results_h17.json. Commit 4dcffa5.",
+          "score": 0.01576,
+          "chunk": 0
+        },
+        {
+          "title": "nanoGPT write filter validación honesta: 100/100 en easy, 90% en novel, 19% en subtle noise — límite identificado",
+          "path": "text://nanoGPT write filter validación honesta: 100/100 en easy, 90% en novel, 19% en subtle noise — límite identificado",
+          "text": "nanoGPT write filter — VALIDACIÓN HONESTA de las tres preguntas (2026-04-16).\n\nResultado original: 100% precision, 100% recall, 86% store reduction, +18pp retrieval.\n\nValidación con tres preguntas de robustez:\n\nQ1: Train/test separados?\n- Textos: SÍ, 0 overlap, split limpio.\n- Topics: NO. Todos los val topics aparecen en train. No hay topic holdout. El 100/100 del val set es sobre topics conocidos. Esto es la razón del 100% — el modelo no fue testeado en topics no vistos durante training.\n\nQ2: Generaliza a topics nuevos?\n- Decisions nuevas: 10/10 (100%). El modelo aprendió el patrón léxico \"Replaced/Migrated/Switched X with Y\" a nivel de caracteres. Generaliza perfectamente a decisiones con formato similar.\n- Noise nueva: 9/10 (90%). Un fallo: \"Weekly sync: discussed migration timeline\" clasificado como DECISION porque \"migration\" es un trigger fuerte para el modelo. El modelo aprendió features léxicas, no semánticas.\n\nQ3: Sobrevive noise sutil?\n- 3/16 (19%). SE DERRUMBA.\n- Fallos específicos identificados:\n  * \"Redis memory spiked to 4GB\" → clasificado como DECISION (noise con vocabulario técnico).\n  * \"Reviewed the migration PR\" → clasificado como DECISION (noise que referencia decisión).\n  * \"ClickHouse query timeout\" → clasificado como DECISION (incidencia, no decisión).\n- Diagnóstico: el modelo aprendió \"si menciona una tecnología con detalle técnico, es DECISION\". Eso es heurística léxica, no comprensión de rol semántico.\n\nINTERPRETACIÓN CALIBRADA:\n\nLo que el modelo SÍ hace bien:\n- Filtrar noise OBVIO: tickets, reuniones, comentarios generales sin mención técnica.\n- Identificar decisiones EXPLÍCITAS: texto con patrón claro de \"changed X to Y\", \"switched from A to B\".\n- Reducir store masivamente (86%) con zero false negatives en el régimen fácil.\n\nLo que el modelo NO hace:\n- Distinguir rol semántico (decision vs investigation vs incident) cuando comparten vocabulario técnico.\n- Esto es EXACTAMENTE el mismo límite que identificamos en embedding-based clustering en la sección 7 del paper de merken. El nanoGPT de 800K params hereda el mismo bottleneck: features léxicas no capturan rol.\n\nIMPLICACIONES PARA EL PAPER DE SELF-SUPERVISED STACK:\n\n1. El resultado original (+18pp, 86% reduction) sigue siendo VÁLIDO para noise no-sutil. Ese es el caso de uso real más frecuente en agent memory (la mayoría del noise es obviamente irrelevante).\n\n2. El 19% en noise sutil es el failure mode que define la research question del paper: ¿puede un modelo de 800K params aprender a distinguir rol semántico, o necesita más capacidad (Gemma 2B), más features (entity tags, temporal position), o un mecanismo distinto (graph-based)?\n\n3. Los números publicables honestos son:\n   - Easy noise: 100% precision, 100% recall.\n   - Novel topics: 100% precision decisions, 90% precision noise.\n   - Subtle noise: 19% — falla.\n   - Los tres deben reportarse juntos. Reportar solo el primero es dishonesto.\n\n4. El +18pp en retrieval probablemente refleja el régimen \"easy noise\" (la mayoría de los 950 noise events son obviamente irrelevantes). En un corpus donde la mayoría del noise es sutil, el modelo no ayudaría tanto.\n\nCONEXIÓN CON EL HALLAZGO DEL CLUSTERING BOTTLENECK:\nEl nanoGPT write filter hereda el mismo límite fundamental: features léxicas/superficiales no distinguen rol semántico cuando el vocabulario es compartido. Eso es coherente con la tesis del paper de merken — el problema es estructural al nivel de representación, no al nivel de mecanismo.",
+          "score": 0.015718,
+          "chunk": 0
+        }
+      ]
+    }
+  },
+  {
+    "query": "Check v7 training b4ma4dn1f completion",
+    "result": {
+      "briefs": [
+        "## H2 Training Decision\n- [v1]: Next training session will use H2 (contrastive loss, same 800K architecture) instead of H8 (2x-3x capacity bump). This is based on the principle that improvements in training signal are more effective than simply increasing model capacity.\n- **Current state:** H2 is the active training path. The acceptance criteria for H2 is achieving a recovery of >=50 of v7's 157 false negatives without increasing the markdown false positive rate above 10%. H8 is deferred until H2 fails.",
+        "## LoCoMo E2E v7 Performance\n- **What happened:** Experiments H16 and H17 showed that v7, when used as a write filter at session granularity (H16) or a turn granularity (H17), hurts temporal retrieval performance in the LoCoMo E2E pipeline compared to raw data.\n- **Impact:** v7 is unsuitable as a retrieval filter at any granularity and as a write filter at session granularity. Unit mismatch direction: v7 trained on LARGER units than dialogue turns.\n- **Resolution:** Rejection of v7 as a write or retrieval filter in the LoCoMo E2E pipeline.\n- **Follow-ups:** None specified.",
+        "## Merken Project State (2026-04-17)\n- **Current state:** Codebase is clean with 11 PRs merged, 207 tests passing, and the CLI is complete. Hooks are live in `~/.claude/hooks/`. However, the accumulation of labels is at ZERO across all projects.\n- **Key facts:**\n  - Existing audit rows are limited (~58 rows, already curated).\n  - `merken-save.sh` only triggers on PreCompact, which hasn't occurred in recent sessions.\n- **Next Steps**\n  - Implement backward bootstrap process with `bootstrap_from_transcripts.py` to classify disagreements offline with v6 + Gemini 1B for the ~60+ rows of `should_remember`.\n  - Expand the trigger of the `merken-save.sh` hook to other events (UserPromptSubmit, SessionEnd)"
+      ],
+      "episodic": [
+        {
+          "title": "brief_1be3ef9e9935",
+          "path": "text://brief_1be3ef9e9935",
+          "text": "## H2 Training Decision\n- [v1]: Next training session will use H2 (contrastive loss, same 800K architecture) instead of H8 (2x-3x capacity bump). This is based on the principle that improvements in training signal are more effective than simply increasing model capacity.\n- **Current state:** H2 is the active training path. The acceptance criteria for H2 is achieving a recovery of >=50 of v7's 157 false negatives without increasing the markdown false positive rate above 10%. H8 is deferred until H2 fails.",
+          "score": 0.01659,
+          "chunk": 0
+        },
+        {
+          "title": "decision-20260419-next-session-starts-20260419-044621604240",
+          "path": "text://decision-20260419-next-session-starts-20260419-044621604240",
+          "text": "Decision 2026-04-19: next session starts with H2 (contrastive loss, same 800K arch), NOT H8 (2x-3x capacity bump). Silt's rule: v6->v7 (same arch) got the big data-driven win; v8/v9 (same arch) broke from data-recipe changes, not capacity. Training-signal is the bottleneck. H8 stays deferred until H2 fails. H2 acceptance: v9 recovers >=50 of v7's 157 FN without regressing markdown FPR above 10%.",
+          "score": 0.016515,
+          "chunk": 0
+        },
+        {
+          "title": "brief_59d67836b897",
+          "path": "text://brief_59d67836b897",
+          "text": "## LoCoMo E2E v7 Performance\n- **What happened:** Experiments H16 and H17 showed that v7, when used as a write filter at session granularity (H16) or a turn granularity (H17), hurts temporal retrieval performance in the LoCoMo E2E pipeline compared to raw data.\n- **Impact:** v7 is unsuitable as a retrieval filter at any granularity and as a write filter at session granularity. Unit mismatch direction: v7 trained on LARGER units than dialogue turns.\n- **Resolution:** Rejection of v7 as a write or retrieval filter in the LoCoMo E2E pipeline.\n- **Follow-ups:** None specified.",
+          "score": 0.01647,
+          "chunk": 0
+        },
+        {
+          "title": "h17-locomo-e2e-20260419-v7-20260419-044617636577",
+          "path": "text://h17-locomo-e2e-20260419-v7-20260419-044617636577",
+          "text": "H17 LoCoMo E2E (2026-04-19): v7 at turn granularity is WORSE than session. vstash-raw 62.2% > merken-v7 54.4% > merken-v7-turnfilter 45.6% temporal. v7 rejects 35-50% of LoCoMo dialogue turns because they are SHORTER than its training unit (assistant message with payload). Unit mismatch direction: v7 trained on LARGER units than dialogue turns. v7 is not a retrieval filter at any granularity. Artifact: results_h17.json. Commit 4dcffa5.",
+          "score": 0.016281,
+          "chunk": 0
+        },
+        {
+          "title": "brief_b7fa0b28e60d",
+          "path": "text://brief_b7fa0b28e60d",
+          "text": "## Merken Project State (2026-04-17)\n- **Current state:** Codebase is clean with 11 PRs merged, 207 tests passing, and the CLI is complete. Hooks are live in `~/.claude/hooks/`. However, the accumulation of labels is at ZERO across all projects.\n- **Key facts:**\n  - Existing audit rows are limited (~58 rows, already curated).\n  - `merken-save.sh` only triggers on PreCompact, which hasn't occurred in recent sessions.\n- **Next Steps**\n  - Implement backward bootstrap process with `bootstrap_from_transcripts.py` to classify disagreements offline with v6 + Gemini 1B for the ~60+ rows of `should_remember`.\n  - Expand the trigger of the `merken-save.sh` hook to other events (UserPromptSubmit, SessionEnd)",
+          "score": 0.016129,
+          "chunk": 0
+        }
+      ]
+    }
+  },
+  {
+    "query": "Si estamos documentando todo? si lo gramos pasar 95% que habremos logrado?",
+    "result": {
+      "briefs": [
+        "## H2 Training Decision\n- [v1]: Next training session will use H2 (contrastive loss, same 800K architecture) instead of H8 (2x-3x capacity bump). This is based on the principle that improvements in training signal are more effective than simply increasing model capacity.\n- **Current state:** H2 is the active training path. The acceptance criteria for H2 is achieving a recovery of >=50 of v7's 157 false negatives without increasing the markdown false positive rate above 10%. H8 is deferred until H2 fails.",
+        "## nanoGPT-as-connector\n- **Identity:** A small, specialized LLM (nanoGPT-class) designed to \"connect the dots\" within the vstash, snapvec, and merken stack.\n- **Key facts:**\n  - The LLM's primary function is to decide which retrieval actions to take, how to combine results, and when to consolidate information.\n  - Could be trained from scratch with a corpus of 10-50M tokens based on real usage logs and decision traces from vstash, snapvec, and merken.\n  - The training signal exists in audit logs, vstash journals, and reproducible benchmarks.\n- **Last update:** The LLM acts as a router/connector, minimizing the use of the larger, more expensive LLM by preprocessing and determining what information to pass along.\n```",
+        "## LoCoMo E2E v7 Performance\n- **What happened:** Experiments H16 and H17 showed that v7, when used as a write filter at session granularity (H16) or a turn granularity (H17), hurts temporal retrieval performance in the LoCoMo E2E pipeline compared to raw data.\n- **Impact:** v7 is unsuitable as a retrieval filter at any granularity and as a write filter at session granularity. Unit mismatch direction: v7 trained on LARGER units than dialogue turns.\n- **Resolution:** Rejection of v7 as a write or retrieval filter in the LoCoMo E2E pipeline.\n- **Follow-ups:** None specified."
+      ],
+      "episodic": [
+        {
+          "title": "nanoGPT write filter validación honesta: 100/100 en easy, 90% en novel, 19% en subtle noise — límite identificado",
+          "path": "text://nanoGPT write filter validación honesta: 100/100 en easy, 90% en novel, 19% en subtle noise — límite identificado",
+          "text": "PRÓXIMO PASO PARA MEJORAR:\nEl modelo necesita features adicionales que capturen rol:\n- Position en la secuencia temporal (primero = más probable investigación, último = más probable decisión).\n- Entity tags (qué entidades se mencionan y en qué contexto).\n- Structural cues (formato del texto: bullet points, headers, etc.).\n- Idealmente: embeddings semánticos como features del classifier, no solo n-grams de caracteres.\n\nEso es trabajo para el paper post-Mundial, no para ahora. El modelo actual de 800K params es Stage 1 funcional con límites claros documentados.\n\nSTATUS: resultado real y publicable, con caveats honestos identificados. Guardado con calibración completa.",
+          "score": 0.016411,
+          "chunk": 1
+        },
+        {
+          "title": "solo-2-disagreements-del-audit-20260418-103858282214",
+          "path": "text://solo-2-disagreements-del-audit-20260418-103858282214",
+          "text": "Solo 2 disagreements del audit histórico — el scope es chico porque los audit rows son eventos ya curados por ti. Los disagreements reales están en el **firehose de transcripts** que la hook aún no procesó. Voy a ver si vale expandir allí.",
+          "score": 0.016523,
+          "chunk": 0
+        },
+        {
+          "title": "brief_1be3ef9e9935",
+          "path": "text://brief_1be3ef9e9935",
+          "text": "## H2 Training Decision\n- [v1]: Next training session will use H2 (contrastive loss, same 800K architecture) instead of H8 (2x-3x capacity bump). This is based on the principle that improvements in training signal are more effective than simply increasing model capacity.\n- **Current state:** H2 is the active training path. The acceptance criteria for H2 is achieving a recovery of >=50 of v7's 157 false negatives without increasing the markdown false positive rate above 10%. H8 is deferred until H2 fails.",
+          "score": 0.00859,
+          "chunk": 0
+        },
+        {
+          "title": "hay-58-shouldremember-rows-reales-20260418-103854722077",
+          "path": "text://hay-58-shouldremember-rows-reales-20260418-103854722077",
+          "text": "Hay ~58 `should_remember` rows reales en total (menos de lo que pensaba). Antes de expandir scope, corro el dry-run completo y luego etiqueto los disagreements.",
+          "score": 0.016289,
+          "chunk": 0
+        },
+        {
+          "title": "brief_725f44a5c22c",
+          "path": "text://brief_725f44a5c22c",
+          "text": "## nanoGPT-as-connector\n- **Identity:** A small, specialized LLM (nanoGPT-class) designed to \"connect the dots\" within the vstash, snapvec, and merken stack.\n- **Key facts:**\n  - The LLM's primary function is to decide which retrieval actions to take, how to combine results, and when to consolidate information.\n  - Could be trained from scratch with a corpus of 10-50M tokens based on real usage logs and decision traces from vstash, snapvec, and merken.\n  - The training signal exists in audit logs, vstash journals, and reproducible benchmarks.\n- **Last update:** The LLM acts as a router/connector, minimizing the use of the larger, more expensive LLM by preprocessing and determining what information to pass along.\n```",
+          "score": 0.008452,
+          "chunk": 0
+        }
+      ]
+    }
+  },
+  {
+    "query": "Con este hito que hemos logrado en que convierte a merken?",
+    "result": {
+      "briefs": [
+        "## nanoGPT-as-connector\n- **Identity:** A small, specialized LLM (nanoGPT-class) designed to \"connect the dots\" within the vstash, snapvec, and merken stack.\n- **Key facts:**\n  - The LLM's primary function is to decide which retrieval actions to take, how to combine results, and when to consolidate information.\n  - Could be trained from scratch with a corpus of 10-50M tokens based on real usage logs and decision traces from vstash, snapvec, and merken.\n  - The training signal exists in audit logs, vstash journals, and reproducible benchmarks.\n- **Last update:** The LLM acts as a router/connector, minimizing the use of the larger, more expensive LLM by preprocessing and determining what information to pass along.\n```",
+        "## Merken Label Accumulation Bug\n- **What happened:** The `merken-save.sh` hook was failing silently because it was attempting to parse JSONL transcripts as JSON, resulting in no new labels being accumulated.\n- **Impact:** The label accumulation was at zero, preventing the graduation criteria from being met. Shadow mode never executes because the pipeline never generates events.\n- **Resolution:** Propose two PRs: (A) fix the hook to correctly parse JSONL and extract relevant data, and (B) create a script to bootstrap labels from existing transcripts by replaying them and labeling v6 skips with Gemini.\n- **Follow-ups:** Implement PR A (high priority) and PR B. Start with end-to-end pipeline with the 2 real disagreements.",
+        "## LoCoMo E2E v7 Performance\n- **What happened:** Experiments H16 and H17 showed that v7, when used as a write filter at session granularity (H16) or a turn granularity (H17), hurts temporal retrieval performance in the LoCoMo E2E pipeline compared to raw data.\n- **Impact:** v7 is unsuitable as a retrieval filter at any granularity and as a write filter at session granularity. Unit mismatch direction: v7 trained on LARGER units than dialogue turns.\n- **Resolution:** Rejection of v7 as a write or retrieval filter in the LoCoMo E2E pipeline.\n- **Follow-ups:** None specified."
+      ],
+      "episodic": [
+        {
+          "title": "nanoGPT write filter validación honesta: 100/100 en easy, 90% en novel, 19% en subtle noise — límite identificado",
+          "path": "text://nanoGPT write filter validación honesta: 100/100 en easy, 90% en novel, 19% en subtle noise — límite identificado",
+          "text": "PRÓXIMO PASO PARA MEJORAR:\nEl modelo necesita features adicionales que capturen rol:\n- Position en la secuencia temporal (primero = más probable investigación, último = más probable decisión).\n- Entity tags (qué entidades se mencionan y en qué contexto).\n- Structural cues (formato del texto: bullet points, headers, etc.).\n- Idealmente: embeddings semánticos como features del classifier, no solo n-grams de caracteres.\n\nEso es trabajo para el paper post-Mundial, no para ahora. El modelo actual de 800K params es Stage 1 funcional con límites claros documentados.\n\nSTATUS: resultado real y publicable, con caveats honestos identificados. Guardado con calibración completa.",
+          "score": 0.016456,
+          "chunk": 1
+        },
+        {
+          "title": "estado-del-proyecto-20260417-postsesin-20260418-103843823099",
+          "path": "text://estado-del-proyecto-20260417-postsesin-20260418-103843823099",
+          "text": "### 2. Cerrar el gap de v6 FPR (criterio #5, 2-3h cuando haya labels)\n- `generate_markdown_noise.py` ya existe y produce 30 samples/corrida en 6 categorías (schedule/status/toc/pricing/log/roster). Listo para v7 el día que tengamos labels reales que complementen los sintéticos.\n-",
+          "score": 0.015818,
+          "chunk": 3
+        },
+        {
+          "title": "brief_725f44a5c22c",
+          "path": "text://brief_725f44a5c22c",
+          "text": "## nanoGPT-as-connector\n- **Identity:** A small, specialized LLM (nanoGPT-class) designed to \"connect the dots\" within the vstash, snapvec, and merken stack.\n- **Key facts:**\n  - The LLM's primary function is to decide which retrieval actions to take, how to combine results, and when to consolidate information.\n  - Could be trained from scratch with a corpus of 10-50M tokens based on real usage logs and decision traces from vstash, snapvec, and merken.\n  - The training signal exists in audit logs, vstash journals, and reproducible benchmarks.\n- **Last update:** The LLM acts as a router/connector, minimizing the use of the larger, more expensive LLM by preprocessing and determining what information to pass along.\n```",
+          "score": 0.016092,
+          "chunk": 0
+        },
+        {
+          "title": "pipeline-cerrado-endtoend-2-labels-20260418-103905421401",
+          "path": "text://pipeline-cerrado-endtoend-2-labels-20260418-103905421401",
+          "text": "## Pipeline cerrado end-to-end (2 labels reales)\n\n```\nmerken: v6 SKIP \"LoCoMo consolidación...\"   → Gemini: DECISION  (v6 WRONG, false negative)\nsnapvec: v6 SKIP \"ADC kernel microbench\"    → Gemini: NOISE     (v6 RIGHT)\n```\n\nAgreement 1/2 en este micro sample. Labels visibles vía `merken --project <nombre> labels`.",
+          "score": 0.01578,
+          "chunk": 0
+        },
+        {
+          "title": "nanoGPT 800K write filter: 100% precision/recall, +18pp retrieval, primer resultado self-supervised validado",
+          "path": "text://nanoGPT 800K write filter: 100% precision/recall, +18pp retrieval, primer resultado self-supervised validado",
+          "text": "nanoGPT write filter — PRIMER RESULTADO MEDIDO del pipeline self-supervised (2026-04-16, sesión paralela de Jay).\n\nMIENTRAS redactábamos el paper de merken, Jay en sesión paralela con otro Claude entrenó y validó el primer modelo del stack self-supervised.\n\nModelo: nanoGPT ~800K params, clasificador signal vs noise.\nTraining data: labels generados por merken should_remember sobre el scenario de 50 topics / 1100 eventos.\nInference: ~1ms por clasificación en CPU.\n\nRESULTADOS:\n\nClasificación:\n| Métrica         | Valor          |\n|-----------------|----------------|\n| Signal kept     | 150/150 (100%) |\n| Noise filtered  | 950/950 (100%) |\n| False negatives | 0              |\n| False positives | 0              |\n| Store reduction | 86%            |\n\n100% precision, 100% recall en clasificación signal vs noise. Cero false negatives, cero false positives. De 1100 eventos, solo guarda 150 (los que importan).\n\nImpacto en retrieval downstream:\n| Config                    | Events stored | Accuracy    |\n|---------------------------|---------------|-------------|\n| All events (1100)         | 1100          | 42% (21/50) |\n| nanoGPT filtered          | 150           | 60% (30/50) |\n| briefs-only (referencia)  | --            | 96%         |\n\n+18pp accuracy por filtrado de noise ANTES del retrieval. Store 86% más pequeño.\n\nComparación con las otras intervenciones medidas hoy:\n- Sin filtro, sin briefs: 42% (baseline).\n- Con nanoGPT filter: 60% (+18pp sobre baseline).\n- Con briefs sin filtro: 96% (+54pp sobre baseline).\n- Con nanoGPT filter + briefs: ??? (NO MEDIDO AÚN, es el siguiente experimento).\n\nIMPLICACIONES PARA EL PAPER DE SELF-SUPERVISED STACK:\n\n1. El primer modelo del pipeline FUNCIONA con números medibles. Ya no es \"idea post-Mundial\" — hay evidencia empírica HOY.\n\n2. 800K params es ínfimo. Corre en CPU a ~1ms. No necesita GPU, no necesita API, no necesita nada excepto el modelo entrenado.\n\n3. Los training labels vienen de merken should_remember, que es exactamente el patrón self-supervised que articulamos: el sistema genera sus propios labels al operar.\n\n4. La combinación nanoGPT filter + briefs probablemente da el mejor resultado posible, porque:\n   - nanoGPT limpia el store (150 eventos limpios).\n   - Briefs se generan sobre store limpio (clusters SIN noise).\n   - Si el clustering bottleneck que identificamos en el paper se debe a noise en los clusters, un store pre-filtrado podría resolver incluso la consolidation-as-retrieval-document.\n\n5. El pipeline completo del stack self-supervised (nanoGPT classifier → embedder custom → Gemma brief generator) tiene ahora Stage 1 validado empíricamente.\n\nCÓDIGO COMMITTED:\n- merken/classifiers/ — implementación del nanoGPT write filter.\n- experiments/consolidation/test_write_filter.py — benchmark.\n- Branch develop, commit 17dbae0.\n\nCONEXIÓN CON EL PAPER DE MERKEN YA REDACTADO:\nSección 12 (future work) item 5 (\"Self-supervised model specialization\") ya menciona este concepto. Ahora hay números reales que podrían agregarse como nota al pie o como sección extendida si Jay decide ampliar el paper antes de submit.\n\nAlternativamente, nanoGPT filter + merken briefs podrían ser un paper SEPARADO:\n\"Stage 1 of Self-Supervised Agent Memory: An 800K-Parameter Write Filter That Improves Retrieval Accuracy by 18 Percentage Points\"\n\nO integrado en el paper de merken como \"bonus\" sección que muestra que el pipeline self-supervised ya produce valor medible.\n\nOBSERVACIÓN SOBRE EL PROCESO:\nJay estaba en una reunión aburrida. En paralelo, mientras redactábamos el paper de merken en ESTA sesión, entrenó y validó un nanoGPT classifier en OTRA sesión. Ultra-paralelismo real: redacción de paper + entrenamiento de modelo + reunión de trabajo simultáneamente. El resultado es que al final del día tiene paper completo + primer modelo del pipeline validado + snapshots de tres proyectos actualizados.",
+          "score": 0.016033,
+          "chunk": 0
+        }
+      ]
+    }
+  },
+  {
+    "query": "No solo numeros, tecnicas, errores negativos, para no caer en los mismos errores en el futuro",
+    "result": {
+      "briefs": [
+        "## Merken Label Accumulation Bug\n- **What happened:** The `merken-save.sh` hook was failing silently because it was attempting to parse JSONL transcripts as JSON, resulting in no new labels being accumulated.\n- **Impact:** The label accumulation was at zero, preventing the graduation criteria from being met. Shadow mode never executes because the pipeline never generates events.\n- **Resolution:** Propose two PRs: (A) fix the hook to correctly parse JSONL and extract relevant data, and (B) create a script to bootstrap labels from existing transcripts by replaying them and labeling v6 skips with Gemini.\n- **Follow-ups:** Implement PR A (high priority) and PR B. Start with end-to-end pipeline with the 2 real disagreements.",
+        "## Merken Project State (2026-04-17)\n- **Current state:** Codebase is clean with 11 PRs merged, 207 tests passing, and the CLI is complete. Hooks are live in `~/.claude/hooks/`. However, the accumulation of labels is at ZERO across all projects.\n- **Key facts:**\n  - Existing audit rows are limited (~58 rows, already curated).\n  - `merken-save.sh` only triggers on PreCompact, which hasn't occurred in recent sessions.\n- **Next Steps**\n  - Implement backward bootstrap process with `bootstrap_from_transcripts.py` to classify disagreements offline with v6 + Gemini 1B for the ~60+ rows of `should_remember`.\n  - Expand the trigger of the `merken-save.sh` hook to other events (UserPromptSubmit, SessionEnd)",
+        "## H2 Training Decision\n- [v1]: Next training session will use H2 (contrastive loss, same 800K architecture) instead of H8 (2x-3x capacity bump). This is based on the principle that improvements in training signal are more effective than simply increasing model capacity.\n- **Current state:** H2 is the active training path. The acceptance criteria for H2 is achieving a recovery of >=50 of v7's 157 false negatives without increasing the markdown false positive rate above 10%. H8 is deferred until H2 fails."
+      ],
+      "episodic": [
+        {
+          "title": "nanoGPT write filter validación honesta: 100/100 en easy, 90% en novel, 19% en subtle noise — límite identificado",
+          "path": "text://nanoGPT write filter validación honesta: 100/100 en easy, 90% en novel, 19% en subtle noise — límite identificado",
+          "text": "PRÓXIMO PASO PARA MEJORAR:\nEl modelo necesita features adicionales que capturen rol:\n- Position en la secuencia temporal (primero = más probable investigación, último = más probable decisión).\n- Entity tags (qué entidades se mencionan y en qué contexto).\n- Structural cues (formato del texto: bullet points, headers, etc.).\n- Idealmente: embeddings semánticos como features del classifier, no solo n-grams de caracteres.\n\nEso es trabajo para el paper post-Mundial, no para ahora. El modelo actual de 800K params es Stage 1 funcional con límites claros documentados.\n\nSTATUS: resultado real y publicable, con caveats honestos identificados. Guardado con calibración completa.",
+          "score": 0.016549,
+          "chunk": 1
+        },
+        {
+          "title": "solo-2-disagreements-del-audit-20260418-103858282214",
+          "path": "text://solo-2-disagreements-del-audit-20260418-103858282214",
+          "text": "Solo 2 disagreements del audit histórico — el scope es chico porque los audit rows son eventos ya curados por ti. Los disagreements reales están en el **firehose de transcripts** que la hook aún no procesó. Voy a ver si vale expandir allí.",
+          "score": 0.016667,
+          "chunk": 0
+        },
+        {
+          "title": "brief_649aff62d040",
+          "path": "text://brief_649aff62d040",
+          "text": "## Merken Label Accumulation Bug\n- **What happened:** The `merken-save.sh` hook was failing silently because it was attempting to parse JSONL transcripts as JSON, resulting in no new labels being accumulated.\n- **Impact:** The label accumulation was at zero, preventing the graduation criteria from being met. Shadow mode never executes because the pipeline never generates events.\n- **Resolution:** Propose two PRs: (A) fix the hook to correctly parse JSONL and extract relevant data, and (B) create a script to bootstrap labels from existing transcripts by replaying them and labeling v6 skips with Gemini.\n- **Follow-ups:** Implement PR A (high priority) and PR B. Start with end-to-end pipeline with the 2 real disagreements.",
+          "score": 0.016169,
+          "chunk": 0
+        },
+        {
+          "title": "pipeline-cerrado-endtoend-2-labels-20260418-103905421401",
+          "path": "text://pipeline-cerrado-endtoend-2-labels-20260418-103905421401",
+          "text": "## Lo que propongo\n\nDos PRs independientes:\n\n**A. Fix del hook** (15 min, alta prioridad): parsear JSONL correctamente + extraer `message.content[].text` (formato real). Sin esto, ninguna acumulación futura va a funcionar por muchos shadows que tengamos.\n\n**B. `bootstrap_from_transcripts.py`** (1h): replay offline de los 415 transcripts en `~/.claude/projects/`. Extrae assistant messages, corre primary (HeuristicWriteDecider) + v6 en paralelo, labelea los v6-skip con Gemini. Sample chequeado: engram solo tiene ~7600 candidatos, probablemente 200-400 disagreements reales = más que suficiente para criterio #4.\n\n¿Vamos con A + B? A primero para no acumular otro backlog de transcripts sin procesar.",
+          "score": 0.015843,
+          "chunk": 2
+        },
+        {
+          "title": "nanoGPT 800K write filter: 100% precision/recall, +18pp retrieval, primer resultado self-supervised validado",
+          "path": "text://nanoGPT 800K write filter: 100% precision/recall, +18pp retrieval, primer resultado self-supervised validado",
+          "text": "nanoGPT write filter — PRIMER RESULTADO MEDIDO del pipeline self-supervised (2026-04-16, sesión paralela de Jay).\n\nMIENTRAS redactábamos el paper de merken, Jay en sesión paralela con otro Claude entrenó y validó el primer modelo del stack self-supervised.\n\nModelo: nanoGPT ~800K params, clasificador signal vs noise.\nTraining data: labels generados por merken should_remember sobre el scenario de 50 topics / 1100 eventos.\nInference: ~1ms por clasificación en CPU.\n\nRESULTADOS:\n\nClasificación:\n| Métrica         | Valor          |\n|-----------------|----------------|\n| Signal kept     | 150/150 (100%) |\n| Noise filtered  | 950/950 (100%) |\n| False negatives | 0              |\n| False positives | 0              |\n| Store reduction | 86%            |\n\n100% precision, 100% recall en clasificación signal vs noise. Cero false negatives, cero false positives. De 1100 eventos, solo guarda 150 (los que importan).\n\nImpacto en retrieval downstream:\n| Config                    | Events stored | Accuracy    |\n|---------------------------|---------------|-------------|\n| All events (1100)         | 1100          | 42% (21/50) |\n| nanoGPT filtered          | 150           | 60% (30/50) |\n| briefs-only (referencia)  | --            | 96%         |\n\n+18pp accuracy por filtrado de noise ANTES del retrieval. Store 86% más pequeño.\n\nComparación con las otras intervenciones medidas hoy:\n- Sin filtro, sin briefs: 42% (baseline).\n- Con nanoGPT filter: 60% (+18pp sobre baseline).\n- Con briefs sin filtro: 96% (+54pp sobre baseline).\n- Con nanoGPT filter + briefs: ??? (NO MEDIDO AÚN, es el siguiente experimento).\n\nIMPLICACIONES PARA EL PAPER DE SELF-SUPERVISED STACK:\n\n1. El primer modelo del pipeline FUNCIONA con números medibles. Ya no es \"idea post-Mundial\" — hay evidencia empírica HOY.\n\n2. 800K params es ínfimo. Corre en CPU a ~1ms. No necesita GPU, no necesita API, no necesita nada excepto el modelo entrenado.\n\n3. Los training labels vienen de merken should_remember, que es exactamente el patrón self-supervised que articulamos: el sistema genera sus propios labels al operar.\n\n4. La combinación nanoGPT filter + briefs probablemente da el mejor resultado posible, porque:\n   - nanoGPT limpia el store (150 eventos limpios).\n   - Briefs se generan sobre store limpio (clusters SIN noise).\n   - Si el clustering bottleneck que identificamos en el paper se debe a noise en los clusters, un store pre-filtrado podría resolver incluso la consolidation-as-retrieval-document.\n\n5. El pipeline completo del stack self-supervised (nanoGPT classifier → embedder custom → Gemma brief generator) tiene ahora Stage 1 validado empíricamente.\n\nCÓDIGO COMMITTED:\n- merken/classifiers/ — implementación del nanoGPT write filter.\n- experiments/consolidation/test_write_filter.py — benchmark.\n- Branch develop, commit 17dbae0.\n\nCONEXIÓN CON EL PAPER DE MERKEN YA REDACTADO:\nSección 12 (future work) item 5 (\"Self-supervised model specialization\") ya menciona este concepto. Ahora hay números reales que podrían agregarse como nota al pie o como sección extendida si Jay decide ampliar el paper antes de submit.\n\nAlternativamente, nanoGPT filter + merken briefs podrían ser un paper SEPARADO:\n\"Stage 1 of Self-Supervised Agent Memory: An 800K-Parameter Write Filter That Improves Retrieval Accuracy by 18 Percentage Points\"\n\nO integrado en el paper de merken como \"bonus\" sección que muestra que el pipeline self-supervised ya produce valor medible.\n\nOBSERVACIÓN SOBRE EL PROCESO:\nJay estaba en una reunión aburrida. En paralelo, mientras redactábamos el paper de merken en ESTA sesión, entrenó y validó un nanoGPT classifier en OTRA sesión. Ultra-paralelismo real: redacción de paper + entrenamiento de modelo + reunión de trabajo simultáneamente. El resultado es que al final del día tiene paper completo + primer modelo del pipeline validado + snapshots de tres proyectos actualizados.",
+          "score": 0.015706,
+          "chunk": 0
+        }
+      ]
+    }
+  },
+  {
+    "query": "Si esperemos, pero mejor usemos colab para lanzar la siguiente",
+    "result": {
+      "briefs": [
+        "## H2 Training Decision\n- [v1]: Next training session will use H2 (contrastive loss, same 800K architecture) instead of H8 (2x-3x capacity bump). This is based on the principle that improvements in training signal are more effective than simply increasing model capacity.\n- **Current state:** H2 is the active training path. The acceptance criteria for H2 is achieving a recovery of >=50 of v7's 157 false negatives without increasing the markdown false positive rate above 10%. H8 is deferred until H2 fails.",
+        "## Merken Project State (2026-04-17)\n- **Current state:** Codebase is clean with 11 PRs merged, 207 tests passing, and the CLI is complete. Hooks are live in `~/.claude/hooks/`. However, the accumulation of labels is at ZERO across all projects.\n- **Key facts:**\n  - Existing audit rows are limited (~58 rows, already curated).\n  - `merken-save.sh` only triggers on PreCompact, which hasn't occurred in recent sessions.\n- **Next Steps**\n  - Implement backward bootstrap process with `bootstrap_from_transcripts.py` to classify disagreements offline with v6 + Gemini 1B for the ~60+ rows of `should_remember`.\n  - Expand the trigger of the `merken-save.sh` hook to other events (UserPromptSubmit, SessionEnd)",
+        "## Merken Label Accumulation Bug\n- **What happened:** The `merken-save.sh` hook was failing silently because it was attempting to parse JSONL transcripts as JSON, resulting in no new labels being accumulated.\n- **Impact:** The label accumulation was at zero, preventing the graduation criteria from being met. Shadow mode never executes because the pipeline never generates events.\n- **Resolution:** Propose two PRs: (A) fix the hook to correctly parse JSONL and extract relevant data, and (B) create a script to bootstrap labels from existing transcripts by replaying them and labeling v6 skips with Gemini.\n- **Follow-ups:** Implement PR A (high priority) and PR B. Start with end-to-end pipeline with the 2 real disagreements."
+      ],
+      "episodic": [
+        {
+          "title": "nanoGPT write filter validación honesta: 100/100 en easy, 90% en novel, 19% en subtle noise — límite identificado",
+          "path": "text://nanoGPT write filter validación honesta: 100/100 en easy, 90% en novel, 19% en subtle noise — límite identificado",
+          "text": "PRÓXIMO PASO PARA MEJORAR:\nEl modelo necesita features adicionales que capturen rol:\n- Position en la secuencia temporal (primero = más probable investigación, último = más probable decisión).\n- Entity tags (qué entidades se mencionan y en qué contexto).\n- Structural cues (formato del texto: bullet points, headers, etc.).\n- Idealmente: embeddings semánticos como features del classifier, no solo n-grams de caracteres.\n\nEso es trabajo para el paper post-Mundial, no para ahora. El modelo actual de 800K params es Stage 1 funcional con límites claros documentados.\n\nSTATUS: resultado real y publicable, con caveats honestos identificados. Guardado con calibración completa.",
+          "score": 0.016667,
+          "chunk": 1
+        },
+        {
+          "title": "solo-2-disagreements-del-audit-20260418-103858282214",
+          "path": "text://solo-2-disagreements-del-audit-20260418-103858282214",
+          "text": "Solo 2 disagreements del audit histórico — el scope es chico porque los audit rows son eventos ya curados por ti. Los disagreements reales están en el **firehose de transcripts** que la hook aún no procesó. Voy a ver si vale expandir allí.",
+          "score": 0.01642,
+          "chunk": 0
+        },
+        {
+          "title": "nanoGPT 800K write filter: 100% precision/recall, +18pp retrieval, primer resultado self-supervised validado",
+          "path": "text://nanoGPT 800K write filter: 100% precision/recall, +18pp retrieval, primer resultado self-supervised validado",
+          "text": "nanoGPT write filter — PRIMER RESULTADO MEDIDO del pipeline self-supervised (2026-04-16, sesión paralela de Jay).\n\nMIENTRAS redactábamos el paper de merken, Jay en sesión paralela con otro Claude entrenó y validó el primer modelo del stack self-supervised.\n\nModelo: nanoGPT ~800K params, clasificador signal vs noise.\nTraining data: labels generados por merken should_remember sobre el scenario de 50 topics / 1100 eventos.\nInference: ~1ms por clasificación en CPU.\n\nRESULTADOS:\n\nClasificación:\n| Métrica         | Valor          |\n|-----------------|----------------|\n| Signal kept     | 150/150 (100%) |\n| Noise filtered  | 950/950 (100%) |\n| False negatives | 0              |\n| False positives | 0              |\n| Store reduction | 86%            |\n\n100% precision, 100% recall en clasificación signal vs noise. Cero false negatives, cero false positives. De 1100 eventos, solo guarda 150 (los que importan).\n\nImpacto en retrieval downstream:\n| Config                    | Events stored | Accuracy    |\n|---------------------------|---------------|-------------|\n| All events (1100)         | 1100          | 42% (21/50) |\n| nanoGPT filtered          | 150           | 60% (30/50) |\n| briefs-only (referencia)  | --            | 96%         |\n\n+18pp accuracy por filtrado de noise ANTES del retrieval. Store 86% más pequeño.\n\nComparación con las otras intervenciones medidas hoy:\n- Sin filtro, sin briefs: 42% (baseline).\n- Con nanoGPT filter: 60% (+18pp sobre baseline).\n- Con briefs sin filtro: 96% (+54pp sobre baseline).\n- Con nanoGPT filter + briefs: ??? (NO MEDIDO AÚN, es el siguiente experimento).\n\nIMPLICACIONES PARA EL PAPER DE SELF-SUPERVISED STACK:\n\n1. El primer modelo del pipeline FUNCIONA con números medibles. Ya no es \"idea post-Mundial\" — hay evidencia empírica HOY.\n\n2. 800K params es ínfimo. Corre en CPU a ~1ms. No necesita GPU, no necesita API, no necesita nada excepto el modelo entrenado.\n\n3. Los training labels vienen de merken should_remember, que es exactamente el patrón self-supervised que articulamos: el sistema genera sus propios labels al operar.\n\n4. La combinación nanoGPT filter + briefs probablemente da el mejor resultado posible, porque:\n   - nanoGPT limpia el store (150 eventos limpios).\n   - Briefs se generan sobre store limpio (clusters SIN noise).\n   - Si el clustering bottleneck que identificamos en el paper se debe a noise en los clusters, un store pre-filtrado podría resolver incluso la consolidation-as-retrieval-document.\n\n5. El pipeline completo del stack self-supervised (nanoGPT classifier → embedder custom → Gemma brief generator) tiene ahora Stage 1 validado empíricamente.\n\nCÓDIGO COMMITTED:\n- merken/classifiers/ — implementación del nanoGPT write filter.\n- experiments/consolidation/test_write_filter.py — benchmark.\n- Branch develop, commit 17dbae0.\n\nCONEXIÓN CON EL PAPER DE MERKEN YA REDACTADO:\nSección 12 (future work) item 5 (\"Self-supervised model specialization\") ya menciona este concepto. Ahora hay números reales que podrían agregarse como nota al pie o como sección extendida si Jay decide ampliar el paper antes de submit.\n\nAlternativamente, nanoGPT filter + merken briefs podrían ser un paper SEPARADO:\n\"Stage 1 of Self-Supervised Agent Memory: An 800K-Parameter Write Filter That Improves Retrieval Accuracy by 18 Percentage Points\"\n\nO integrado en el paper de merken como \"bonus\" sección que muestra que el pipeline self-supervised ya produce valor medible.\n\nOBSERVACIÓN SOBRE EL PROCESO:\nJay estaba en una reunión aburrida. En paralelo, mientras redactábamos el paper de merken en ESTA sesión, entrenó y validó un nanoGPT classifier en OTRA sesión. Ultra-paralelismo real: redacción de paper + entrenamiento de modelo + reunión de trabajo simultáneamente. El resultado es que al final del día tiene paper completo + primer modelo del pipeline validado + snapshots de tres proyectos actualizados.",
+          "score": 0.015977,
+          "chunk": 0
+        },
+        {
+          "title": "dryrun-en-un-proyecto-chico-20260418-103851120775",
+          "path": "text://dryrun-en-un-proyecto-chico-20260418-103851120775",
+          "text": "Dry-run en un proyecto chico primero para ver cuántos disagreements reales hay.",
+          "score": 0.015759,
+          "chunk": 0
+        },
+        {
+          "title": "antes-de-escalar-a-transcripts-20260418-103901861259",
+          "path": "text://antes-de-escalar-a-transcripts-20260418-103901861259",
+          "text": "Antes de escalar a transcripts (hay ~415 archivos; algo grande), voy a terminar el end-to-end pipeline con los 2 disagreements reales para verificar que el loop cierra.",
+          "score": 0.015681,
+          "chunk": 0
+        }
+      ]
+    }
+  },
+  {
+    "query": "Podemos documentar todo esto en un md son datos valiosos para nuestras futura implementaciones",
+    "result": {
+      "briefs": [
+        "## nanoGPT-as-connector\n- **Identity:** A small, specialized LLM (nanoGPT-class) designed to \"connect the dots\" within the vstash, snapvec, and merken stack.\n- **Key facts:**\n  - The LLM's primary function is to decide which retrieval actions to take, how to combine results, and when to consolidate information.\n  - Could be trained from scratch with a corpus of 10-50M tokens based on real usage logs and decision traces from vstash, snapvec, and merken.\n  - The training signal exists in audit logs, vstash journals, and reproducible benchmarks.\n- **Last update:** The LLM acts as a router/connector, minimizing the use of the larger, more expensive LLM by preprocessing and determining what information to pass along.\n```"
+      ],
+      "episodic": [
+        {
+          "title": "nanoGPT write filter validación honesta: 100/100 en easy, 90% en novel, 19% en subtle noise — límite identificado",
+          "path": "text://nanoGPT write filter validación honesta: 100/100 en easy, 90% en novel, 19% en subtle noise — límite identificado",
+          "text": "PRÓXIMO PASO PARA MEJORAR:\nEl modelo necesita features adicionales que capturen rol:\n- Position en la secuencia temporal (primero = más probable investigación, último = más probable decisión).\n- Entity tags (qué entidades se mencionan y en qué contexto).\n- Structural cues (formato del texto: bullet points, headers, etc.).\n- Idealmente: embeddings semánticos como features del classifier, no solo n-grams de caracteres.\n\nEso es trabajo para el paper post-Mundial, no para ahora. El modelo actual de 800K params es Stage 1 funcional con límites claros documentados.\n\nSTATUS: resultado real y publicable, con caveats honestos identificados. Guardado con calibración completa.",
+          "score": 0.016534,
+          "chunk": 1
+        },
+        {
+          "title": "pipeline-cerrado-endtoend-2-labels-20260418-103905421401",
+          "path": "text://pipeline-cerrado-endtoend-2-labels-20260418-103905421401",
+          "text": "## Lo que propongo\n\nDos PRs independientes:\n\n**A. Fix del hook** (15 min, alta prioridad): parsear JSONL correctamente + extraer `message.content[].text` (formato real). Sin esto, ninguna acumulación futura va a funcionar por muchos shadows que tengamos.\n\n**B. `bootstrap_from_transcripts.py`** (1h): replay offline de los 415 transcripts en `~/.claude/projects/`. Extrae assistant messages, corre primary (HeuristicWriteDecider) + v6 en paralelo, labelea los v6-skip con Gemini. Sample chequeado: engram solo tiene ~7600 candidatos, probablemente 200-400 disagreements reales = más que suficiente para criterio #4.\n\n¿Vamos con A + B? A primero para no acumular otro backlog de transcripts sin procesar.",
+          "score": 0.016667,
+          "chunk": 2
+        },
+        {
+          "title": "brief_725f44a5c22c",
+          "path": "text://brief_725f44a5c22c",
+          "text": "## nanoGPT-as-connector\n- **Identity:** A small, specialized LLM (nanoGPT-class) designed to \"connect the dots\" within the vstash, snapvec, and merken stack.\n- **Key facts:**\n  - The LLM's primary function is to decide which retrieval actions to take, how to combine results, and when to consolidate information.\n  - Could be trained from scratch with a corpus of 10-50M tokens based on real usage logs and decision traces from vstash, snapvec, and merken.\n  - The training signal exists in audit logs, vstash journals, and reproducible benchmarks.\n- **Last update:** The LLM acts as a router/connector, minimizing the use of the larger, more expensive LLM by preprocessing and determining what information to pass along.\n```",
+          "score": 0.008459,
+          "chunk": 0
+        },
+        {
+          "title": "estado-del-proyecto-20260417-postsesin-20260418-103843823099",
+          "path": "text://estado-del-proyecto-20260417-postsesin-20260418-103843823099",
+          "text": "### 2. Cerrar el gap de v6 FPR (criterio #5, 2-3h cuando haya labels)\n- `generate_markdown_noise.py` ya existe y produce 30 samples/corrida en 6 categorías (schedule/status/toc/pricing/log/roster). Listo para v7 el día que tengamos labels reales que complementen los sintéticos.\n-",
+          "score": 0.015577,
+          "chunk": 3
+        },
+        {
+          "title": "nanoGPT 800K write filter: 100% precision/recall, +18pp retrieval, primer resultado self-supervised validado",
+          "path": "text://nanoGPT 800K write filter: 100% precision/recall, +18pp retrieval, primer resultado self-supervised validado",
+          "text": "nanoGPT write filter — PRIMER RESULTADO MEDIDO del pipeline self-supervised (2026-04-16, sesión paralela de Jay).\n\nMIENTRAS redactábamos el paper de merken, Jay en sesión paralela con otro Claude entrenó y validó el primer modelo del stack self-supervised.\n\nModelo: nanoGPT ~800K params, clasificador signal vs noise.\nTraining data: labels generados por merken should_remember sobre el scenario de 50 topics / 1100 eventos.\nInference: ~1ms por clasificación en CPU.\n\nRESULTADOS:\n\nClasificación:\n| Métrica         | Valor          |\n|-----------------|----------------|\n| Signal kept     | 150/150 (100%) |\n| Noise filtered  | 950/950 (100%) |\n| False negatives | 0              |\n| False positives | 0              |\n| Store reduction | 86%            |\n\n100% precision, 100% recall en clasificación signal vs noise. Cero false negatives, cero false positives. De 1100 eventos, solo guarda 150 (los que importan).\n\nImpacto en retrieval downstream:\n| Config                    | Events stored | Accuracy    |\n|---------------------------|---------------|-------------|\n| All events (1100)         | 1100          | 42% (21/50) |\n| nanoGPT filtered          | 150           | 60% (30/50) |\n| briefs-only (referencia)  | --            | 96%         |\n\n+18pp accuracy por filtrado de noise ANTES del retrieval. Store 86% más pequeño.\n\nComparación con las otras intervenciones medidas hoy:\n- Sin filtro, sin briefs: 42% (baseline).\n- Con nanoGPT filter: 60% (+18pp sobre baseline).\n- Con briefs sin filtro: 96% (+54pp sobre baseline).\n- Con nanoGPT filter + briefs: ??? (NO MEDIDO AÚN, es el siguiente experimento).\n\nIMPLICACIONES PARA EL PAPER DE SELF-SUPERVISED STACK:\n\n1. El primer modelo del pipeline FUNCIONA con números medibles. Ya no es \"idea post-Mundial\" — hay evidencia empírica HOY.\n\n2. 800K params es ínfimo. Corre en CPU a ~1ms. No necesita GPU, no necesita API, no necesita nada excepto el modelo entrenado.\n\n3. Los training labels vienen de merken should_remember, que es exactamente el patrón self-supervised que articulamos: el sistema genera sus propios labels al operar.\n\n4. La combinación nanoGPT filter + briefs probablemente da el mejor resultado posible, porque:\n   - nanoGPT limpia el store (150 eventos limpios).\n   - Briefs se generan sobre store limpio (clusters SIN noise).\n   - Si el clustering bottleneck que identificamos en el paper se debe a noise en los clusters, un store pre-filtrado podría resolver incluso la consolidation-as-retrieval-document.\n\n5. El pipeline completo del stack self-supervised (nanoGPT classifier → embedder custom → Gemma brief generator) tiene ahora Stage 1 validado empíricamente.\n\nCÓDIGO COMMITTED:\n- merken/classifiers/ — implementación del nanoGPT write filter.\n- experiments/consolidation/test_write_filter.py — benchmark.\n- Branch develop, commit 17dbae0.\n\nCONEXIÓN CON EL PAPER DE MERKEN YA REDACTADO:\nSección 12 (future work) item 5 (\"Self-supervised model specialization\") ya menciona este concepto. Ahora hay números reales que podrían agregarse como nota al pie o como sección extendida si Jay decide ampliar el paper antes de submit.\n\nAlternativamente, nanoGPT filter + merken briefs podrían ser un paper SEPARADO:\n\"Stage 1 of Self-Supervised Agent Memory: An 800K-Parameter Write Filter That Improves Retrieval Accuracy by 18 Percentage Points\"\n\nO integrado en el paper de merken como \"bonus\" sección que muestra que el pipeline self-supervised ya produce valor medible.\n\nOBSERVACIÓN SOBRE EL PROCESO:\nJay estaba en una reunión aburrida. En paralelo, mientras redactábamos el paper de merken en ESTA sesión, entrenó y validó un nanoGPT classifier en OTRA sesión. Ultra-paralelismo real: redacción de paper + entrenamiento de modelo + reunión de trabajo simultáneamente. El resultado es que al final del día tiene paper completo + primer modelo del pipeline validado + snapshots de tres proyectos actualizados.",
+          "score": 0.007806,
+          "chunk": 0
+        }
+      ]
+    }
+  },
+  {
+    "query": "Si, exploremoslo y podemos docuemntar los hallazgos",
+    "result": {
+      "briefs": [
+        "## nanoGPT-as-connector\n- **Identity:** A small, specialized LLM (nanoGPT-class) designed to \"connect the dots\" within the vstash, snapvec, and merken stack.\n- **Key facts:**\n  - The LLM's primary function is to decide which retrieval actions to take, how to combine results, and when to consolidate information.\n  - Could be trained from scratch with a corpus of 10-50M tokens based on real usage logs and decision traces from vstash, snapvec, and merken.\n  - The training signal exists in audit logs, vstash journals, and reproducible benchmarks.\n- **Last update:** The LLM acts as a router/connector, minimizing the use of the larger, more expensive LLM by preprocessing and determining what information to pass along.\n```",
+        "## LoCoMo E2E v7 Performance\n- **What happened:** Experiments H16 and H17 showed that v7, when used as a write filter at session granularity (H16) or a turn granularity (H17), hurts temporal retrieval performance in the LoCoMo E2E pipeline compared to raw data.\n- **Impact:** v7 is unsuitable as a retrieval filter at any granularity and as a write filter at session granularity. Unit mismatch direction: v7 trained on LARGER units than dialogue turns.\n- **Resolution:** Rejection of v7 as a write or retrieval filter in the LoCoMo E2E pipeline.\n- **Follow-ups:** None specified.",
+        "## H2 Training Decision\n- [v1]: Next training session will use H2 (contrastive loss, same 800K architecture) instead of H8 (2x-3x capacity bump). This is based on the principle that improvements in training signal are more effective than simply increasing model capacity.\n- **Current state:** H2 is the active training path. The acceptance criteria for H2 is achieving a recovery of >=50 of v7's 157 false negatives without increasing the markdown false positive rate above 10%. H8 is deferred until H2 fails."
+      ],
+      "episodic": [
+        {
+          "title": "nanoGPT write filter validación honesta: 100/100 en easy, 90% en novel, 19% en subtle noise — límite identificado",
+          "path": "text://nanoGPT write filter validación honesta: 100/100 en easy, 90% en novel, 19% en subtle noise — límite identificado",
+          "text": "nanoGPT write filter — VALIDACIÓN HONESTA de las tres preguntas (2026-04-16).\n\nResultado original: 100% precision, 100% recall, 86% store reduction, +18pp retrieval.\n\nValidación con tres preguntas de robustez:\n\nQ1: Train/test separados?\n- Textos: SÍ, 0 overlap, split limpio.\n- Topics: NO. Todos los val topics aparecen en train. No hay topic holdout. El 100/100 del val set es sobre topics conocidos. Esto es la razón del 100% — el modelo no fue testeado en topics no vistos durante training.\n\nQ2: Generaliza a topics nuevos?\n- Decisions nuevas: 10/10 (100%). El modelo aprendió el patrón léxico \"Replaced/Migrated/Switched X with Y\" a nivel de caracteres. Generaliza perfectamente a decisiones con formato similar.\n- Noise nueva: 9/10 (90%). Un fallo: \"Weekly sync: discussed migration timeline\" clasificado como DECISION porque \"migration\" es un trigger fuerte para el modelo. El modelo aprendió features léxicas, no semánticas.\n\nQ3: Sobrevive noise sutil?\n- 3/16 (19%). SE DERRUMBA.\n- Fallos específicos identificados:\n  * \"Redis memory spiked to 4GB\" → clasificado como DECISION (noise con vocabulario técnico).\n  * \"Reviewed the migration PR\" → clasificado como DECISION (noise que referencia decisión).\n  * \"ClickHouse query timeout\" → clasificado como DECISION (incidencia, no decisión).\n- Diagnóstico: el modelo aprendió \"si menciona una tecnología con detalle técnico, es DECISION\". Eso es heurística léxica, no comprensión de rol semántico.\n\nINTERPRETACIÓN CALIBRADA:\n\nLo que el modelo SÍ hace bien:\n- Filtrar noise OBVIO: tickets, reuniones, comentarios generales sin mención técnica.\n- Identificar decisiones EXPLÍCITAS: texto con patrón claro de \"changed X to Y\", \"switched from A to B\".\n- Reducir store masivamente (86%) con zero false negatives en el régimen fácil.\n\nLo que el modelo NO hace:\n- Distinguir rol semántico (decision vs investigation vs incident) cuando comparten vocabulario técnico.\n- Esto es EXACTAMENTE el mismo límite que identificamos en embedding-based clustering en la sección 7 del paper de merken. El nanoGPT de 800K params hereda el mismo bottleneck: features léxicas no capturan rol.\n\nIMPLICACIONES PARA EL PAPER DE SELF-SUPERVISED STACK:\n\n1. El resultado original (+18pp, 86% reduction) sigue siendo VÁLIDO para noise no-sutil. Ese es el caso de uso real más frecuente en agent memory (la mayoría del noise es obviamente irrelevante).\n\n2. El 19% en noise sutil es el failure mode que define la research question del paper: ¿puede un modelo de 800K params aprender a distinguir rol semántico, o necesita más capacidad (Gemma 2B), más features (entity tags, temporal position), o un mecanismo distinto (graph-based)?\n\n3. Los números publicables honestos son:\n   - Easy noise: 100% precision, 100% recall.\n   - Novel topics: 100% precision decisions, 90% precision noise.\n   - Subtle noise: 19% — falla.\n   - Los tres deben reportarse juntos. Reportar solo el primero es dishonesto.\n\n4. El +18pp en retrieval probablemente refleja el régimen \"easy noise\" (la mayoría de los 950 noise events son obviamente irrelevantes). En un corpus donde la mayoría del noise es sutil, el modelo no ayudaría tanto.\n\nCONEXIÓN CON EL HALLAZGO DEL CLUSTERING BOTTLENECK:\nEl nanoGPT write filter hereda el mismo límite fundamental: features léxicas/superficiales no distinguen rol semántico cuando el vocabulario es compartido. Eso es coherente con la tesis del paper de merken — el problema es estructural al nivel de representación, no al nivel de mecanismo.",
+          "score": 0.01606,
+          "chunk": 0
+        },
+        {
+          "title": "solo-2-disagreements-del-audit-20260418-103858282214",
+          "path": "text://solo-2-disagreements-del-audit-20260418-103858282214",
+          "text": "Solo 2 disagreements del audit histórico — el scope es chico porque los audit rows son eventos ya curados por ti. Los disagreements reales están en el **firehose de transcripts** que la hook aún no procesó. Voy a ver si vale expandir allí.",
+          "score": 0.016393,
+          "chunk": 0
+        },
+        {
+          "title": "nanoGPT 800K write filter: 100% precision/recall, +18pp retrieval, primer resultado self-supervised validado",
+          "path": "text://nanoGPT 800K write filter: 100% precision/recall, +18pp retrieval, primer resultado self-supervised validado",
+          "text": "nanoGPT write filter — PRIMER RESULTADO MEDIDO del pipeline self-supervised (2026-04-16, sesión paralela de Jay).\n\nMIENTRAS redactábamos el paper de merken, Jay en sesión paralela con otro Claude entrenó y validó el primer modelo del stack self-supervised.\n\nModelo: nanoGPT ~800K params, clasificador signal vs noise.\nTraining data: labels generados por merken should_remember sobre el scenario de 50 topics / 1100 eventos.\nInference: ~1ms por clasificación en CPU.\n\nRESULTADOS:\n\nClasificación:\n| Métrica         | Valor          |\n|-----------------|----------------|\n| Signal kept     | 150/150 (100%) |\n| Noise filtered  | 950/950 (100%) |\n| False negatives | 0              |\n| False positives | 0              |\n| Store reduction | 86%            |\n\n100% precision, 100% recall en clasificación signal vs noise. Cero false negatives, cero false positives. De 1100 eventos, solo guarda 150 (los que importan).\n\nImpacto en retrieval downstream:\n| Config                    | Events stored | Accuracy    |\n|---------------------------|---------------|-------------|\n| All events (1100)         | 1100          | 42% (21/50) |\n| nanoGPT filtered          | 150           | 60% (30/50) |\n| briefs-only (referencia)  | --            | 96%         |\n\n+18pp accuracy por filtrado de noise ANTES del retrieval. Store 86% más pequeño.\n\nComparación con las otras intervenciones medidas hoy:\n- Sin filtro, sin briefs: 42% (baseline).\n- Con nanoGPT filter: 60% (+18pp sobre baseline).\n- Con briefs sin filtro: 96% (+54pp sobre baseline).\n- Con nanoGPT filter + briefs: ??? (NO MEDIDO AÚN, es el siguiente experimento).\n\nIMPLICACIONES PARA EL PAPER DE SELF-SUPERVISED STACK:\n\n1. El primer modelo del pipeline FUNCIONA con números medibles. Ya no es \"idea post-Mundial\" — hay evidencia empírica HOY.\n\n2. 800K params es ínfimo. Corre en CPU a ~1ms. No necesita GPU, no necesita API, no necesita nada excepto el modelo entrenado.\n\n3. Los training labels vienen de merken should_remember, que es exactamente el patrón self-supervised que articulamos: el sistema genera sus propios labels al operar.\n\n4. La combinación nanoGPT filter + briefs probablemente da el mejor resultado posible, porque:\n   - nanoGPT limpia el store (150 eventos limpios).\n   - Briefs se generan sobre store limpio (clusters SIN noise).\n   - Si el clustering bottleneck que identificamos en el paper se debe a noise en los clusters, un store pre-filtrado podría resolver incluso la consolidation-as-retrieval-document.\n\n5. El pipeline completo del stack self-supervised (nanoGPT classifier → embedder custom → Gemma brief generator) tiene ahora Stage 1 validado empíricamente.\n\nCÓDIGO COMMITTED:\n- merken/classifiers/ — implementación del nanoGPT write filter.\n- experiments/consolidation/test_write_filter.py — benchmark.\n- Branch develop, commit 17dbae0.\n\nCONEXIÓN CON EL PAPER DE MERKEN YA REDACTADO:\nSección 12 (future work) item 5 (\"Self-supervised model specialization\") ya menciona este concepto. Ahora hay números reales que podrían agregarse como nota al pie o como sección extendida si Jay decide ampliar el paper antes de submit.\n\nAlternativamente, nanoGPT filter + merken briefs podrían ser un paper SEPARADO:\n\"Stage 1 of Self-Supervised Agent Memory: An 800K-Parameter Write Filter That Improves Retrieval Accuracy by 18 Percentage Points\"\n\nO integrado en el paper de merken como \"bonus\" sección que muestra que el pipeline self-supervised ya produce valor medible.\n\nOBSERVACIÓN SOBRE EL PROCESO:\nJay estaba en una reunión aburrida. En paralelo, mientras redactábamos el paper de merken en ESTA sesión, entrenó y validó un nanoGPT classifier en OTRA sesión. Ultra-paralelismo real: redacción de paper + entrenamiento de modelo + reunión de trabajo simultáneamente. El resultado es que al final del día tiene paper completo + primer modelo del pipeline validado + snapshots de tres proyectos actualizados.",
+          "score": 0.015806,
+          "chunk": 0
+        },
+        {
+          "title": "antes-de-escalar-a-transcripts-20260418-103901861259",
+          "path": "text://antes-de-escalar-a-transcripts-20260418-103901861259",
+          "text": "Antes de escalar a transcripts (hay ~415 archivos; algo grande), voy a terminar el end-to-end pipeline con los 2 disagreements reales para verificar que el loop cierra.",
+          "score": 0.015818,
+          "chunk": 0
+        },
+        {
+          "title": "brief_725f44a5c22c",
+          "path": "text://brief_725f44a5c22c",
+          "text": "## nanoGPT-as-connector\n- **Identity:** A small, specialized LLM (nanoGPT-class) designed to \"connect the dots\" within the vstash, snapvec, and merken stack.\n- **Key facts:**\n  - The LLM's primary function is to decide which retrieval actions to take, how to combine results, and when to consolidate information.\n  - Could be trained from scratch with a corpus of 10-50M tokens based on real usage logs and decision traces from vstash, snapvec, and merken.\n  - The training signal exists in audit logs, vstash journals, and reproducible benchmarks.\n- **Last update:** The LLM acts as a router/connector, minimizing the use of the larger, more expensive LLM by preprocessing and determining what information to pass along.\n```",
+          "score": 0.009541,
+          "chunk": 0
+        }
+      ]
+    }
+  },
+  {
+    "query": "Explicame que creo ue me perdi, que seguiria?",
+    "result": {
+      "briefs": [
+        "## H2 Training Decision\n- [v1]: Next training session will use H2 (contrastive loss, same 800K architecture) instead of H8 (2x-3x capacity bump). This is based on the principle that improvements in training signal are more effective than simply increasing model capacity.\n- **Current state:** H2 is the active training path. The acceptance criteria for H2 is achieving a recovery of >=50 of v7's 157 false negatives without increasing the markdown false positive rate above 10%. H8 is deferred until H2 fails.",
+        "## LoCoMo E2E v7 Performance\n- **What happened:** Experiments H16 and H17 showed that v7, when used as a write filter at session granularity (H16) or a turn granularity (H17), hurts temporal retrieval performance in the LoCoMo E2E pipeline compared to raw data.\n- **Impact:** v7 is unsuitable as a retrieval filter at any granularity and as a write filter at session granularity. Unit mismatch direction: v7 trained on LARGER units than dialogue turns.\n- **Resolution:** Rejection of v7 as a write or retrieval filter in the LoCoMo E2E pipeline.\n- **Follow-ups:** None specified.",
+        "## Merken Label Accumulation Bug\n- **What happened:** The `merken-save.sh` hook was failing silently because it was attempting to parse JSONL transcripts as JSON, resulting in no new labels being accumulated.\n- **Impact:** The label accumulation was at zero, preventing the graduation criteria from being met. Shadow mode never executes because the pipeline never generates events.\n- **Resolution:** Propose two PRs: (A) fix the hook to correctly parse JSONL and extract relevant data, and (B) create a script to bootstrap labels from existing transcripts by replaying them and labeling v6 skips with Gemini.\n- **Follow-ups:** Implement PR A (high priority) and PR B. Start with end-to-end pipeline with the 2 real disagreements."
+      ],
+      "episodic": [
+        {
+          "title": "nanoGPT write filter validación honesta: 100/100 en easy, 90% en novel, 19% en subtle noise — límite identificado",
+          "path": "text://nanoGPT write filter validación honesta: 100/100 en easy, 90% en novel, 19% en subtle noise — límite identificado",
+          "text": "nanoGPT write filter — VALIDACIÓN HONESTA de las tres preguntas (2026-04-16).\n\nResultado original: 100% precision, 100% recall, 86% store reduction, +18pp retrieval.\n\nValidación con tres preguntas de robustez:\n\nQ1: Train/test separados?\n- Textos: SÍ, 0 overlap, split limpio.\n- Topics: NO. Todos los val topics aparecen en train. No hay topic holdout. El 100/100 del val set es sobre topics conocidos. Esto es la razón del 100% — el modelo no fue testeado en topics no vistos durante training.\n\nQ2: Generaliza a topics nuevos?\n- Decisions nuevas: 10/10 (100%). El modelo aprendió el patrón léxico \"Replaced/Migrated/Switched X with Y\" a nivel de caracteres. Generaliza perfectamente a decisiones con formato similar.\n- Noise nueva: 9/10 (90%). Un fallo: \"Weekly sync: discussed migration timeline\" clasificado como DECISION porque \"migration\" es un trigger fuerte para el modelo. El modelo aprendió features léxicas, no semánticas.\n\nQ3: Sobrevive noise sutil?\n- 3/16 (19%). SE DERRUMBA.\n- Fallos específicos identificados:\n  * \"Redis memory spiked to 4GB\" → clasificado como DECISION (noise con vocabulario técnico).\n  * \"Reviewed the migration PR\" → clasificado como DECISION (noise que referencia decisión).\n  * \"ClickHouse query timeout\" → clasificado como DECISION (incidencia, no decisión).\n- Diagnóstico: el modelo aprendió \"si menciona una tecnología con detalle técnico, es DECISION\". Eso es heurística léxica, no comprensión de rol semántico.\n\nINTERPRETACIÓN CALIBRADA:\n\nLo que el modelo SÍ hace bien:\n- Filtrar noise OBVIO: tickets, reuniones, comentarios generales sin mención técnica.\n- Identificar decisiones EXPLÍCITAS: texto con patrón claro de \"changed X to Y\", \"switched from A to B\".\n- Reducir store masivamente (86%) con zero false negatives en el régimen fácil.\n\nLo que el modelo NO hace:\n- Distinguir rol semántico (decision vs investigation vs incident) cuando comparten vocabulario técnico.\n- Esto es EXACTAMENTE el mismo límite que identificamos en embedding-based clustering en la sección 7 del paper de merken. El nanoGPT de 800K params hereda el mismo bottleneck: features léxicas no capturan rol.\n\nIMPLICACIONES PARA EL PAPER DE SELF-SUPERVISED STACK:\n\n1. El resultado original (+18pp, 86% reduction) sigue siendo VÁLIDO para noise no-sutil. Ese es el caso de uso real más frecuente en agent memory (la mayoría del noise es obviamente irrelevante).\n\n2. El 19% en noise sutil es el failure mode que define la research question del paper: ¿puede un modelo de 800K params aprender a distinguir rol semántico, o necesita más capacidad (Gemma 2B), más features (entity tags, temporal position), o un mecanismo distinto (graph-based)?\n\n3. Los números publicables honestos son:\n   - Easy noise: 100% precision, 100% recall.\n   - Novel topics: 100% precision decisions, 90% precision noise.\n   - Subtle noise: 19% — falla.\n   - Los tres deben reportarse juntos. Reportar solo el primero es dishonesto.\n\n4. El +18pp en retrieval probablemente refleja el régimen \"easy noise\" (la mayoría de los 950 noise events son obviamente irrelevantes). En un corpus donde la mayoría del noise es sutil, el modelo no ayudaría tanto.\n\nCONEXIÓN CON EL HALLAZGO DEL CLUSTERING BOTTLENECK:\nEl nanoGPT write filter hereda el mismo límite fundamental: features léxicas/superficiales no distinguen rol semántico cuando el vocabulario es compartido. Eso es coherente con la tesis del paper de merken — el problema es estructural al nivel de representación, no al nivel de mecanismo.",
+          "score": 0.016393,
+          "chunk": 0
+        },
+        {
+          "title": "hay-58-shouldremember-rows-reales-20260418-103854722077",
+          "path": "text://hay-58-shouldremember-rows-reales-20260418-103854722077",
+          "text": "Hay ~58 `should_remember` rows reales en total (menos de lo que pensaba). Antes de expandir scope, corro el dry-run completo y luego etiqueto los disagreements.",
+          "score": 0.016283,
+          "chunk": 0
+        },
+        {
+          "title": "nanoGPT 800K write filter: 100% precision/recall, +18pp retrieval, primer resultado self-supervised validado",
+          "path": "text://nanoGPT 800K write filter: 100% precision/recall, +18pp retrieval, primer resultado self-supervised validado",
+          "text": "nanoGPT write filter — PRIMER RESULTADO MEDIDO del pipeline self-supervised (2026-04-16, sesión paralela de Jay).\n\nMIENTRAS redactábamos el paper de merken, Jay en sesión paralela con otro Claude entrenó y validó el primer modelo del stack self-supervised.\n\nModelo: nanoGPT ~800K params, clasificador signal vs noise.\nTraining data: labels generados por merken should_remember sobre el scenario de 50 topics / 1100 eventos.\nInference: ~1ms por clasificación en CPU.\n\nRESULTADOS:\n\nClasificación:\n| Métrica         | Valor          |\n|-----------------|----------------|\n| Signal kept     | 150/150 (100%) |\n| Noise filtered  | 950/950 (100%) |\n| False negatives | 0              |\n| False positives | 0              |\n| Store reduction | 86%            |\n\n100% precision, 100% recall en clasificación signal vs noise. Cero false negatives, cero false positives. De 1100 eventos, solo guarda 150 (los que importan).\n\nImpacto en retrieval downstream:\n| Config                    | Events stored | Accuracy    |\n|---------------------------|---------------|-------------|\n| All events (1100)         | 1100          | 42% (21/50) |\n| nanoGPT filtered          | 150           | 60% (30/50) |\n| briefs-only (referencia)  | --            | 96%         |\n\n+18pp accuracy por filtrado de noise ANTES del retrieval. Store 86% más pequeño.\n\nComparación con las otras intervenciones medidas hoy:\n- Sin filtro, sin briefs: 42% (baseline).\n- Con nanoGPT filter: 60% (+18pp sobre baseline).\n- Con briefs sin filtro: 96% (+54pp sobre baseline).\n- Con nanoGPT filter + briefs: ??? (NO MEDIDO AÚN, es el siguiente experimento).\n\nIMPLICACIONES PARA EL PAPER DE SELF-SUPERVISED STACK:\n\n1. El primer modelo del pipeline FUNCIONA con números medibles. Ya no es \"idea post-Mundial\" — hay evidencia empírica HOY.\n\n2. 800K params es ínfimo. Corre en CPU a ~1ms. No necesita GPU, no necesita API, no necesita nada excepto el modelo entrenado.\n\n3. Los training labels vienen de merken should_remember, que es exactamente el patrón self-supervised que articulamos: el sistema genera sus propios labels al operar.\n\n4. La combinación nanoGPT filter + briefs probablemente da el mejor resultado posible, porque:\n   - nanoGPT limpia el store (150 eventos limpios).\n   - Briefs se generan sobre store limpio (clusters SIN noise).\n   - Si el clustering bottleneck que identificamos en el paper se debe a noise en los clusters, un store pre-filtrado podría resolver incluso la consolidation-as-retrieval-document.\n\n5. El pipeline completo del stack self-supervised (nanoGPT classifier → embedder custom → Gemma brief generator) tiene ahora Stage 1 validado empíricamente.\n\nCÓDIGO COMMITTED:\n- merken/classifiers/ — implementación del nanoGPT write filter.\n- experiments/consolidation/test_write_filter.py — benchmark.\n- Branch develop, commit 17dbae0.\n\nCONEXIÓN CON EL PAPER DE MERKEN YA REDACTADO:\nSección 12 (future work) item 5 (\"Self-supervised model specialization\") ya menciona este concepto. Ahora hay números reales que podrían agregarse como nota al pie o como sección extendida si Jay decide ampliar el paper antes de submit.\n\nAlternativamente, nanoGPT filter + merken briefs podrían ser un paper SEPARADO:\n\"Stage 1 of Self-Supervised Agent Memory: An 800K-Parameter Write Filter That Improves Retrieval Accuracy by 18 Percentage Points\"\n\nO integrado en el paper de merken como \"bonus\" sección que muestra que el pipeline self-supervised ya produce valor medible.\n\nOBSERVACIÓN SOBRE EL PROCESO:\nJay estaba en una reunión aburrida. En paralelo, mientras redactábamos el paper de merken en ESTA sesión, entrenó y validó un nanoGPT classifier en OTRA sesión. Ultra-paralelismo real: redacción de paper + entrenamiento de modelo + reunión de trabajo simultáneamente. El resultado es que al final del día tiene paper completo + primer modelo del pipeline validado + snapshots de tres proyectos actualizados.",
+          "score": 0.016129,
+          "chunk": 0
+        },
+        {
+          "title": "voy-a-escribir-el-script-20260418-103847508914",
+          "path": "text://voy-a-escribir-el-script-20260418-103847508914",
+          "text": "Voy a escribir el script de bootstrap. Primero verifico que v6 carga correctamente.",
+          "score": 0.016129,
+          "chunk": 0
+        },
+        {
+          "title": "antes-de-escalar-a-transcripts-20260418-103901861259",
+          "path": "text://antes-de-escalar-a-transcripts-20260418-103901861259",
+          "text": "Antes de escalar a transcripts (hay ~415 archivos; algo grande), voy a terminar el end-to-end pipeline con los 2 disagreements reales para verificar que el loop cierra.",
+          "score": 0.015753,
+          "chunk": 0
+        }
+      ]
+    }
+  },
+  {
+    "query": "Si concuerdo, continuemos con tu sugerencia",
+    "result": {
+      "briefs": [
+        "## H2 Training Decision\n- [v1]: Next training session will use H2 (contrastive loss, same 800K architecture) instead of H8 (2x-3x capacity bump). This is based on the principle that improvements in training signal are more effective than simply increasing model capacity.\n- **Current state:** H2 is the active training path. The acceptance criteria for H2 is achieving a recovery of >=50 of v7's 157 false negatives without increasing the markdown false positive rate above 10%. H8 is deferred until H2 fails.",
+        "## nanoGPT-as-connector\n- **Identity:** A small, specialized LLM (nanoGPT-class) designed to \"connect the dots\" within the vstash, snapvec, and merken stack.\n- **Key facts:**\n  - The LLM's primary function is to decide which retrieval actions to take, how to combine results, and when to consolidate information.\n  - Could be trained from scratch with a corpus of 10-50M tokens based on real usage logs and decision traces from vstash, snapvec, and merken.\n  - The training signal exists in audit logs, vstash journals, and reproducible benchmarks.\n- **Last update:** The LLM acts as a router/connector, minimizing the use of the larger, more expensive LLM by preprocessing and determining what information to pass along.\n```",
+        "## Merken Label Accumulation Bug\n- **What happened:** The `merken-save.sh` hook was failing silently because it was attempting to parse JSONL transcripts as JSON, resulting in no new labels being accumulated.\n- **Impact:** The label accumulation was at zero, preventing the graduation criteria from being met. Shadow mode never executes because the pipeline never generates events.\n- **Resolution:** Propose two PRs: (A) fix the hook to correctly parse JSONL and extract relevant data, and (B) create a script to bootstrap labels from existing transcripts by replaying them and labeling v6 skips with Gemini.\n- **Follow-ups:** Implement PR A (high priority) and PR B. Start with end-to-end pipeline with the 2 real disagreements."
+      ],
+      "episodic": [
+        {
+          "title": "nanoGPT write filter validación honesta: 100/100 en easy, 90% en novel, 19% en subtle noise — límite identificado",
+          "path": "text://nanoGPT write filter validación honesta: 100/100 en easy, 90% en novel, 19% en subtle noise — límite identificado",
+          "text": "PRÓXIMO PASO PARA MEJORAR:\nEl modelo necesita features adicionales que capturen rol:\n- Position en la secuencia temporal (primero = más probable investigación, último = más probable decisión).\n- Entity tags (qué entidades se mencionan y en qué contexto).\n- Structural cues (formato del texto: bullet points, headers, etc.).\n- Idealmente: embeddings semánticos como features del classifier, no solo n-grams de caracteres.\n\nEso es trabajo para el paper post-Mundial, no para ahora. El modelo actual de 800K params es Stage 1 funcional con límites claros documentados.\n\nSTATUS: resultado real y publicable, con caveats honestos identificados. Guardado con calibración completa.",
+          "score": 0.016547,
+          "chunk": 1
+        },
+        {
+          "title": "solo-2-disagreements-del-audit-20260418-103858282214",
+          "path": "text://solo-2-disagreements-del-audit-20260418-103858282214",
+          "text": "Solo 2 disagreements del audit histórico — el scope es chico porque los audit rows son eventos ya curados por ti. Los disagreements reales están en el **firehose de transcripts** que la hook aún no procesó. Voy a ver si vale expandir allí.",
+          "score": 0.016017,
+          "chunk": 0
+        },
+        {
+          "title": "nanoGPT 800K write filter: 100% precision/recall, +18pp retrieval, primer resultado self-supervised validado",
+          "path": "text://nanoGPT 800K write filter: 100% precision/recall, +18pp retrieval, primer resultado self-supervised validado",
+          "text": "nanoGPT write filter — PRIMER RESULTADO MEDIDO del pipeline self-supervised (2026-04-16, sesión paralela de Jay).\n\nMIENTRAS redactábamos el paper de merken, Jay en sesión paralela con otro Claude entrenó y validó el primer modelo del stack self-supervised.\n\nModelo: nanoGPT ~800K params, clasificador signal vs noise.\nTraining data: labels generados por merken should_remember sobre el scenario de 50 topics / 1100 eventos.\nInference: ~1ms por clasificación en CPU.\n\nRESULTADOS:\n\nClasificación:\n| Métrica         | Valor          |\n|-----------------|----------------|\n| Signal kept     | 150/150 (100%) |\n| Noise filtered  | 950/950 (100%) |\n| False negatives | 0              |\n| False positives | 0              |\n| Store reduction | 86%            |\n\n100% precision, 100% recall en clasificación signal vs noise. Cero false negatives, cero false positives. De 1100 eventos, solo guarda 150 (los que importan).\n\nImpacto en retrieval downstream:\n| Config                    | Events stored | Accuracy    |\n|---------------------------|---------------|-------------|\n| All events (1100)         | 1100          | 42% (21/50) |\n| nanoGPT filtered          | 150           | 60% (30/50) |\n| briefs-only (referencia)  | --            | 96%         |\n\n+18pp accuracy por filtrado de noise ANTES del retrieval. Store 86% más pequeño.\n\nComparación con las otras intervenciones medidas hoy:\n- Sin filtro, sin briefs: 42% (baseline).\n- Con nanoGPT filter: 60% (+18pp sobre baseline).\n- Con briefs sin filtro: 96% (+54pp sobre baseline).\n- Con nanoGPT filter + briefs: ??? (NO MEDIDO AÚN, es el siguiente experimento).\n\nIMPLICACIONES PARA EL PAPER DE SELF-SUPERVISED STACK:\n\n1. El primer modelo del pipeline FUNCIONA con números medibles. Ya no es \"idea post-Mundial\" — hay evidencia empírica HOY.\n\n2. 800K params es ínfimo. Corre en CPU a ~1ms. No necesita GPU, no necesita API, no necesita nada excepto el modelo entrenado.\n\n3. Los training labels vienen de merken should_remember, que es exactamente el patrón self-supervised que articulamos: el sistema genera sus propios labels al operar.\n\n4. La combinación nanoGPT filter + briefs probablemente da el mejor resultado posible, porque:\n   - nanoGPT limpia el store (150 eventos limpios).\n   - Briefs se generan sobre store limpio (clusters SIN noise).\n   - Si el clustering bottleneck que identificamos en el paper se debe a noise en los clusters, un store pre-filtrado podría resolver incluso la consolidation-as-retrieval-document.\n\n5. El pipeline completo del stack self-supervised (nanoGPT classifier → embedder custom → Gemma brief generator) tiene ahora Stage 1 validado empíricamente.\n\nCÓDIGO COMMITTED:\n- merken/classifiers/ — implementación del nanoGPT write filter.\n- experiments/consolidation/test_write_filter.py — benchmark.\n- Branch develop, commit 17dbae0.\n\nCONEXIÓN CON EL PAPER DE MERKEN YA REDACTADO:\nSección 12 (future work) item 5 (\"Self-supervised model specialization\") ya menciona este concepto. Ahora hay números reales que podrían agregarse como nota al pie o como sección extendida si Jay decide ampliar el paper antes de submit.\n\nAlternativamente, nanoGPT filter + merken briefs podrían ser un paper SEPARADO:\n\"Stage 1 of Self-Supervised Agent Memory: An 800K-Parameter Write Filter That Improves Retrieval Accuracy by 18 Percentage Points\"\n\nO integrado en el paper de merken como \"bonus\" sección que muestra que el pipeline self-supervised ya produce valor medible.\n\nOBSERVACIÓN SOBRE EL PROCESO:\nJay estaba en una reunión aburrida. En paralelo, mientras redactábamos el paper de merken en ESTA sesión, entrenó y validó un nanoGPT classifier en OTRA sesión. Ultra-paralelismo real: redacción de paper + entrenamiento de modelo + reunión de trabajo simultáneamente. El resultado es que al final del día tiene paper completo + primer modelo del pipeline validado + snapshots de tres proyectos actualizados.",
+          "score": 0.016221,
+          "chunk": 0
+        },
+        {
+          "title": "antes-de-escalar-a-transcripts-20260418-103901861259",
+          "path": "text://antes-de-escalar-a-transcripts-20260418-103901861259",
+          "text": "Antes de escalar a transcripts (hay ~415 archivos; algo grande), voy a terminar el end-to-end pipeline con los 2 disagreements reales para verificar que el loop cierra.",
+          "score": 0.015962,
+          "chunk": 0
+        },
+        {
+          "title": "Idea: nanoGPT-as-connector entrenado sobre vstash+snapvec+merken, glue layer pequeño y especializado",
+          "path": "text://Idea: nanoGPT-as-connector entrenado sobre vstash+snapvec+merken, glue layer pequeño y especializado",
+          "text": "Jay formuló (2026-04-16) una idea de experimento: entrenar un LLM tipo nanoGPT cuya función específica sea \"conectar los puntos\" sobre vstash + snapvec + merken. Un modelo ínfimo pero especializado en routing / síntesis sobre su propio stack de retrieval.\n\nFraming: \"algo ínfimo pero muy inteligente\" — inteligencia por especialización, no por escala.\n\nEl insight clave que hace esto viable: el problema no es generación de lenguaje general (donde modelos pequeños fallan), sino decidir qué retrieval hacer, cómo combinar resultados, y cuándo consolidar vs cuándo devolver raw. Ese es un espacio de decisiones mucho más estrecho que lenguaje general.\n\nTamaños de referencia para nanoGPT-class:\n- nanoGPT Karpathy: 124M params (GPT-2 small reproducido), entrenable en ~38h en 8xA100.\n- Versiones sub-10M: entrenable en horas en laptop con GPU modesta.\n- Qwen 0.5B que Jay ya experimentó con vstash/Reforge como baseline.\n\nConexión con proyectos existentes:\n- vstash: retrieve hybrid con adaptive RRF. El LLM decide query expansion, modality weighting override, cuándo hacer rerank.\n- snapvec: retrieval a escala con trade-off de bits/recall. El LLM decide nprobe dinámico según query complexity.\n- merken: layers episodic/semantic + audit trail. El LLM decide qué layer consultar.\n- engram: el loop decider (should_recall, should_consolidate) es exactamente el espacio de decisiones donde un modelo pequeño entrenado en tu workload supera a rule-based.\n\nConexión con idea previa ya guardada sobre fine-tuning pipeline:\nEsto conecta directamente con el plan de usar RRF retrieval scores como training labels para un modelo pequeño (Qwen 0.5-1.5B via LoRA). La idea de nanoGPT-as-connector es la versión más ambiciosa: no fine-tune de modelo existente sino entrenamiento desde cero de arquitectura diseñada para el problema.\n\nViabilidad honesta:\n- Desde cero con nanoGPT-style training y corpus de 10-50M tokens sobre logs de uso real de vstash + traces de decisión: viable en semanas, no meses.\n- La señal de training está en los artefactos que Jay ya guarda (audit logs de merken, vstash_journal, benchmarks reproducibles).\n- Baseline contra el cual comparar: deciders rule-based actuales de merken + search directo de vstash.\n\nRiesgos / limitaciones:\n- Modelo <10M probablemente no puede razonar a profundidad suficiente para decisiones multi-step complejas.\n- Sin supervision clara, fácil sobreajustar al estilo específico de Jay.\n- Evaluación requiere benchmark de \"tarea agentic completa\", no perplexity.\n\nFraming de la propuesta para el stack: el modelo pequeño NO reemplaza al LLM grande. Es un router/connector que decide qué pasar al LLM grande, minimizando tokens caros en el contexto. Eso es el problema real en producción: el LLM grande es caro, el modelo pequeño puede ser el preprocessor que hace el stack escalable.\n\nEsta es la pieza que faltaba para cerrar el bucle del stack completo: retrieval (vstash+snapvec) + memory (merken) + glue layer (nanoGPT-as-connector) + final reasoning (LLM grande llamado caro y poco).",
+          "score": 0.015946,
+          "chunk": 0
+        }
+      ]
+    }
+  },
+  {
+    "query": "Si, arreglalosIgual te quedaste en modelos viejos, 2.5 cuando el ultimo es 3.1 porque?",
+    "result": {
+      "briefs": [
+        "## H2 Training Decision\n- [v1]: Next training session will use H2 (contrastive loss, same 800K architecture) instead of H8 (2x-3x capacity bump). This is based on the principle that improvements in training signal are more effective than simply increasing model capacity.\n- **Current state:** H2 is the active training path. The acceptance criteria for H2 is achieving a recovery of >=50 of v7's 157 false negatives without increasing the markdown false positive rate above 10%. H8 is deferred until H2 fails.",
+        "## LoCoMo E2E v7 Performance\n- **What happened:** Experiments H16 and H17 showed that v7, when used as a write filter at session granularity (H16) or a turn granularity (H17), hurts temporal retrieval performance in the LoCoMo E2E pipeline compared to raw data.\n- **Impact:** v7 is unsuitable as a retrieval filter at any granularity and as a write filter at session granularity. Unit mismatch direction: v7 trained on LARGER units than dialogue turns.\n- **Resolution:** Rejection of v7 as a write or retrieval filter in the LoCoMo E2E pipeline.\n- **Follow-ups:** None specified.",
+        "## Merken Label Accumulation Bug\n- **What happened:** The `merken-save.sh` hook was failing silently because it was attempting to parse JSONL transcripts as JSON, resulting in no new labels being accumulated.\n- **Impact:** The label accumulation was at zero, preventing the graduation criteria from being met. Shadow mode never executes because the pipeline never generates events.\n- **Resolution:** Propose two PRs: (A) fix the hook to correctly parse JSONL and extract relevant data, and (B) create a script to bootstrap labels from existing transcripts by replaying them and labeling v6 skips with Gemini.\n- **Follow-ups:** Implement PR A (high priority) and PR B. Start with end-to-end pipeline with the 2 real disagreements."
+      ],
+      "episodic": [
+        {
+          "title": "nanoGPT write filter validación honesta: 100/100 en easy, 90% en novel, 19% en subtle noise — límite identificado",
+          "path": "text://nanoGPT write filter validación honesta: 100/100 en easy, 90% en novel, 19% en subtle noise — límite identificado",
+          "text": "PRÓXIMO PASO PARA MEJORAR:\nEl modelo necesita features adicionales que capturen rol:\n- Position en la secuencia temporal (primero = más probable investigación, último = más probable decisión).\n- Entity tags (qué entidades se mencionan y en qué contexto).\n- Structural cues (formato del texto: bullet points, headers, etc.).\n- Idealmente: embeddings semánticos como features del classifier, no solo n-grams de caracteres.\n\nEso es trabajo para el paper post-Mundial, no para ahora. El modelo actual de 800K params es Stage 1 funcional con límites claros documentados.\n\nSTATUS: resultado real y publicable, con caveats honestos identificados. Guardado con calibración completa.",
+          "score": 0.015948,
+          "chunk": 1
+        },
+        {
+          "title": "solo-2-disagreements-del-audit-20260418-103858282214",
+          "path": "text://solo-2-disagreements-del-audit-20260418-103858282214",
+          "text": "Solo 2 disagreements del audit histórico — el scope es chico porque los audit rows son eventos ya curados por ti. Los disagreements reales están en el **firehose de transcripts** que la hook aún no procesó. Voy a ver si vale expandir allí.",
+          "score": 0.016473,
+          "chunk": 0
+        },
+        {
+          "title": "nanoGPT 800K write filter: 100% precision/recall, +18pp retrieval, primer resultado self-supervised validado",
+          "path": "text://nanoGPT 800K write filter: 100% precision/recall, +18pp retrieval, primer resultado self-supervised validado",
+          "text": "nanoGPT write filter — PRIMER RESULTADO MEDIDO del pipeline self-supervised (2026-04-16, sesión paralela de Jay).\n\nMIENTRAS redactábamos el paper de merken, Jay en sesión paralela con otro Claude entrenó y validó el primer modelo del stack self-supervised.\n\nModelo: nanoGPT ~800K params, clasificador signal vs noise.\nTraining data: labels generados por merken should_remember sobre el scenario de 50 topics / 1100 eventos.\nInference: ~1ms por clasificación en CPU.\n\nRESULTADOS:\n\nClasificación:\n| Métrica         | Valor          |\n|-----------------|----------------|\n| Signal kept     | 150/150 (100%) |\n| Noise filtered  | 950/950 (100%) |\n| False negatives | 0              |\n| False positives | 0              |\n| Store reduction | 86%            |\n\n100% precision, 100% recall en clasificación signal vs noise. Cero false negatives, cero false positives. De 1100 eventos, solo guarda 150 (los que importan).\n\nImpacto en retrieval downstream:\n| Config                    | Events stored | Accuracy    |\n|---------------------------|---------------|-------------|\n| All events (1100)         | 1100          | 42% (21/50) |\n| nanoGPT filtered          | 150           | 60% (30/50) |\n| briefs-only (referencia)  | --            | 96%         |\n\n+18pp accuracy por filtrado de noise ANTES del retrieval. Store 86% más pequeño.\n\nComparación con las otras intervenciones medidas hoy:\n- Sin filtro, sin briefs: 42% (baseline).\n- Con nanoGPT filter: 60% (+18pp sobre baseline).\n- Con briefs sin filtro: 96% (+54pp sobre baseline).\n- Con nanoGPT filter + briefs: ??? (NO MEDIDO AÚN, es el siguiente experimento).\n\nIMPLICACIONES PARA EL PAPER DE SELF-SUPERVISED STACK:\n\n1. El primer modelo del pipeline FUNCIONA con números medibles. Ya no es \"idea post-Mundial\" — hay evidencia empírica HOY.\n\n2. 800K params es ínfimo. Corre en CPU a ~1ms. No necesita GPU, no necesita API, no necesita nada excepto el modelo entrenado.\n\n3. Los training labels vienen de merken should_remember, que es exactamente el patrón self-supervised que articulamos: el sistema genera sus propios labels al operar.\n\n4. La combinación nanoGPT filter + briefs probablemente da el mejor resultado posible, porque:\n   - nanoGPT limpia el store (150 eventos limpios).\n   - Briefs se generan sobre store limpio (clusters SIN noise).\n   - Si el clustering bottleneck que identificamos en el paper se debe a noise en los clusters, un store pre-filtrado podría resolver incluso la consolidation-as-retrieval-document.\n\n5. El pipeline completo del stack self-supervised (nanoGPT classifier → embedder custom → Gemma brief generator) tiene ahora Stage 1 validado empíricamente.\n\nCÓDIGO COMMITTED:\n- merken/classifiers/ — implementación del nanoGPT write filter.\n- experiments/consolidation/test_write_filter.py — benchmark.\n- Branch develop, commit 17dbae0.\n\nCONEXIÓN CON EL PAPER DE MERKEN YA REDACTADO:\nSección 12 (future work) item 5 (\"Self-supervised model specialization\") ya menciona este concepto. Ahora hay números reales que podrían agregarse como nota al pie o como sección extendida si Jay decide ampliar el paper antes de submit.\n\nAlternativamente, nanoGPT filter + merken briefs podrían ser un paper SEPARADO:\n\"Stage 1 of Self-Supervised Agent Memory: An 800K-Parameter Write Filter That Improves Retrieval Accuracy by 18 Percentage Points\"\n\nO integrado en el paper de merken como \"bonus\" sección que muestra que el pipeline self-supervised ya produce valor medible.\n\nOBSERVACIÓN SOBRE EL PROCESO:\nJay estaba en una reunión aburrida. En paralelo, mientras redactábamos el paper de merken en ESTA sesión, entrenó y validó un nanoGPT classifier en OTRA sesión. Ultra-paralelismo real: redacción de paper + entrenamiento de modelo + reunión de trabajo simultáneamente. El resultado es que al final del día tiene paper completo + primer modelo del pipeline validado + snapshots de tres proyectos actualizados.",
+          "score": 0.015849,
+          "chunk": 0
+        },
+        {
+          "title": "hay-58-shouldremember-rows-reales-20260418-103854722077",
+          "path": "text://hay-58-shouldremember-rows-reales-20260418-103854722077",
+          "text": "Hay ~58 `should_remember` rows reales en total (menos de lo que pensaba). Antes de expandir scope, corro el dry-run completo y luego etiqueto los disagreements.",
+          "score": 0.016158,
+          "chunk": 0
+        },
+        {
+          "title": "pipeline-cerrado-endtoend-2-labels-20260418-103905421401",
+          "path": "text://pipeline-cerrado-endtoend-2-labels-20260418-103905421401",
+          "text": "## Dos hallazgos importantes\n\n**1. El audit histórico es magro (58 rows, 2 disagreements, 3.4% rate).** Son eventos ya curados por ti vía `/remember`, así que primary y shadow casi siempre coinciden. No llegamos a 200 por aquí ni usando todos los proyectos.\n\n**2. Bug crítico en `~/.claude/hooks/merken-save.sh`:** hace `json.load(f)` sobre transcripts `.jsonl` (JSONL, no JSON). Falla silenciosamente por el `2>/dev/null`. **Por eso la acumulación está en cero** -- el hook no extrae nada desde que los transcripts pasaron a formato JSONL. Shadow mode nunca se ejecuta porque el pipeline ni siquiera genera eventos.",
+          "score": 0.015772,
+          "chunk": 1
+        }
+      ]
+    }
+  }
+]
