@@ -122,3 +122,28 @@ def test_boundary_labeling_skips_out_of_range_start() -> None:
     spans = [{"model_token_start": 99, "model_token_end": 100}]
     labels = labels_for_response(tokens, spans, mode="boundary")
     assert labels == [0, 0, 0]
+
+
+def test_accepts_dataclass_direct_field_names() -> None:
+    """JSONL writers can use either dialect:
+       - model_token_start / model_token_end (CLI rename)
+       - model_start / model_end (direct from Region dataclass)
+    Per PR #24 review (Gemini); both must work for forward compat.
+    """
+    tokens = ["a", "b", "c", "d", "e"]
+    # dataclass-direct shape
+    spans_direct = [{"model_start": 1, "model_end": 4}]
+    assert labels_for_response(tokens, spans_direct, mode="boundary") == [0, 1, 0, 0, 0]
+    assert labels_for_response(tokens, spans_direct, mode="span") == [0, 1, 1, 1, 0]
+
+
+def test_token_keys_take_precedence_when_both_present() -> None:
+    """If a span has BOTH key shapes, the explicit ``model_token_*``
+    keys win -- consistent with the upstream CLI being the canonical
+    JSONL writer."""
+    tokens = ["a", "b", "c", "d", "e"]
+    spans = [{
+        "model_token_start": 1, "model_token_end": 2,
+        "model_start": 3, "model_end": 4,
+    }]
+    assert labels_for_response(tokens, spans, mode="boundary") == [0, 1, 0, 0, 0]
