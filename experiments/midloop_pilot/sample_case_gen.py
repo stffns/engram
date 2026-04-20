@@ -85,11 +85,13 @@ def select_chunks(
     guidelines get covered -- useful when the corpus is small and
     source docs are already topically diverse internally.
 
-    ``max_per_doc_overrides`` lets a specific source pick more chunks
-    per doc than the global cap. Needed when a source has very few
-    docs but many chunks each (e.g. who_pdf has 7 PDFs * ~26
-    chunks/PDF; max_per_doc=3 would only yield 21 total even if the
-    caller wanted 150).
+    ``max_per_doc_overrides`` applies a per-source cap override --
+    either higher or lower than the global ``max_per_doc``. The common
+    case is a source with very few docs but many chunks each (e.g.
+    who_pdf has 7 PDFs * ~26 chunks/PDF; max_per_doc=3 would only
+    yield 21 total even if the caller wanted 150), but the same
+    mechanism also supports tightening a source that would otherwise
+    over-contribute at the global cap.
     """
     if max_per_doc < 1:
         raise ValueError(f"max_per_doc must be >= 1, got {max_per_doc}")
@@ -128,10 +130,13 @@ def select_chunks(
     per_src_done = {s: 0 for s in source_mix}
     for c in all_chunks:
         src = c["source"]
+        # Cheap check first: if this source's quota is already filled,
+        # skip before hitting per-doc cap + dict lookups for what would
+        # be a discarded chunk anyway.
+        if per_src_done.get(src, 0) >= source_mix.get(src, 0):
+            continue
         cap = caps.get(src, max_per_doc)
         if per_doc.get(c["doc_id"], 0) >= cap:
-            continue
-        if per_src_done.get(src, 0) >= source_mix.get(src, 0):
             continue
         picked.append(c)
         per_doc[c["doc_id"]] = per_doc.get(c["doc_id"], 0) + 1

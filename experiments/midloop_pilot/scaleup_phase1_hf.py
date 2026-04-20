@@ -79,9 +79,13 @@ def step_select(
         max_per_doc=max_per_doc,
         max_per_doc_overrides=overrides or None,
     )
-    print(f"  selected {len(chunks)} chunks "
-          f"(who={sum(1 for c in chunks if c['source']=='who')}, "
-          f"icrc={sum(1 for c in chunks if c['source']=='icrc')})")
+    # Dynamic breakdown across whatever source_mix was configured so
+    # who_pdf (or future sources) show up in the run log.
+    per_source_counts = {s: 0 for s in source_mix}
+    for c in chunks:
+        per_source_counts[c["source"]] = per_source_counts.get(c["source"], 0) + 1
+    breakdown = ", ".join(f"{s}={n}" for s, n in per_source_counts.items())
+    print(f"  selected {len(chunks)} chunks ({breakdown})")
     if not chunks:
         raise SystemExit("no chunks selected; did you run chunk_hf_guidelines?")
     with path.open("w") as f:
@@ -346,11 +350,27 @@ def main() -> int:
     ap.add_argument("--max-per-doc", type=int, default=1,
                     help="max chunks allowed per source doc; higher = more "
                          "coverage, lower = more diversity. v1 used 1.")
-    ap.add_argument("--who-pdf-target", type=int, default=0,
+    def _non_negative_int(v: str) -> int:
+        i = int(v)
+        if i < 0:
+            raise argparse.ArgumentTypeError(
+                f"value must be >= 0, got {i}"
+            )
+        return i
+
+    def _positive_int(v: str) -> int:
+        i = int(v)
+        if i < 1:
+            raise argparse.ArgumentTypeError(
+                f"value must be >= 1, got {i}"
+            )
+        return i
+
+    ap.add_argument("--who-pdf-target", type=_non_negative_int, default=0,
                     help="number of who_pdf chunks to ADD on top of the HF "
                          "(who + icrc) mix. 0 disables who_pdf entirely. "
                          "Populate only after chunk_who_pdfs.py has run.")
-    ap.add_argument("--who-pdf-max-per-doc", type=int, default=30,
+    ap.add_argument("--who-pdf-max-per-doc", type=_positive_int, default=30,
                     help="per-PDF cap for who_pdf (overrides --max-per-doc "
                          "for that source). 30 allows the IMAI and "
                          "essential-medicines books to contribute most of "

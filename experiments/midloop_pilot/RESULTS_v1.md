@@ -142,7 +142,7 @@ cap (30, since who_pdf has only 7 docs).
 | v1b (4L/4H/128d)  |  2585 |  0.9M  |   0.449  | 0.435  |  +0.013 |
 | v1b-6L (6L/192d)  |  2585 |  2.8M  |   0.511  | 0.451  |  +0.060 |
 | v1c (4L/4H/128d)  |  3090 |  0.9M  |   0.416  | **0.388**|  +0.029 |
-| **v1c-6L (6L/192d)**| 3090 |  2.8M  |   0.618  | **0.461**|  +0.157 |
+| **v1c-6L (6L/192d)** | 3090 |  2.8M  |   0.618  | **0.461** |  +0.157 |
 
 ### Verdicts (MIXED)
 
@@ -180,7 +180,7 @@ cap (30, since who_pdf has only 7 docs).
 **Total gain 0.352 -> 0.461 = +0.109 across 7 rounds.**
 
 The capacity bump (round 3) was the single biggest lever (+0.083).
-Corpus expansions contributed +0.009 (v1 -> v1b) + +0.010 (v1b ->
+Corpus expansions contributed +0.009 (v1 -> v1b) + 0.010 (v1b ->
 v1c) = +0.019. Other levers (pos_weight, MLP head, aligner, longer
 training, regularisation) contributed 0.
 
