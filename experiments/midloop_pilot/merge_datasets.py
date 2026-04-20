@@ -58,8 +58,7 @@ def main() -> None:
     # quietly over-count a test case.
     case_ids = [r["case_id"] for r in v0 + v1_hf]
     if len(set(case_ids)) != len(case_ids):
-        from collections import Counter as _C
-        dups = [(k, v) for k, v in _C(case_ids).items() if v > 1]
+        dups = [(k, v) for k, v in Counter(case_ids).items() if v > 1]
         raise SystemExit(
             f"duplicate case_ids ({len(dups)} collisions). "
             f"Samples: {dups[:5]}"

@@ -99,15 +99,14 @@ def select_chunks(
             try:
                 c = parse_chunk(p)
             except Exception as e:
-                import sys as _sys
                 print(f"warn: skipping {p.name}: {type(e).__name__}: {e}",
-                      file=_sys.stderr)
+                      file=sys.stderr)
                 n_failed += 1
                 continue
             if min_chars <= c["chars"] <= max_chars:
                 all_chunks.append(c)
     if n_failed:
-        print(f"warn: {n_failed} chunks failed to parse", file=__import__('sys').stderr)
+        print(f"warn: {n_failed} chunks failed to parse", file=sys.stderr)
 
     all_chunks.sort(key=lambda c: -c["density"])
     picked: list[dict] = []
@@ -126,13 +125,12 @@ def select_chunks(
 
     # Under-fill warning: if the corpus could not supply the requested mix,
     # surface this instead of silently returning fewer chunks.
-    import sys as _sys
     for s, target in source_mix.items():
         got = per_src_done.get(s, 0)
         if got < target:
             print(f"warn: requested {target} {s!r} chunks, got {got} "
                   f"(corpus + max_per_doc={max_per_doc} cap)",
-                  file=_sys.stderr)
+                  file=sys.stderr)
 
     rng.shuffle(picked)
     return picked

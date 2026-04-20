@@ -15,7 +15,10 @@
 set -euo pipefail
 cd "$(dirname "$0")/../.."  # engram repo root
 
-NANO=${NANOGPT_REPO:-$HOME/Desktop/Personal/Projects/nanoGPT}
+# Default: look for nanoGPT as a sibling of the engram checkout.
+# Override with NANOGPT_REPO=... for any other layout.
+ENGRAM_ROOT=$(git rev-parse --show-toplevel)
+NANO=${NANOGPT_REPO:-"$ENGRAM_ROOT/../nanoGPT"}
 
 echo "=== step 1/5: merge v0 + v1_hf ==="
 python -m experiments.midloop_pilot.merge_datasets

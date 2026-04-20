@@ -9,8 +9,10 @@ them:
   3. aligner (fastembed BAAI/bge-small-en-v1.5)           -> aligned.jsonl
   4. format_for_training (boundary labels)                -> midloop_v1_hf.jsonl
 
-Resumable via ``--skip``; each step checks for its output file and
-skips if present (mirror of run_pilot.py).
+Resumable via ``--skip`` by naming the steps to omit on a rerun
+(for example, ``--skip cases align``). A listed step is only
+skipped when its output file already exists; otherwise it runs
+anyway so an interrupted pipeline can be re-driven safely.
 
 Output dir defaults to ``scaleup_out_hf/`` under this package. Kept
 separate from ``out/`` and ``scaleup_out/`` so the existing v0
@@ -68,13 +70,19 @@ def step_select(
     with path.open("w") as f:
         for c in chunks:
             slug = re.sub(r"[^A-Za-z0-9]+", "-", c["heading"][:40].lower()).strip("-")
-            protocol_id = f"{c['source']}-hf-{c['doc_id'][:8]}-{slug}"[:80]
+            # chunk_idx disambiguates protocol_id when max_per_doc > 1: two
+            # chunks of the same doc share doc_id[:8] and may share the
+            # truncated slug, but have distinct chunk_idx from the chunker.
+            # Parsed from the source filename: <doc[:10]>-<idx:04d>-<slug>.md.
+            chunk_idx = Path(c["path"]).stem.split("-")[1] if c.get("path") else "0000"
+            protocol_id = f"{c['source']}-hf-{c['doc_id'][:8]}-{chunk_idx}-{slug}"[:96]
             row = {
                 "protocol_id": protocol_id,
                 "text": c["body"],
                 "metadata": {
                     "source": f"hf_{c['source']}",
                     "hf_doc_id": c["doc_id"],
+                    "chunk_idx": chunk_idx,
                     "heading": c["heading"],
                     "density": c["density"],
                     "source_path": c["path"],
@@ -169,7 +177,12 @@ def step_responses(cases_path: Path, out_dir: Path) -> Path:
         )
         resp.raise_for_status()
         data = resp.json()
-        return (data["choices"][0]["message"]["content"] or "").strip()
+        choices = data.get("choices") or []
+        if not choices:
+            raise RuntimeError(
+                f"lmstudio returned no choices: {str(data)[:200]}"
+            )
+        return (choices[0].get("message", {}).get("content") or "").strip()
 
     gen = ResponseGenerator(lmstudio_fn)
 

@@ -13,8 +13,8 @@ Filters (conservative; too-small or too-large chunks are dropped):
     protocols (default 8000). Larger chunks are re-split on ``##``
     sub-headings if that produces at least 2 sub-chunks passing the
     size filter; otherwise they are skipped.
-  - content sanity: chunk must contain at least 3 lowercase words
-    after stripping headings, rules out ALL-CAPS banners.
+  - content sanity: chunk must contain at least 20 lowercase words
+    after stripping headings, which rules out ALL-CAPS banners.
 
 Frontmatter per output .md:
 
@@ -193,7 +193,8 @@ def main() -> None:
 
     in_path = Path(args.in_path)
     out_path = Path(args.out_path)
-    rows = [json.loads(line) for line in in_path.read_text().splitlines() if line.strip()]
+    with in_path.open() as f:
+        rows = [json.loads(line) for line in f if line.strip()]
     if args.limit_docs:
         rows = rows[: args.limit_docs]
     print(f"input docs: {len(rows)}")

@@ -1,4 +1,4 @@
-"""Group-based train/test split for midloop_v0 by protocol_id.
+"""Group-based train/test split by protocol_id for any midloop dataset.
 
 Holds out ~10% of protocols ENTIRE (no case-level mixing) so the
 test set contains protocols the model has never seen. This is the
@@ -6,15 +6,23 @@ harder generalization setup required by the Phase 3 plan
 (notes/midloop-training-plan.md) -- stratified-within-protocol
 would leak 4 of every 5 cases from a holdout protocol into train.
 
+Used for both midloop_v0 (77 protocols / 8-proto holdout) and
+midloop_v1 (312 protocols / 32-proto holdout). CLI paths default
+to v0 for back-compat; point --in/--train/--test at the v1 JSONLs
+for the larger corpus.
+
 Deterministic via --seed (default 42).
 
 Usage:
+  # v0 default
   python -m experiments.midloop_pilot.split_train_test
+
+  # v1 (driven by retrain_v1.sh):
   python -m experiments.midloop_pilot.split_train_test \
-      --in training_data/midloop_v0.jsonl \
-      --train training_data/midloop_v0_train.jsonl \
-      --test training_data/midloop_v0_test.jsonl \
-      --test-protocols 8 --seed 42
+      --in training_data/midloop_v1.jsonl \
+      --train training_data/midloop_v1_train.jsonl \
+      --test training_data/midloop_v1_test.jsonl \
+      --test-protocols 32 --seed 42
 """
 
 from __future__ import annotations
