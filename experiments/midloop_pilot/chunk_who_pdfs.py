@@ -32,13 +32,21 @@ from __future__ import annotations
 import argparse
 import hashlib
 import re
-import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent))
-from chunk_hf_guidelines import clinical_density, _slugify, _SAFE_SOURCES
+# Intended usage: ``python -m experiments.midloop_pilot.chunk_who_pdfs``.
+# Relative import keeps the import graph explicit and avoids mutating
+# sys.path at runtime (which would depend on how the script is invoked).
+from experiments.midloop_pilot.chunk_hf_guidelines import (
+    clinical_density, _slugify, _SAFE_SOURCES,
+)
 
 HERE = Path(__file__).parent
+# Matches what extract_pdfs.py writes when invoked with
+# ``--mode sections --out <here>/staging/who_extracted_sections``. The
+# naming is deliberately distinct from extract_pdfs's default
+# (``staging/who_extracted``) so dump-mode flat files don't collide
+# with sections-mode per-PDF subdirectories.
 SECTION_ROOT = HERE / "staging" / "who_extracted_sections"
 OUT_DIR = HERE / "staging" / "hf_guidelines" / "chunks" / "who_pdf"
 
@@ -46,13 +54,26 @@ _FRONTMATTER_RE = re.compile(r"\A<!--\s*(.*?)\s*-->\s*", re.DOTALL)
 
 
 def parse_section(path: Path) -> dict:
-    raw = path.read_text()
+    # extract_pdfs.py writes these files as utf-8 explicitly because the
+    # WHO PDFs contain non-ASCII (accented drug names, typographic quotes).
+    # Reading with the platform default (cp1252 on Windows) silently
+    # corrupts them.
+    raw = path.read_text(encoding="utf-8")
     m = _FRONTMATTER_RE.match(raw)
     body = raw[m.end():].strip() if m else raw.strip()
-    # The first non-empty line after stripping is the de-facto heading
-    # (extract_pdfs.sections mode prepends the section title).
-    lines = [ln for ln in body.splitlines() if ln.strip()]
-    heading = lines[0].strip()[:120] if lines else path.stem
+    # The first non-empty line is the de-facto heading (extract_pdfs'
+    # sections mode prepends the section title). Pull it OUT of body so
+    # the writer's `# {heading}` prefix doesn't duplicate it downstream.
+    heading = path.stem
+    body_lines: list[str] = []
+    heading_taken = False
+    for ln in body.splitlines():
+        if not heading_taken and ln.strip():
+            heading = ln.strip()[:120]
+            heading_taken = True
+            continue
+        body_lines.append(ln)
+    body = "\n".join(body_lines).strip()
     return {"heading": heading, "body": body, "chars": len(body)}
 
 
@@ -68,6 +89,13 @@ def main() -> None:
         raise SystemExit(
             "who_pdf must be added to _SAFE_SOURCES in "
             "chunk_hf_guidelines.py before writing these chunks"
+        )
+
+    if not SECTION_ROOT.exists():
+        raise SystemExit(
+            f"SECTION_ROOT not found: {SECTION_ROOT}\n"
+            f"Run first: python -m experiments.midloop_pilot.extract_pdfs "
+            f"--mode sections --out {SECTION_ROOT}"
         )
 
     kept = 0
@@ -113,7 +141,9 @@ def main() -> None:
                 f"---\n\n"
                 f"# {heading}\n\n"
             )
-            (OUT_DIR / out_name).write_text(header + body + "\n")
+            (OUT_DIR / out_name).write_text(
+                header + body + "\n", encoding="utf-8"
+            )
             kept += 1
             per_pdf[pdf_name] = per_pdf.get(pdf_name, 0) + 1
 
