@@ -75,6 +75,7 @@ def select_chunks(
     max_chars: int,
     seed: int,
     max_per_doc: int = 1,
+    max_per_doc_overrides: dict[str, int] | None = None,
 ) -> list[dict]:
     """Pick chunks density-first with per-doc diversity cap.
 
@@ -83,9 +84,21 @@ def select_chunks(
     (e.g. 4-8) allow more samples per doc so sections of long
     guidelines get covered -- useful when the corpus is small and
     source docs are already topically diverse internally.
+
+    ``max_per_doc_overrides`` applies a per-source cap override --
+    either higher or lower than the global ``max_per_doc``. The common
+    case is a source with very few docs but many chunks each (e.g.
+    who_pdf has 7 PDFs * ~26 chunks/PDF; max_per_doc=3 would only
+    yield 21 total even if the caller wanted 150), but the same
+    mechanism also supports tightening a source that would otherwise
+    over-contribute at the global cap.
     """
     if max_per_doc < 1:
         raise ValueError(f"max_per_doc must be >= 1, got {max_per_doc}")
+    caps: dict[str, int] = dict(max_per_doc_overrides or {})
+    for s, cap in caps.items():
+        if cap < 1:
+            raise ValueError(f"max_per_doc_overrides[{s!r}]={cap} must be >= 1")
     rng = random.Random(seed)
     all_chunks: list[dict] = []
     n_failed = 0
@@ -116,13 +129,18 @@ def select_chunks(
     per_doc: dict[str, int] = {}
     per_src_done = {s: 0 for s in source_mix}
     for c in all_chunks:
-        if per_doc.get(c["doc_id"], 0) >= max_per_doc:
+        src = c["source"]
+        # Cheap check first: if this source's quota is already filled,
+        # skip before hitting per-doc cap + dict lookups for what would
+        # be a discarded chunk anyway.
+        if per_src_done.get(src, 0) >= source_mix.get(src, 0):
             continue
-        if per_src_done.get(c["source"], 0) >= source_mix.get(c["source"], 0):
+        cap = caps.get(src, max_per_doc)
+        if per_doc.get(c["doc_id"], 0) >= cap:
             continue
         picked.append(c)
         per_doc[c["doc_id"]] = per_doc.get(c["doc_id"], 0) + 1
-        per_src_done[c["source"]] = per_src_done.get(c["source"], 0) + 1
+        per_src_done[src] = per_src_done.get(src, 0) + 1
         if sum(per_src_done.values()) >= n:
             break
 
@@ -130,9 +148,10 @@ def select_chunks(
     # surface this instead of silently returning fewer chunks.
     for s, target in source_mix.items():
         got = per_src_done.get(s, 0)
+        cap_for_msg = caps.get(s, max_per_doc)
         if got < target:
             print(f"warn: requested {target} {s!r} chunks, got {got} "
-                  f"(corpus + max_per_doc={max_per_doc} cap)",
+                  f"(corpus + max_per_doc={cap_for_msg} cap)",
                   file=sys.stderr)
 
     rng.shuffle(picked)

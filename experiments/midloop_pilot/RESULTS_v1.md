@@ -111,6 +111,96 @@ thr=0.80 maxes F1. v1 has a much more informative P-R curve than v0
    was easier to satisfy by chance; 32 protocols exposes real
    distributional variance in the underlying label density.
 
+## Round 7 -- add who_pdf chunks (MIXED, 2026-04-20)
+
+Hypothesis: the 184 who_pdf chunks extracted from the 7 WHO
+reference books (IMAI acute care, essential medicines, IMCI
+booklets, snakebite, maternal-newborn) add topic coverage the HF
+corpus doesn't (dosing ladders, antimalarial/antivenom dosing).
+Task #10 staged 190 chunks -> 184 after heading-dedup fix; scaleup
+extends source_mix to include ``who_pdf`` with a separate per-doc
+cap (30, since who_pdf has only 7 docs).
+
+### Setup
+
+- 500 HF chunks target (max_per_doc=3) + 150 who_pdf target
+  (max_per_doc=30).
+- Corpus limited both sources below target:
+  - icrc corpus-capped at 90 chunks (density+length filters admit
+    only 90 of its 1474 chunks per the v1b warning).
+  - who_pdf corpus-capped at 101 chunks (of 184; 6 of 7 PDFs
+    contribute; postnatal-care has no chunks >= 400 chars).
+- Final selection: **541 chunks = 350 HF-who + 90 HF-icrc + 101 who_pdf**.
+- Phase 1: 2705 cases in 82 min (0 fail), 2705 responses in 43 min
+  (0 fail), 7942 interventions at cos=0.85 (99.3% retention).
+- Merged with v0 -> **3090 cases / 618 protocols** (vs v1b: 2585 / 517).
+
+### Runs
+
+| variant           | cases | params | TRAIN F1 | VAL F1 | gap     |
+|-------------------|------:|-------:|---------:|-------:|--------:|
+| v1b (4L/4H/128d)  |  2585 |  0.9M  |   0.449  | 0.435  |  +0.013 |
+| v1b-6L (6L/192d)  |  2585 |  2.8M  |   0.511  | 0.451  |  +0.060 |
+| v1c (4L/4H/128d)  |  3090 |  0.9M  |   0.416  | **0.388**|  +0.029 |
+| **v1c-6L (6L/192d)** | 3090 |  2.8M  |   0.618  | **0.461** |  +0.157 |
+
+### Verdicts (MIXED)
+
+- **v1c-6L is the new best: VAL F1=0.461, +0.010 over v1b-6L.**
+  Capacity + who_pdf data compound slightly. Gate F1>=0.50 shadow
+  bar now 0.039 away (from 0.049 at v1b-6L).
+- **v1c baseline (4L/128d) REGRESSED: 0.435 -> 0.388** (-0.047).
+  who_pdf chunks carry a different structural signature than HF
+  (dosing tables, bullet lists vs prose guidelines). At 4L/128d
+  the model can't unify them with the HF chunks; the extra data
+  hurts instead of helping. At 6L/192d the capacity is enough to
+  accommodate both distributions, and the benefit flips positive.
+- **Returns diminish.** Round 6 (data doubling v1 -> v1b) paid
+  +0.009 at 6L. Round 7 (adding who_pdf) pays +0.010 at 6L.
+  Baseline hurt in round 7 is a new failure mode.
+
+### Graduation gate re-eval
+
+| criterion          | target   | v1-6L  | v1b-6L | v1c-6L | verdict     |
+|--------------------|---------:|-------:|-------:|-------:|:-----------:|
+| F1 held-out        | >= 0.75  | 0.442  | 0.451  | 0.461  | FAIL        |
+| F1 shadow-only     | >= 0.50  | 0.442  | 0.451  | 0.461  | FAIL by 0.039 |
+| train wall MPS     | <= 30m   | 203s   | 196s   | 216s   | PASS        |
+
+### Cumulative session summary
+
+| round | lever | best VAL F1 | delta | cumulative |
+|-------|-------|------------:|------:|-----------:|
+| 0 | v0 baseline (77p, 4L/128d) | 0.352 | -- | 0.352 |
+| 2 | v1 corpus 77->312 (4L/128d) | 0.359 | +0.007 | 0.359 |
+| 3 | v1-6L capacity 6L/192d     | 0.442 | +0.083 | 0.442 |
+| 6 | v1b-6L corpus 2585 (data+) | 0.451 | +0.009 | 0.451 |
+| 7 | v1c-6L + who_pdf 3090     | **0.461** | +0.010 | **0.461** |
+
+**Total gain 0.352 -> 0.461 = +0.109 across 7 rounds.**
+
+The capacity bump (round 3) was the single biggest lever (+0.083).
+Corpus expansions contributed +0.009 (v1 -> v1b) + 0.010 (v1b ->
+v1c) = +0.019. Other levers (pos_weight, MLP head, aligner, longer
+training, regularisation) contributed 0.
+
+### Decision: stop scaling corpus, pivot to shadow
+
+With two consecutive corpus-expansion rounds paying ~+0.010 each at
+6L, and the baseline regression in round 7, it is clear we have
+squeezed most of the juice from the "more data at 6L" lever.
+Closing the remaining 0.039 to the shadow bar F1=0.50 with the
+same pattern (another round adding epfl-llm CDC + NICE = 2549
+more docs) would cost another $4-6 API + 3-4 hours for an
+expected +0.005 to +0.015 gain. Diminishing returns is decisive.
+
+Recommended next move: **accept v1c-6L as the v1 shadow candidate
+at F1=0.461** per task #8, wire it into the midloop primitive
+through `ShadowMidloopDecider(NoopMidloopDecider(),
+NanoGPTMidloopDecider(ckpt))` with action clamped to WHISPER, and
+let real (decision, outcome) pairs accumulate. Retrain on pooled
+real labels once sufficient volume (~200) accumulates.
+
 ## Round 6 -- double the dataset (POSITIVE, 2026-04-20)
 
 Post-plateau hypothesis (RESULTS_v1 round 3): "more data is the

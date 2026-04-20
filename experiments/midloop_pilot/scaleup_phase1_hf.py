@@ -50,21 +50,42 @@ EMBED_MODEL = "BAAI/bge-small-en-v1.5"
 def step_select(
     out_dir: Path, n_chunks: int, seed: int, min_chars: int, max_chars: int,
     max_per_doc: int = 1,
+    who_pdf_target: int = 0,
+    who_pdf_max_per_doc: int = 30,
 ) -> Path:
     """Persist the selected chunks as 'protocols.jsonl' so the rest of
-    the pipeline reads the same format run_pilot expects."""
+    the pipeline reads the same format run_pilot expects.
+
+    The HF slice (who + icrc) splits n_chunks 70/30 per corpus
+    ratios. The who_pdf slice is additive -- who_pdf_target chunks
+    on top of the HF selection. who_pdf has only 7 documents so the
+    global max_per_doc cap is overridden to 30 for that source; set
+    lower to force broader per-PDF coverage, higher to pick more
+    of each book's dense sections.
+    """
     path = out_dir / "protocols.jsonl"
     who_target = round(n_chunks * 0.7)
     icrc_target = n_chunks - who_target
     source_mix = {"who": who_target, "icrc": icrc_target}
+    overrides: dict[str, int] = {}
+    total_n = n_chunks
+    if who_pdf_target > 0:
+        source_mix["who_pdf"] = who_pdf_target
+        overrides["who_pdf"] = who_pdf_max_per_doc
+        total_n = n_chunks + who_pdf_target
     chunks = select_chunks(
-        n=n_chunks, source_mix=source_mix,
+        n=total_n, source_mix=source_mix,
         min_chars=min_chars, max_chars=max_chars, seed=seed,
         max_per_doc=max_per_doc,
+        max_per_doc_overrides=overrides or None,
     )
-    print(f"  selected {len(chunks)} chunks "
-          f"(who={sum(1 for c in chunks if c['source']=='who')}, "
-          f"icrc={sum(1 for c in chunks if c['source']=='icrc')})")
+    # Dynamic breakdown across whatever source_mix was configured so
+    # who_pdf (or future sources) show up in the run log.
+    per_source_counts = {s: 0 for s in source_mix}
+    for c in chunks:
+        per_source_counts[c["source"]] = per_source_counts.get(c["source"], 0) + 1
+    breakdown = ", ".join(f"{s}={n}" for s, n in per_source_counts.items())
+    print(f"  selected {len(chunks)} chunks ({breakdown})")
     if not chunks:
         raise SystemExit("no chunks selected; did you run chunk_hf_guidelines?")
     with path.open("w") as f:
@@ -329,6 +350,31 @@ def main() -> int:
     ap.add_argument("--max-per-doc", type=int, default=1,
                     help="max chunks allowed per source doc; higher = more "
                          "coverage, lower = more diversity. v1 used 1.")
+    def _non_negative_int(v: str) -> int:
+        i = int(v)
+        if i < 0:
+            raise argparse.ArgumentTypeError(
+                f"value must be >= 0, got {i}"
+            )
+        return i
+
+    def _positive_int(v: str) -> int:
+        i = int(v)
+        if i < 1:
+            raise argparse.ArgumentTypeError(
+                f"value must be >= 1, got {i}"
+            )
+        return i
+
+    ap.add_argument("--who-pdf-target", type=_non_negative_int, default=0,
+                    help="number of who_pdf chunks to ADD on top of the HF "
+                         "(who + icrc) mix. 0 disables who_pdf entirely. "
+                         "Populate only after chunk_who_pdfs.py has run.")
+    ap.add_argument("--who-pdf-max-per-doc", type=_positive_int, default=30,
+                    help="per-PDF cap for who_pdf (overrides --max-per-doc "
+                         "for that source). 30 allows the IMAI and "
+                         "essential-medicines books to contribute most of "
+                         "their sections; lower to force broader coverage.")
     ap.add_argument("--skip", choices=["select", "cases", "responses", "align", "format"],
                     nargs="*", default=[])
     args = ap.parse_args()
@@ -346,6 +392,8 @@ def main() -> int:
         protocols_path = step_select(
             OUT_DIR, args.n_chunks, args.seed, args.min_chars, args.max_chars,
             args.max_per_doc,
+            who_pdf_target=args.who_pdf_target,
+            who_pdf_max_per_doc=args.who_pdf_max_per_doc,
         )
 
     print("\nstep 2/5: generate cases (Gemini structured)")
