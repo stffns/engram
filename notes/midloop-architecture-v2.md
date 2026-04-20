@@ -11,6 +11,39 @@ actually is.
 The midloop exists to **improve every conversation output by grounding
 the model's responses in real stored data, not fabricated facts**.
 
+### The mental model
+
+> "It is like reaching into my input while I am typing and correcting
+> me mid-keystroke, so my assertions end up as verifiable facts
+> grounded in verifiable sources." -- Jay, 2026-04-20
+
+Think of it as a grammar-checker, but for factual claims. As the
+Builder model streams tokens that will become a user-visible
+response, the midloop looks at each emerging step, notices "this
+is an assertion", checks the memory, and edits the draft with a
+citation-backed correction BEFORE the Builder finishes the
+sentence. The user sees a response that is factual-by-construction,
+not one that is plausible-sounding-then-audited.
+
+Contrast with what we actually trained:
+
+- What we trained (v1c-6L): memorised the answers to the
+  clinical questions, so when the Builder writes "amoxicillin
+  250 mg for severe dehydration" the model recognises that
+  string as misaligned and flags it. This only works for
+  questions whose answers were in the training set.
+- What the midloop should be: a typing-assistant that, when the
+  Builder writes "for severe dehydration, administer...", pauses,
+  asks memory "what does the WHO protocol for severe dehydration
+  say about treatment?", reads back Ringer's lactate 100 ml/kg
+  PLAN C, and whispers "use this, cite \`who-hf-plan-c\`".
+
+The generic midloop requires zero content in its own weights.
+Content lives in vstash, gets updated when new guidelines ship,
+gets cited when injected. The midloop only needs the skill of
+"notice this is a claim" + "formulate a retrieval query" + "relay
+the retrieved content back to the Builder."
+
 This is the opposite of what a trained-on-domain-protocols detector
 does. A tagger that memorises WHO dosing tables has re-encoded the
 same facts in weights that also live in text in the authoritative
