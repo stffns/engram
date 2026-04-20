@@ -44,6 +44,39 @@ gets cited when injected. The midloop only needs the skill of
 "notice this is a claim" + "formulate a retrieval query" + "relay
 the retrieved content back to the Builder."
 
+### What the analogy does NOT imply (Jay, 2026-04-20)
+
+The autocomplete framing can mislead into thinking the midloop
+pastes retrieved snippets directly into the Builder's output.
+That is NOT the design.
+
+The Builder is still the one **composing** the final response,
+coherently, in its own voice. The midloop's WHISPER delivers:
+
+- retrieved facts,
+- their source citations,
+- optional correction hints ("memory says X, you wrote Y"),
+
+as context the Builder reads before continuing. The Builder then
+integrates those facts into its next tokens in a grammatically
+and rhetorically coherent way. What the user sees is ONE fluent
+response, not a collage of retrieved chunks interleaved with
+model text.
+
+Consequence: the WHISPER is **hints, not copy-paste**. The LLM
+remains the author of the turn. The midloop is the fact-checker
+whispering in the author's ear mid-paragraph. The writer at the
+end of the turn persists the AUTHOR'S final prose (with metadata
+about which retrieved events were referenced), not the retrieved
+events themselves.
+
+Implication for Builder API: the WHISPER channel needs a format
+that signals "integrate this factually, re-author the in-flight
+response" rather than "splice this text literally". The spec's
+WHISPER InterventionAction is intentionally vague on the payload
+so this decision lives with the Builder integration (Anthropic
+streaming, lmstudio, Reforge, etc.) rather than the midloop core.
+
 This is the opposite of what a trained-on-domain-protocols detector
 does. A tagger that memorises WHO dosing tables has re-encoded the
 same facts in weights that also live in text in the authoritative
