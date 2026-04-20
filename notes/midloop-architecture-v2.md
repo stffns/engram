@@ -243,7 +243,10 @@ three pieces land:
 2. `ClaimVerifier` wrapper (LLM-first). A Python class that takes
    a step_text + retrieved events and returns a verifier decision.
 3. `snapvec.search(...)` wrapper around vstash, already exists
-   (vstash 0.32.0 + snapvec 0.7.1 both installed per the spec).
+   (vstash and snapvec are both pulled in by engram's deps; the
+   repo pins `vstash>=0.25.0` in pyproject.toml. If snapvec's API
+   shape has drifted between local dev envs and CI, the wiring
+   task opens with a dependency alignment step).
 
 Task #8 (lower gate to F1>=0.50 shadow-only) was always about the
 v1c-6L clinical tagger, which is now repositioned as a domain-

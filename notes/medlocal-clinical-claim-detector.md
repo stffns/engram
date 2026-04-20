@@ -1,4 +1,12 @@
-# v1c-6L repositioned as MedLocal ClinicalClaimDetector
+# v1c-6L repositioned as MedLocal ClinicalClaimVerifier
+
+Note on naming: this artifact VERIFIES a step against retrieved
+memory (does the step's claim agree with the WHO / ICRC protocol
+that memory surfaced?). It does NOT DETECT claim spans in the
+step's text -- that is the upstream ClaimDetector's job in the
+architecture v2 taxonomy (see notes/midloop-architecture-v2.md).
+Some earlier drafts mixed the two terms; "verifier" is the
+correct one for this model.
 
 Context: the session on 2026-04-20 trained `NanoGPTMidloopDecider`
 through 7 rounds (v0 -> v1c-6L, VAL F1=0.461). After reviewing the
@@ -114,14 +122,14 @@ MedLocal artifact.
 
 Out of scope for today. If/when MedLocal integrates this:
 
-- Rename the ckpt to `clinical_claim_detector_v1c-6L.pt` in the
-  MedLocal side package (out-midloop-v1-6L/ck
-
-pt.pt is the nanoGPT
-  training artifact; it lives in the nanoGPT sibling repo, fine
-  there).
-- Update `ClinicalClaimDetector` class + meta schema to not reuse
-  the `midloop` namespace.
+- Rename the ckpt to `clinical_claim_verifier_v1c-6L.pt` in the
+  MedLocal side package (the `out-midloop-v1-6L/ckpt.pt` filename
+  is the nanoGPT training artifact, which stays in the nanoGPT
+  sibling repo and is fine there).
+- Ship as `ClinicalClaimVerifier` in MedLocal's namespace (not
+  `ClinicalClaimDetector` -- in the v2 taxonomy this artifact
+  VERIFIES a step against retrieved memory, it does not DETECT
+  claim spans; claim detection is a separate upstream component).
 - Docs in MedLocal point at this engram note for the training
   provenance.
 
