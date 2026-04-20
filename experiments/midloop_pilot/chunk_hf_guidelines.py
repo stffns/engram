@@ -144,7 +144,7 @@ def process_doc(
     return out
 
 
-_SAFE_SOURCES = frozenset({"who", "icrc", "cdc", "nice"})
+_SAFE_SOURCES = frozenset({"who", "icrc", "cdc", "nice", "who_pdf"})
 
 
 def write_chunk(out_dir: Path, chunk: dict) -> Path:

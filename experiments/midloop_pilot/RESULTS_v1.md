@@ -111,6 +111,82 @@ thr=0.80 maxes F1. v1 has a much more informative P-R curve than v0
    was easier to satisfy by chance; 32 protocols exposes real
    distributional variance in the underlying label density.
 
+## Round 6 -- double the dataset (POSITIVE, 2026-04-20)
+
+Post-plateau hypothesis (RESULTS_v1 round 3): "more data is the
+only lever left". Tested by relaxing the per-doc diversity cap
+from max_per_doc=1 to max_per_doc=3, doubling the HF-guidelines
+selection from 235 chunks to 440 (warn correctly fired: ICRC
+only has 90 chunks available at density>=5 vs 150 requested).
+Re-ran the full Phase 1 pipeline: 2200 cases from Gemini
+(66 min, 0 failures), 2200 responses from lmstudio (41 min,
+0 failures), 6669 interventions after alignment at cos=0.85.
+Merged with v0 (385 cases, 77 protocols) -> **2585 cases,
+517 protocols** (vs v1: 1560 cases / 312 protocols).
+
+### Runs
+
+Same v0 -> v1 -> v1-6L sequence, on the v1b dataset:
+
+| variant               | cases | params | dropout | TRAIN F1 | VAL F1 | gap    |
+|-----------------------|------:|-------:|--------:|---------:|-------:|-------:|
+| v1  (4L/4H/128d)      |  1560 |  0.9M  | 0.10    |    0.431 | 0.359  | +0.072 |
+| v1-6L (6L/6H/192d)    |  1560 |  2.8M  | 0.15    |    0.733 | 0.442  | +0.291 |
+| v1b (4L/4H/128d)      |  2585 |  0.9M  | 0.10    |    0.449 | **0.435** | **+0.013** |
+| **v1b-6L (6L/6H/192d)**| 2585 | 2.8M  | 0.15    |    0.511 | **0.451** | +0.060 |
+
+### Verdicts
+
+- **Data is the dominant lever now.** Going from 1560 -> 2585 cases
+  lifted VAL F1 from 0.359 -> 0.435 at the baseline architecture
+  (+0.076). The train-val gap collapsed further, from +0.072 to
+  +0.013 (essentially zero memorisation).
+- **Capacity + data compounds weakly.** v1b-6L over v1b is only
+  +0.016 VAL F1. The 6L architecture that paid +0.083 on the small
+  v1 corpus pays only +0.016 on the larger v1b corpus -- when the
+  data bottleneck is closer to resolved, the capacity bump becomes
+  marginal.
+- **Gate F1>=0.50 is now 0.049 away.** Shadow-only deployment
+  (task #8) is viable at v1b-6L's 0.451 if we accept a lowered bar.
+  Closing the remaining 0.049 without overfitting appears to
+  require still more data, not more parameters.
+
+### Graduation gate re-eval
+
+| criterion                   | target   | v1-6L  | v1b-6L | verdict     |
+|-----------------------------|---------:|-------:|-------:|:-----------:|
+| F1 on held-out              | >= 0.75  | 0.442  | 0.451  | FAIL        |
+| F1 shadow-only bar          | >= 0.50  | 0.442  | 0.451  | FAIL by 0.049 |
+| min per-protocol recall     | >= 50%   | ~0.09  | ~low   | FAIL        |
+| training wall <= 30min MPS  | <= 30m   | 203s   | 196s   | PASS        |
+
+### What IS next
+
+**Two levers with clear EV, rough order:**
+
+1. **Add who_pdf chunks (190 extracted in task #10).** These
+   cover the 7 WHO reference books staged in medlocal, heavy on
+   dosing / essential medicines / acute care. Adding 190 new
+   protocols * 5 cases = ~950 new cases would take the corpus
+   from 2585 -> ~3535. scaleup_phase1_hf.step_select needs its
+   source_mix extended to include who_pdf before the next run.
+   Cost: ~$1 Gemini + ~15 min wall time for responses.
+2. **Accept v1b-6L as the shadow candidate at F1=0.451.** Per
+   task #8, the spec's F1>=0.50 shadow bar was a guess; 0.45 is
+   a defensible first-shadow threshold if the action is clamped
+   to WHISPER per the midloop plan. Real (decision, outcome)
+   pairs accumulate organically once the primitive is wired into
+   Reforge, allowing v2 retraining on production-truth.
+
+### What we are NOT doing
+
+- More capacity than 6L. v1-8L (round 3) saturated at +0.01 over 6L
+  with v1; likely similar story on v1b.
+- Synthetic data expansion. The 440-chunk selection with
+  max_per_doc=3 is already using the TOP-density region of the
+  corpus; lowering the density cutoff would admit the policy/
+  process content the filter was designed to reject.
+
 ## Round 5 -- extended training (NEGATIVE, 2026-04-20)
 
 Hypothesis: v1-6L best ckpt was at iter 1050 of 1200 with training
