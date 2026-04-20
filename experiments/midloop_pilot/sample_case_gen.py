@@ -91,7 +91,10 @@ def select_chunks(
     n_failed = 0
     # sorted() required for cross-filesystem reproducibility; pathlib.glob
     # order is filesystem-defined (APFS happens to be ordered, ext4 is not).
-    for sub in ("who", "icrc"):
+    # Sources: HF-derived (who, icrc) and locally-extracted WHO PDFs (who_pdf).
+    # who_pdf contributes ~190 dosing/management-dense chunks from the 7 WHO
+    # reference books in medlocal/data/core/who/ via chunk_who_pdfs.py.
+    for sub in ("who", "icrc", "who_pdf"):
         sub_dir = CHUNK_ROOT / sub
         if not sub_dir.exists():
             continue
