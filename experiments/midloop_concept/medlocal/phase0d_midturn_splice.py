@@ -179,15 +179,15 @@ def run(model_path: Path) -> dict:
         pre_tokens = _gen(model, tokenizer, prompt_ids, cache, pre_n)
         pre_text = tokenizer.decode(pre_tokens)
 
-        # Forward-pass the splice into the same cache. max_tokens=1
-        # forces a single discarded sample so the entire splice is
-        # prefilled; we will restart generation from the splice's
-        # last token immediately after.
-        _ = _gen(model, tokenizer, splice_ids, cache, 1)
-
-        # Continue generation for POST_SPLICE_TOKENS from the
-        # splice tail.
-        post_tokens = _gen(model, tokenizer, [splice_ids[-1]], cache, POST_SPLICE_TOKENS)
+        # Splice + continue in ONE generate_step call. Passing
+        # ``splice_ids`` as the prompt prefills the entire splice
+        # through the model (populating K/V at each layer) and
+        # then samples POST_SPLICE_TOKENS continuation tokens from
+        # the enriched cache. Single call avoids the token-
+        # duplication issue a two-call pattern would introduce
+        # (``max_tokens=1`` + ``[splice_ids[-1]]`` re-prefills the
+        # tail and keeps a spurious sampled token in the cache).
+        post_tokens = _gen(model, tokenizer, splice_ids, cache, POST_SPLICE_TOKENS)
         post_text = tokenizer.decode(post_tokens)
         body = _clip_before_eot(post_text)
         kw_present = PROBE["expected_keyword"].lower() in body.lower()

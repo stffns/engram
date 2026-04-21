@@ -19,8 +19,8 @@ The test shape per probe (repeated for 3 probes):
       b. Truncate the real vstash chunk to N tokens and
          forward-pass it into the cache (no sampling, just
          prefill-extends the cache).
-      c. Generate 30 post-splice tokens from the enriched
-         cache.
+      c. Generate POST_SPLICE_TOKENS (=120) tokens from the
+         enriched cache.
       d. Check: does ``expected_keyword`` appear? Is the
          output coherent?
 
@@ -61,6 +61,8 @@ DEFAULT_MODEL = LMSTUDIO_DIR / "gemma-4-E2B-it-MLX-4bit"
 # prompts. ``tokenizer.apply_chat_template`` with a user turn +
 # ``add_generation_prompt=True`` emits the right Gemma markers so
 # the model knows it is in an assistant turn.
+
+
 def _apply_chat(tokenizer, user_text: str) -> str:
     messages = [{"role": "user", "content": user_text}]
     try:
@@ -130,11 +132,13 @@ def _load_splice_texts() -> None:
     """Hydrate every probe's ``splice_text`` from the real
     medlocal_concept.db by searching for a unique keyword that
     only the target chunk contains. FTS on ``source_id`` alone
-    matched wrong docs ("hiv-who" searched matched
+    matched wrong docs ("hiv-who" matched
     "who-hf-people-living-with-hiv" on stem overlap); the
-    keyword lookup picks the actionable chunk directly. Falls
-    back on mem.list() + title filter if the keyword search
-    still misses.
+    keyword lookup picks the actionable chunk directly. Raises
+    if the chunk is not found -- there is no second fallback in
+    this revision; if keyword lookup misses, fix the probe's
+    ``unique_lookup`` needle rather than silently running with an
+    unrelated doc.
     """
     from vstash import Memory
 
@@ -241,14 +245,29 @@ def _coherence_flags(text: str) -> dict:
     Flags infinite repetition and empty output; tolerant of
     gemma channel markers (``<|channel>``) which are valid
     inside the response body.
+
+    Repetition check sweeps block sizes {3, 4, 5, 6, 8, 10, 12}
+    so periods longer than 4 (the ``" s small"`` collapse seen
+    in the severe_dehydration probe had period 8) are also
+    caught. A block of >=6 copies is treated as "infinite".
     """
     body = _clip_before_eot(text)
     if not body.strip():
         return {"coherent": False, "reason": "empty"}
-    for i in range(len(body) - 4):
-        block = body[i:i + 4]
-        if block.strip() and body[i:i + 4 * 9] == block * 9:
-            return {"coherent": False, "reason": f"repetition: {block!r}"}
+    for block_len in (3, 4, 5, 6, 8, 10, 12):
+        min_reps = 6  # same block repeated 6+ times in a row
+        required_len = block_len * min_reps
+        if len(body) < required_len:
+            continue
+        for i in range(len(body) - required_len + 1):
+            block = body[i:i + block_len]
+            if not block.strip():
+                continue
+            if body[i:i + required_len] == block * min_reps:
+                return {
+                    "coherent": False,
+                    "reason": f"repetition:{block_len}: {block!r}",
+                }
     return {"coherent": True, "reason": "ok"}
 
 
@@ -309,15 +328,19 @@ def run_one_probe(model, tokenizer, probe: dict) -> dict:
         pre_tokens = _gen(model, tokenizer, prompt_ids, cache, PRE_SPLICE_TOKENS)
         pre_text = tokenizer.decode(pre_tokens)
 
-        # Splice: forward-pass the truncated chunk into the cache
-        # via a zero-sample generate_step. We set max_tokens=1
-        # to force the generator to emit exactly one sampled
-        # token, which we DISCARD -- we want the prefill of
-        # ``trimmed`` but not its "continuation" before the real
-        # post-splice generation starts.
-        _ = _gen(model, tokenizer, trimmed, cache, 1)
-
-        post_tokens = _gen(model, tokenizer, [trimmed[-1]], cache, POST_SPLICE_TOKENS)
+        # Splice + continue in ONE generate_step call. Passing
+        # ``trimmed`` as the prompt prefills the entire splice
+        # through the model (populating K/V at each layer) and
+        # then samples POST_SPLICE_TOKENS continuation tokens from
+        # the enriched cache. One call avoids the token-
+        # duplication bug the first revision had: a two-call
+        # pattern (``max_tokens=1`` to prefill, then
+        # ``[trimmed[-1]]`` to continue) re-prefilled the last
+        # splice token AND kept a sampled token in the cache
+        # between calls.
+        post_tokens = _gen(
+            model, tokenizer, trimmed, cache, POST_SPLICE_TOKENS
+        )
         post_text = tokenizer.decode(post_tokens)
         dt = time.perf_counter() - t0
 
