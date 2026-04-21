@@ -300,31 +300,170 @@ favors exact keyword matches (dense clinical / technical
 guidelines). For conversational project memory where content
 is more semantic, plain `hybrid` is cheaper and equivalent.
 
-### Move 2 verdict
+### Move 2 verdict (as of Run 4)
 
 **Retrieval mitigations:** `dual` shipped, recovered 1 of 2
-stuck neutrals. The remaining neutral is a corpus-coverage
-problem and out of scope for a search-side fix.
+stuck neutrals. The remaining neutral (co-trimoxazole) was
+initially classified as a corpus-coverage gap, then re-
+classified as a retrieval-ranking issue after further
+diagnostic -- see Run 5 below.
 
-**Move 2 deliverable:** keep `retrieval_mode=hybrid` as the
-default (cheaper, equivalent on semantic corpora). Flip to
-`dual` for clinical-style corpora via `--retrieval-mode dual`.
-Document the choice per corpus in the smoke-run cookbook.
+**Move 2 deliverable (Run 4):** keep `retrieval_mode=hybrid`
+as the default (cheaper, equivalent on semantic corpora). Flip
+to `dual` for clinical-style corpora via `--retrieval-mode
+dual`.
+
+---
+
+## Run 5 -- 3-way dual retrieval + chunking validation (2026-04-21)
+
+Diagnostic trail that closed the last stuck neutral:
+
+1. Source-file scan: the actionable sentence
+   *"Cotrimoxazole prophylaxis: 1 tablet daily for all HIV+
+   patients with CD4 <350"* IS in the source corpus
+   (`experiments/midloop_pilot/scaleup_out/protocols.jsonl`,
+   protocol_id `hiv-who`).
+2. Ingestion check: `hiv-who` IS in the medlocal_concept.db
+   as a single chunk (3270 chars).
+3. Retrieval check: for the natural pipeline query
+   `f"{question}\n{draft[:400]}"`, `hiv-who` is nowhere in
+   hybrid top-10 and buried beyond the `top_k=10` fts-only
+   cutoff. **Not a corpus gap -- a retrieval ranking gap.**
+4. Root cause: when the Builder draft uses synonyms the chunk
+   does not contain (e.g. "TMP/SMX", "trimethoprim/
+   sulfamethoxazole"), FTS scores the chunk lower because the
+   query terms don't appear in it. The question on its own
+   ("co-trimoxazole prophylaxis HIV CD4 180") ranks hiv-who
+   at FTS position 3-6, but the draft drags the query away
+   from that.
+
+### Chunking design validated
+
+Jay flagged during Run 4 that "in medlocal the protocols are
+organized so that 1 protocol = 1 chunk, can you validate?"
+Probe result:
+
+| db | docs | total chunks | avg chunks/doc | % single-chunk |
+|---|---|---|---|---|
+| medlocal_concept | 517 | 538 | 1.04 | 96% (497/517) |
+| engram (~/.vstash) | 3890 | 5196 | 1.34 | 91% (3534/3890) |
+
+Medlocal is almost strictly 1-protocol-1-chunk. 20 protocols
+split into 2-3 chunks and those are all the biggest
+(>5k chars).
+
+**Retrieval consequence:** with 1-chunk-per-protocol, the
+entire protocol is a single scoring unit. A long protocol that
+mentions a keyword once ranks lower than a short meta-intro
+that saturates the keyword. This is the exact pathology the
+co-trimoxazole case exhibited.
+
+**Design trade-off:** 1-chunk preserves semantic integrity
+(never splits actionable info across chunk boundaries) but
+pays in ranking granularity. The mitigation is search-side,
+not ingest-side.
+
+### 3-way dual retrieval
+
+`retrieve(retrieval_mode="dual")` now runs three vstash
+searches and interleaves the pools:
+
+1. **hybrid(question+draft)** -- semantic + keyword, vec-
+   biased. Catches paraphrases.
+2. **fts(question+draft, top_k*3)** -- pure keyword, wide
+   enough to let specific chunks surface past meta-intros.
+3. **fts(question only, top_k*3)** -- pure keyword on the
+   STABLE half of the query. Bypasses Builder-draft synonym
+   drift.
+
+Cost: three ~100ms searches, still zero LLM calls.
+
+### Run 5a -- clinical + confident + dual(3-way)
+
+Log: `cerebras_smoke_confident_dual_v3.jsonl`.
+
+| qid | Run 4a | Run 5a | delta |
+|---|---|---|---|
+| severe_dehydration_child | contradicts | contradicts | - |
+| severe_pneumonia_infant | contradicts | contradicts | - |
+| postpartum_hemorrhage_txa | supports | supports | - |
+| cotrimoxazole_hiv_adult | **neutral** | **supports** | **closed** |
+| blood_donor_screening | supports | contradicts | flipped (temp noise; Builder answered with richer/wrong details this run) |
+
+**5/5 grounded, 0 neutral.** Move 2 exit criterion finally
+met for clinical.
+
+Cotrimoxazole verdict detail: Builder drafted "<200 cells/mm^3"
+as the threshold; Judge cited `hiv-who` with quoted evidence
+"Cotrimoxazole prophylaxis: 1 tablet daily for all HIV+
+patients with CD4 <350"; verdict=supports because the Builder's
+top-line recommendation ("start prophylaxis for this CD4=180
+patient") is confirmed (180 is below both 200 and 350). The
+<350 vs <200 mismatch is present in the output -- the Judge
+verified the recommendation, not the specific threshold.
+Noted: answer-level verification can pass through a wrong
+sub-claim that is consistent with the answer. Separate issue,
+not in Move 2 scope.
+
+### Run 5b -- personal + confident + dual(3-way)
+
+Log: `cerebras_personal_smoke_confident_dual_v3.jsonl`.
+
+| qid | Run 4b | Run 5b |
+|---|---|---|
+| write_filter_baseline | contradicts | contradicts |
+| consolidation_threshold | contradicts | contradicts |
+| silt_rule | contradicts | contradicts |
+| engram_longmemeval_r5 | supports | contradicts |
+| four_primitives | contradicts | contradicts |
+
+**5/5 grounded, 0 regressions.**
+
+### Cost escalation
+
+The 3-way dual doubled token spend again:
+
+| config | avg tok/q | vs hybrid |
+|---|---|---|
+| hybrid (baseline) | ~2200 | 1.0x |
+| dual 2-way | ~4000 | 1.8x |
+| dual 3-way | ~10000 | 4.5x |
+
+Wall time stays under 2s per question. The economics: for a
+smoke harness that runs 5 questions it's sub-$1; for a
+production pipeline at 100k queries/day this is the dimension
+to optimise next. Cheap wins if needed: cache question-only
+fts results when the same question recurs, drop fts_k back to
+top_k*2 when the question is short and unambiguous, etc. Not
+in scope now.
+
+### Move 2 verdict (final, Run 5)
+
+- `retrieval_mode=dual` with 3-way search closes the last
+  stuck neutral on clinical.
+- Default remains `hybrid` (4.5x cheaper, equivalent on
+  personal memory where the corpus is semantic-dense).
+- The "corpus gap" for co-trimoxazole was never a corpus gap:
+  `hiv-who` was in the db. It was a ranking gap caused by the
+  1-protocol-1-chunk ingestion design interacting with Builder-
+  draft synonym drift. The 3-way dual mitigates it without
+  re-chunking the corpus.
 
 ---
 
 ## Cross-run comparison
 
-| metric | clinical auto (Run 1) | personal auto (Run 2) | personal confident (Run 3a) | clinical confident (Run 3b) | personal confident+dual (Run 4b) | clinical confident+dual (Run 4a) |
-|---|---|---|---|---|---|---|
-| corpus size | 517 chunks | 3486 docs | 3486 docs | 517 chunks | 3486 docs | 517 chunks |
-| corpus type | authoritative guidelines | agent working memory | agent working memory | authoritative guidelines | agent working memory | authoritative guidelines |
-| grounded (supports + contradicts) | 3/5 | 5/5 | 5/5 | 3/5 | 5/5 | 4/5 |
-| neutral (retrieval miss) | 2/5 | 0/5 | 0/5 | 2/5 | 0/5 | 1/5 (corpus gap) |
-| avg tokens/question | 2453 | 1973 | 2152 | 2488 | 3666 | 4334 |
-| avg wall per question | ~1s | <1s | <1s | <1s | <1s | <1s |
-| builder mode | auto | auto | confident | confident | confident | confident |
-| retrieval mode | hybrid | hybrid | hybrid | hybrid | dual | dual |
+| metric | clinical auto (Run 1) | personal auto (Run 2) | personal confident (Run 3a) | clinical confident (Run 3b) | personal confident+dual (Run 4b) | clinical confident+dual (Run 4a) | clinical confident+dual-3 (Run 5a) | personal confident+dual-3 (Run 5b) |
+|---|---|---|---|---|---|---|---|---|
+| corpus size | 517 chunks | 3486 docs | 3486 docs | 517 chunks | 3486 docs | 517 chunks | 517 chunks | 3486 docs |
+| corpus type | authoritative guidelines | agent working memory | agent working memory | authoritative guidelines | agent working memory | authoritative guidelines | authoritative guidelines | agent working memory |
+| grounded (supports + contradicts) | 3/5 | 5/5 | 5/5 | 3/5 | 5/5 | 4/5 | 5/5 | 5/5 |
+| neutral (retrieval miss) | 2/5 | 0/5 | 0/5 | 2/5 | 0/5 | 1/5 (corpus gap) | 0/5 | 0/5 |
+| avg tokens/question | 2453 | 1973 | 2152 | 2488 | 3666 | 4334 | 12712 | 7677 |
+| avg wall per question | ~1s | <1s | <1s | <1s | <1s | <1s | <2s | <2s |
+| builder mode | auto | auto | confident | confident | confident | confident | confident | confident |
+| retrieval mode | hybrid | hybrid | hybrid | hybrid | dual (2-way) | dual (2-way) | dual (3-way) | dual (3-way) |
 
 **Claim this supports (2026-04-21, after Runs 1-3):** Mode A
 is domain-portable AND exercises its hallucination-correction
@@ -371,30 +510,25 @@ moves the number.
 
 ## Next moves
 
-**Move 1b (adversarial Builder)** and **Move 2 (retrieval
-quality)** both shipped 2026-04-21. The two open items
-promoted to the top of the queue:
+**Moves 1b, 2, and the supports-on-refusal bug fix** all
+shipped 2026-04-21. Single open item:
 
 - **Move 3 -- KV-cache splice POC.** Prove minimal mlx-lm
   cache append-K/V in a probe script. Unlocks Mode C (mid-
   stream context injection without restart). Exit: a demo
   that generates N tokens, injects context, continues, and
   visibly reflects the injected context in the continuation.
-- **Fix the supports-on-refusal annotator bug** documented in
-  the Run 3a section. When `verdict=supports` fires on a
-  hedged draft, rewrite the body to the quoted evidence with
-  a "recovered from uncertain draft" marker instead of
-  preserving the hedge + appending a contradictory footer.
-  Small edit to `annotate_deterministic`, should take 20
-  minutes including tests.
 
-**Corpus gaps** (separate from retrieval):
+Open secondary issue (noted, not in Move 3):
 
-- The co-trimoxazole chunk about CD4 < 350 threshold is not
-  retrievable from the current `medlocal_concept.db`. Either
-  re-ingest with the actionable sections of
-  `who-hf-d32eb6c1-...` or accept that this question is
-  outside the corpus's coverage. No search-knob fix applies.
+- **Answer-level verification vs claim-level verification.**
+  Run 5a cotrimoxazole had the Judge mark the Builder's
+  "start prophylaxis" recommendation as supports, even though
+  the Builder said "CD4 <200" and the cited chunk said "CD4
+  <350". The top-line answer is confirmed; the sub-claim
+  threshold is not. A claim-level Judge pass would flag the
+  inconsistency. Worth considering for a future Mode A
+  evolution -- not a blocker for current use.
 
 Deferred (needs curated dataset + rubric, not next-session
 work): N=50+ benchmark against ASQA / HAGRID / MedQA with

@@ -344,6 +344,37 @@ def judge_once(
     return parsed, dt, usage
 
 
+# Substrings that mark a draft as a refusal / hedge. Used by
+# annotate_deterministic to detect the supports-on-refusal case:
+# Judge says "supports" + finds a verbatim quote, but the Builder
+# drafted "I don't know", so pasting a "[confirmed: X]" footer on
+# top of the hedge produces a contradictory user-facing output.
+# When this fires we synthesize a body from the quoted evidence
+# with a distinct "recovered from uncertain draft" marker so the
+# consumer can tell this is a retrieval-recovered answer, not an
+# answer the Builder endorsed. Matching is case-insensitive
+# substring; kept short to avoid false positives on drafts that
+# merely hedge on a sub-claim inside a confident main answer.
+REFUSAL_MARKERS = (
+    "i'm not aware",
+    "i am not aware",
+    "i'm unable to verify",
+    "i am unable to verify",
+    "i cannot verify",
+    "i can't verify",
+    "i don't have info",
+    "i do not have info",
+    "i couldn't find",
+    "i could not find",
+    "no information",
+)
+
+
+def _draft_is_refusal(draft: str) -> bool:
+    lower = draft.lower()
+    return any(m in lower for m in REFUSAL_MARKERS)
+
+
 def annotate_deterministic(
     draft: str,
     judgment: dict,
@@ -352,9 +383,15 @@ def annotate_deterministic(
     """Assemble the final user-facing response with provenance
     footer. Zero extra LLM calls.
 
-    - supports: draft + [confirmed: src | quoted...] footer.
     - contradicts: corrected_text + [corrected from draft; src |
       quoted...] footer.
+    - supports:
+        * draft is not a refusal: draft + [confirmed: src |
+          quoted...] footer (the happy path).
+        * draft IS a refusal: body is replaced with the quoted
+          evidence and a "recovered from uncertain draft" marker
+          so the consumer does not see "I don't know" followed by
+          "confirmed: ...".
     - neutral / no_claim / no_retrieval: draft + [generated, no
       memory coverage] footer.
 
@@ -385,6 +422,15 @@ def annotate_deterministic(
 
     if verdict == "supports":
         quoted_short = (quoted[:200] + "...") if len(quoted) > 200 else quoted
+        if _draft_is_refusal(draft) and quoted:
+            body = (
+                f"Per authoritative memory ({_cite_sources()}): {quoted}"
+            )
+            footer = (
+                f"\n\n>> [recovered from uncertain draft: {_cite_sources()}]"
+                f"\n>> quoted evidence: \"{quoted_short}\""
+            )
+            return body + footer
         footer = (
             f"\n\n>> [confirmed: {_cite_sources()}]"
             f"\n>> quoted evidence: \"{quoted_short}\""
@@ -455,16 +501,54 @@ def retrieve(
     """
     try:
         if retrieval_mode == "dual":
+            # dual runs three searches so the Judge sees candidates
+            # from complementary ranking regimes. The cost is three
+            # ~100ms vstash calls, still zero LLM spend.
+            #
+            # 1. hybrid(question+draft): semantic + keyword, biased
+            #    toward vec. Catches paraphrases and conceptually
+            #    related chunks.
+            # 2. fts(question+draft): pure keyword, wider top_k so
+            #    specific chunks don't get buried by meta-intros.
+            # 3. fts(question only): pure keyword on the STABLE
+            #    half of the query. The Builder's draft introduces
+            #    synonym drift (e.g. "TMP/SMX" vs "cotrimoxazole")
+            #    that can push the one actionable chunk out of
+            #    fts ranks. Searching the question alone sidesteps
+            #    that drift.
+            #
+            # Diagnostic 2026-04-21 that motivated (3): the hiv-who
+            # chunk with the CD4<350 threshold is fts rank 3 for
+            # "cotrimoxazole prophylaxis HIV CD4" but drops below
+            # top-10 when the Builder draft appends "TMP/SMX" to
+            # the query.
+            fts_k = top_k * 3
+            # Extract the question half by splitting on the first
+            # blank line (the pipeline forms the query as
+            # f"{question}\n{draft[:400]}"). Fallback to the full
+            # query when no newline is present.
+            q_only = query.split("\n", 1)[0].strip() or query
             hybrid_hits = mem.search(query, top_k=top_k)
-            fts_hits = mem.search(query, top_k=top_k, fts_only=True)
-            # Interleave so neither mode monopolises the prefix; the
-            # Judge sees a balanced candidate pool and is less
-            # likely to fixate on whichever mode ranked first.
+            fts_hits = mem.search(query, top_k=fts_k, fts_only=True)
+            fts_q_hits = (
+                mem.search(q_only, top_k=fts_k, fts_only=True)
+                if q_only != query
+                else []
+            )
+            # Interleave the three pools so no ranking regime
+            # monopolises the prefix. The Judge sees a balanced
+            # candidate set and has to pick the right chunk on
+            # content, not on position.
             hits: list = []
-            for pair in zip(hybrid_hits, fts_hits):
-                hits.extend(pair)
-            remaining = hybrid_hits[len(fts_hits):] + fts_hits[len(hybrid_hits):]
-            hits.extend(remaining)
+            pools = [hybrid_hits, fts_hits, fts_q_hits]
+            for row in zip(*pools):
+                hits.extend(row)
+            # Tail-append anything still remaining in the longest pool.
+            max_len = max(len(p) for p in pools)
+            for i in range(min(len(p) for p in pools), max_len):
+                for p in pools:
+                    if i < len(p):
+                        hits.append(p[i])
         else:
             hits = mem.search(query, top_k=top_k)
     except Exception as e:
