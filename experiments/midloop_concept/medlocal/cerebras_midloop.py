@@ -148,24 +148,35 @@ def cerebras_chat(model: str, messages: list[dict], max_tokens: int) -> tuple[st
     """Return (text, wall_seconds, usage). Bubbles SDK exceptions up
     after a short retry window.
 
-    Cerebras intermittently returns 503 ``queue_exceeded`` under
-    load. A smoke run that fires 2 calls per question times N
-    questions has a non-trivial probability of hitting one. Retry
-    up to 3 times with exponential backoff (2s, 4s, 8s) so a
-    single transient 503 does not lose all the tokens spent
-    earlier in the run. Persistent 5xx still bubbles up.
+    Cerebras intermittently returns 5xx ``queue_exceeded`` / 429
+    rate-limit under load. A smoke run that fires 2 calls per
+    question times N questions has a non-trivial probability of
+    hitting one. Retry the transient classes up to 4 total
+    attempts with exponential backoff of 2s / 4s / 8s between
+    attempts (so attempts 1..4 are at t=0, t=2, t=6, t=14).
+    Non-retryable errors (auth, bad request, not found) bubble
+    up immediately.
+
+    We catch ``APIStatusError`` (the common parent of every HTTP
+    error the SDK raises) rather than a specific subclass so a
+    future SDK version that reclassifies 503 as
+    ``ServiceUnavailableError`` does not silently break the
+    retry. Status-code gating via ``response.status_code`` keeps
+    4xx client errors out of the retry loop.
 
     ``usage`` is a dict of prompt_tokens / completion_tokens /
     total_tokens taken from ``resp.usage`` when Cerebras populates
     it. Empty dict when the SDK response omits the field, so the
     caller can sum defensively.
     """
-    from cerebras.cloud.sdk import InternalServerError
+    from cerebras.cloud.sdk import APIStatusError
 
     client = _cerebras_client()
     t0 = time.perf_counter()
-    last_err: Exception | None = None
-    for attempt in range(3):
+    # Attempts 1..4; between each pair we sleep backoffs[i] seconds.
+    # Three backoffs => four attempts total (matches the docstring).
+    backoffs = [2, 4, 8]
+    for attempt in range(len(backoffs) + 1):
         try:
             resp = client.chat.completions.create(
                 model=model,
@@ -174,21 +185,23 @@ def cerebras_chat(model: str, messages: list[dict], max_tokens: int) -> tuple[st
                 temperature=0.3,
             )
             break
-        except InternalServerError as exc:
-            last_err = exc
-            # 5xx on the last attempt -> let it bubble; the caller
-            # already has the partial run state it needs.
-            if attempt == 2:
+        except APIStatusError as exc:
+            status = getattr(getattr(exc, "response", None), "status_code", None)
+            # Only transient classes retry: 5xx (server) and 429
+            # (rate-limit). 4xx client errors (400/401/403/404/422
+            # etc) are bugs on our side; retrying would just waste
+            # budget and hide the real error.
+            is_transient = isinstance(status, int) and (
+                status >= 500 or status == 429
+            )
+            if not is_transient or attempt == len(backoffs):
                 raise
-            backoff = 2 ** (attempt + 1)
+            backoff = backoffs[attempt]
             print(
-                f"    cerebras 5xx (attempt {attempt+1}/3), "
-                f"backing off {backoff}s: {exc}"
+                f"    cerebras {status} (attempt {attempt+1}/"
+                f"{len(backoffs)+1}), backing off {backoff}s: {exc}"
             )
             time.sleep(backoff)
-    else:  # pragma: no cover -- the break above covers the success path
-        if last_err is not None:
-            raise last_err
     dt = time.perf_counter() - t0
     usage = {}
     u = getattr(resp, "usage", None)
@@ -268,7 +281,7 @@ JUDGE_SYSTEM_TEMPLATE = (
     "    {{\n"
     '      "text": "...",             // the atomic sub-claim as a short sentence\n'
     '      "verdict": "supports"|"contradicts"|"neutral",\n'
-    '      "supporting_excerpt_id": int|null, // 0-based index, or null when neutral/contradicts\n'
+    '      "supporting_excerpt_id": int|null, // null only for neutral\n'
     '      "quoted_evidence": "..."   // verbatim substring from that excerpt; "" when neutral\n'
     "    }}\n"
     "  ]\n"
@@ -295,8 +308,14 @@ JUDGE_SYSTEM_TEMPLATE = (
     "- For each sub-claim, emit verdict/supporting_excerpt_id/"
     "quoted_evidence using the SAME verbatim-substring rule as the "
     "top-level quoted_evidence.\n"
-    "- If a sub-claim's verdict is 'contradicts', quoted_evidence "
-    "must be a verbatim substring of the excerpt it contradicts.\n"
+    "- If a sub-claim's verdict is 'supports', supporting_excerpt_id "
+    "is the excerpt whose text grounds the claim and "
+    "quoted_evidence is a verbatim substring of that excerpt.\n"
+    "- If a sub-claim's verdict is 'contradicts', "
+    "supporting_excerpt_id is the excerpt that contradicts the "
+    "claim (NOT null -- future audit / training code needs the "
+    "index to trace the evidence) and quoted_evidence is a "
+    "verbatim substring of that excerpt.\n"
     "- If verdict is 'neutral' for a sub-claim, "
     "supporting_excerpt_id = null and quoted_evidence = \"\".\n"
     "- claims may be [] when has_claim=false.\n\n"
@@ -436,11 +455,16 @@ def judge_once(
             "corrected_text": "",
             "claims": [],
         }
-    # Ensure every returned judgment has the claims field so the
-    # annotator does not need to None-guard it. Older stored logs
-    # predate this field -- leaving it absent there is fine (the
-    # annotator treats missing as []).
-    parsed.setdefault("claims", [])
+    # Ensure every returned judgment has a claims LIST so the
+    # annotator does not need to None-guard or type-check it.
+    # Defensive type-check: if the model returned a non-list
+    # (e.g. a dict keyed by claim text, or a stray string), drop
+    # it silently to []. Better to miss claim-level signaling on
+    # one malformed response than to crash the whole smoke run.
+    # Older stored logs predate this field; reading them stays
+    # safe because the annotator treats missing as [].
+    if not isinstance(parsed.get("claims"), list):
+        parsed["claims"] = []
     return parsed, dt, usage
 
 
