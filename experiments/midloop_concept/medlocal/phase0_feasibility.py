@@ -62,7 +62,7 @@ class Probe:
         self.facts.append(s)
         print(f"  . {s}")
 
-    def __enter__(self) -> "Probe":
+    def __enter__(self) -> Probe:
         print(f"\n[{self.name}] starting")
         self._t0 = time.perf_counter()
         return self
@@ -137,7 +137,11 @@ def _apply_chat(tokenizer, user_msg: str, prior_assistant: str | None = None) ->
 def probe_model_interception(p: Probe, model_name: str, model_path: Path) -> None:
     if not model_path.exists():
         raise FileNotFoundError(f"{model_name} not found at {model_path}")
-    p.fact(f"model path: {model_path}")
+    # Keep only the directory basename in the report so the
+    # committed JSON does not leak the developer's home layout.
+    # The absolute path is still printed to stdout via Probe when
+    # someone runs the probe locally.
+    p.fact(f"model: {model_path.name}")
 
     from mlx_lm import load
 

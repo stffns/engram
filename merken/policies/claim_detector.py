@@ -150,9 +150,18 @@ class NoopClaimDetector:
 # contributor; keep the set curated, not exhaustive.
 
 _UNCERTAINTY_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
-    ("hedge_i_think", re.compile(r"\b(?:i\s+think|i\s+believe|i\s+guess|i\s+suspect)\b", re.IGNORECASE)),
-    ("hedge_modal", re.compile(r"\b(?:might|could|may|possibly|perhaps|probably|maybe)\b", re.IGNORECASE)),
-    ("hedge_seems", re.compile(r"\b(?:seems|appears|looks\s+like)\b", re.IGNORECASE)),
+    ("hedge_i_think", re.compile(
+        r"\b(?:i\s+think|i\s+believe|i\s+guess|i\s+suspect)\b",
+        re.IGNORECASE,
+    )),
+    ("hedge_modal", re.compile(
+        r"\b(?:might|could|may|possibly|perhaps|probably|maybe)\b",
+        re.IGNORECASE,
+    )),
+    ("hedge_seems", re.compile(
+        r"\b(?:seems|appears|looks\s+like)\b",
+        re.IGNORECASE,
+    )),
 )
 
 # Prescriptive imperatives: sentence-initial verb with no explicit
@@ -166,12 +175,21 @@ _PRESCRIPTIVE_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
         r"discontinue|repeat|adjust)\b",
         re.IGNORECASE,
     )),
-    ("should_must", re.compile(r"\b(?:should|must|need\s+to|has\s+to|have\s+to|ought\s+to)\b", re.IGNORECASE)),
+    ("should_must", re.compile(
+        r"\b(?:should|must|need\s+to|has\s+to|have\s+to|ought\s+to)\b",
+        re.IGNORECASE,
+    )),
 )
 
 _REASONING_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
-    ("causal", re.compile(r"\b(?:because|therefore|thus|hence|so\s+that|due\s+to)\b", re.IGNORECASE)),
-    ("conditional", re.compile(r"\b(?:if\s+\w+.+then|since\s+\w+)\b", re.IGNORECASE)),
+    ("causal", re.compile(
+        r"\b(?:because|therefore|thus|hence|so\s+that|due\s+to)\b",
+        re.IGNORECASE,
+    )),
+    ("conditional", re.compile(
+        r"\b(?:if\s+\w+.+then|since\s+\w+)\b",
+        re.IGNORECASE,
+    )),
 )
 
 # Factual assertion: number + (unit or range) is the highest-signal
@@ -472,7 +490,7 @@ class LLMClaimDetector:
             claims.append(ClaimSpan(
                 start=start, end=end,
                 type=claim_type,
-                text=text[start:end] if not span_text else span_text,
+                text=span_text if span_text else text[start:end],
             ))
 
         signals = {

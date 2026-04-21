@@ -7,7 +7,7 @@
       "ok": true,
       "duration_s": 8.005,
       "facts": [
-        "model path: /Users/jaysonsteffens/.lmstudio/models/lmstudio-community/gemma-4-E2B-it-MLX-4bit",
+        "model: gemma-4-E2B-it-MLX-4bit",
         "loaded in 2.8s",
         "stream1: 8 tokens, first-token 1197ms, total 1288ms",
         "stream1 text: '1, 2, 3,'",
@@ -23,7 +23,7 @@
       "ok": true,
       "duration_s": 5.64,
       "facts": [
-        "model path: /Users/jaysonsteffens/.lmstudio/models/lmstudio-community/gemma-4-E4B-it-MLX-4bit",
+        "model: gemma-4-E4B-it-MLX-4bit",
         "loaded in 3.5s",
         "stream1: 8 tokens, first-token 1514ms, total 1674ms",
         "stream1 text: '1, 2, 3,'",

@@ -166,7 +166,12 @@ def cerebras_chat(model: str, messages: list[dict], max_tokens: int) -> tuple[st
             "completion_tokens": getattr(u, "completion_tokens", 0) or 0,
             "total_tokens": getattr(u, "total_tokens", 0) or 0,
         }
-    return (resp.choices[0].message.content or "").strip(), dt, usage
+    # Defensive: the Cerebras SDK has always populated `choices`
+    # in observed runs, but treat an empty list as an empty draft
+    # rather than letting an IndexError crash the smoke loop.
+    choices = getattr(resp, "choices", None) or []
+    content = choices[0].message.content if choices else ""
+    return (content or "").strip(), dt, usage
 
 
 def _extract_json_object(raw: str) -> dict:
@@ -490,14 +495,15 @@ def retrieve(
     ``retrieval_mode``:
       - ``"hybrid"`` (default): one vstash.search call with the
         stock adaptive RRF weighting. Cheap, ~100ms.
-      - ``"dual"``: run the hybrid search AND an fts_only search,
-        then merge. Added 2026-04-21 after the Run 3b diagnostic
-        showed that vec-dominant hybrid buries exact-keyword
-        matches for dense clinical chunks (e.g. the WOMAN-trial
-        TXA chunk, fts top-1 but hybrid not in top-10). Each call
-        returns up to ``top_k``; merged list is capped at
-        ``2 * top_k`` after dedup. Extra cost: one more search
-        call (~100-200ms), no LLM spend.
+      - ``"dual"``: run three complementary searches and
+        interleave the results -- see the inline comment in the
+        branch for the full rationale. Each search is a vstash
+        call (~100ms each), no LLM spend. The merged pool is
+        NOT hard-capped; final size is bounded by
+        ``top_k + top_k*3 + top_k*3 = 7 * top_k`` candidates
+        before text-prefix dedup. Evolved across Runs 4 -> 5
+        (2026-04-21) as the stuck-neutral diagnostic narrowed
+        the root cause to Builder-draft synonym drift.
     """
     try:
         if retrieval_mode == "dual":
@@ -541,7 +547,11 @@ def retrieve(
             # content, not on position.
             hits: list = []
             pools = [hybrid_hits, fts_hits, fts_q_hits]
-            for row in zip(*pools):
+            # strict=False: pools may differ in length when a search
+            # returns fewer hits than requested; truncation to the
+            # shortest pool is intentional, with the tail loop below
+            # picking up the remainder.
+            for row in zip(*pools, strict=False):
                 hits.extend(row)
             # Tail-append anything still remaining in the longest pool.
             max_len = max(len(p) for p in pools)
@@ -803,10 +813,7 @@ def main() -> int:
         )
         log_name = args.log_name or default_log
 
-        if args.question:
-            qs = [("ad_hoc", args.question)]
-        else:
-            qs = default_questions
+        qs = [("ad_hoc", args.question)] if args.question else default_questions
 
         # Non-default knobs get suffixed logs so they do not
         # clobber a baseline-mode log for the same domain.

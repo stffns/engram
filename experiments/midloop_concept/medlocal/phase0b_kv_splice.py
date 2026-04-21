@@ -96,19 +96,19 @@ def _gen(model, tokenizer, ids, cache, max_new: int) -> list[int]:
     the newly-generated token ids. If ``ids`` is non-empty the
     prefill extends the cache with their K/V first.
     """
-    from mlx_lm.generate import generate_step
     import mlx.core as mx
+    from mlx_lm.generate import generate_step
 
     out: list[int] = []
     # Empty prompt is not valid for generate_step; the caller
     # always passes at least one token.
     arr = mx.array(ids)
-    for i, (tok, _lp) in enumerate(generate_step(
+    for tok, _lp in generate_step(
         prompt=arr,
         model=model,
         max_tokens=max_new,
         prompt_cache=cache,
-    )):
+    ):
         out.append(int(tok))
         if len(out) >= max_new:
             break
@@ -134,9 +134,12 @@ def run_probe(model_path: Path) -> dict:
     from mlx_lm import load
     from mlx_lm.models.cache import make_prompt_cache
 
+    # Use the model directory name as the portable identifier.
+    # Never embed the absolute `model_path` in the committed
+    # report -- it leaks the developer's home layout and makes
+    # the artifact non-portable across machines.
     report: dict = {
         "model": model_path.name,
-        "model_path": str(model_path),
         "ok": False,
         "facts": [],
     }
