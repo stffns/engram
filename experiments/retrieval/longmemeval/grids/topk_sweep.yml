@@ -1,0 +1,48 @@
+# Retrieval budget sweep. How many excerpts should the RAG
+# prompt see? Cerebras cost is linear in prompt tokens, so
+# top_k=1 is cheapest but starves the model; top_k=10 is
+# richer but noisy (more distractors). Sweep at fixed temp=0.0
+# + rag_specific prompt so the only variable is retrieval
+# budget.
+#
+# Hypothesis: top_k=3 is the knee -- top_k=1 misses synthesis
+# cases, top_k=10 hurts on ambiguous queries where the pool is
+# saturated with near-misses.
+#
+#   python -m experiments.retrieval.longmemeval.mode_a_eval \
+#     --grid experiments/retrieval/longmemeval/grids/topk_sweep.yml \
+#     --subset longmemeval_s --n 50 --seed 42 \
+#     --out experiments/retrieval/longmemeval/mode_a_eval_grids
+
+conditions:
+  - name: rag_t00_k1
+    kind: rag
+    temperature: 0.0
+    top_k: 1
+    retrieval_mode: dual
+    system_prompt: rag_specific
+    cite_footer: true
+
+  - name: rag_t00_k3
+    kind: rag
+    temperature: 0.0
+    top_k: 3
+    retrieval_mode: dual
+    system_prompt: rag_specific
+    cite_footer: true
+
+  - name: rag_t00_k5
+    kind: rag
+    temperature: 0.0
+    top_k: 5
+    retrieval_mode: dual
+    system_prompt: rag_specific
+    cite_footer: true
+
+  - name: rag_t00_k10
+    kind: rag
+    temperature: 0.0
+    top_k: 10
+    retrieval_mode: dual
+    system_prompt: rag_specific
+    cite_footer: true

@@ -19,7 +19,7 @@ from collections import Counter, defaultdict
 from pathlib import Path
 
 VERDICTS = ("supports", "partial", "contradicts", "neutral")
-CONDITIONS = ("control", "rag", "mode_a")
+CONDITIONS = ("control", "rag", "rag_specific", "rag_specific_cite", "mode_a")
 
 
 def _correct(v: str) -> bool:

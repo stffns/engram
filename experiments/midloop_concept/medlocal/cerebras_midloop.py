@@ -144,7 +144,13 @@ def _cerebras_client():
     return Cerebras()
 
 
-def cerebras_chat(model: str, messages: list[dict], max_tokens: int) -> tuple[str, float, dict]:
+def cerebras_chat(
+    model: str,
+    messages: list[dict],
+    max_tokens: int,
+    *,
+    temperature: float = 0.3,
+) -> tuple[str, float, dict]:
     """Return (text, wall_seconds, usage). Bubbles SDK exceptions up
     after a short retry window.
 
@@ -182,7 +188,7 @@ def cerebras_chat(model: str, messages: list[dict], max_tokens: int) -> tuple[st
                 model=model,
                 messages=messages,
                 max_tokens=max_tokens,
-                temperature=0.3,
+                temperature=temperature,
             )
             break
         except APIStatusError as exc:

@@ -58,9 +58,11 @@ import re
 import sys
 import time
 import uuid
-from dataclasses import dataclass
+from collections.abc import Callable
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
 import vstash
 
@@ -141,6 +143,41 @@ RAG_BUILDER_SYSTEM = (
     "Quote specific numbers or names from the context when they "
     "appear. Keep the answer under 150 words. Do not hedge."
 )
+
+# Builder system prompt for the `rag_specific` baseline. Targets the
+# failure patterns surfaced in N=49 Run 1:
+#   - aggregation mistakes ("total $ from markets" got $595 instead
+#     of $495 because Mode A/Builder summed wrong)
+#   - knowledge-update misses (prefer older fact over newer one)
+#   - hallucination when the context is ambiguous ("how many
+#     projects" -> Builder guessed instead of abstaining)
+#   - no citation trail (RAG has no auditability, unlike Mode A)
+# The rules are explicit instructions the cheap Builder actually
+# follows; they cost ~80 tokens of system prompt.
+RAG_SPECIFIC_SYSTEM = (
+    "Answer the user question using ONLY the provided context "
+    "excerpts. Follow these rules strictly:\n\n"
+    "1. If the question asks for a TOTAL, COUNT, or SUM, enumerate "
+    "each relevant numeric value across excerpts first, then "
+    "compute the total. Show the enumeration inline when it helps.\n"
+    "2. If multiple excerpts make conflicting claims about the same "
+    "fact (e.g. earlier said X, later said Y), PREFER the most "
+    "recent. Excerpts appear in retrieval order, not time order; "
+    "use any session_id / timestamp hints to pick the later one.\n"
+    "3. If the answer is NOT clearly in the excerpts, respond "
+    "exactly 'not found in memory' rather than guessing.\n"
+    "4. Cite sources: after any specific factual claim, add "
+    "[excerpt N] where N is the 0-based excerpt index you used.\n"
+    "5. Quote specific numbers, names, and dates verbatim from "
+    "the excerpts -- do not paraphrase numerals.\n"
+    "6. Keep the answer under 200 words. Do not hedge outside of "
+    "rule 3."
+)
+
+# Matches [excerpt N] / [excerpt N, M] / [excerpt N | M] citations
+# in the rag_specific output. Used by the _cite variant's
+# deterministic footer renderer.
+_EXCERPT_CITE_RE = re.compile(r"\[excerpt\s+([0-9,\s|]+)\]", re.IGNORECASE)
 
 
 # --------------------------------------------------------------------- oracle
@@ -248,6 +285,51 @@ def run_control(question: str) -> dict:
     }
 
 
+def _render_excerpt_block(excerpts: list[dict]) -> str:
+    """Shared context block used by every RAG-family condition so
+    the retrieval payload is identical and only the system prompt
+    varies.
+    """
+    return "\n\n---\n\n".join(
+        f"[excerpt {i} | source={e['source_id']}]\n{e['text'][:800]}"
+        for i, e in enumerate(excerpts)
+    )
+
+
+def _cite_footer_from_rag(answer: str, excerpts: list[dict]) -> tuple[str, bool, list[int]]:
+    """Parse ``[excerpt N]`` markers from a rag_specific answer and
+    build a deterministic provenance footer listing the cited
+    sources + the verbatim text snippet from each. Returns
+    ``(footer, grounded_bool, cited_indices)``.
+
+    ``grounded`` is True iff at least one citation resolves to a
+    valid excerpt index. Invalid indices are silently dropped so a
+    model that writes ``[excerpt 99]`` does not hallucinate a
+    cite.
+    """
+    cited: list[int] = []
+    for m in _EXCERPT_CITE_RE.finditer(answer):
+        for part in re.split(r"[,|]", m.group(1)):
+            part = part.strip()
+            if not part.isdigit():
+                continue
+            idx = int(part)
+            if 0 <= idx < len(excerpts) and idx not in cited:
+                cited.append(idx)
+    if not cited:
+        return ("\n\n>> [no excerpt citations in answer]", False, [])
+
+    lines = [f"\n\n>> [rag_specific grounded in {len(cited)} excerpt(s)]"]
+    for idx in cited:
+        e = excerpts[idx]
+        src = e.get("source_id", "memory")
+        snippet = (e.get("text") or "").strip().replace("\n", " ")
+        snippet = (snippet[:160] + "...") if len(snippet) > 160 else snippet
+        lines.append(f">>   [excerpt {idx} | source={src}]")
+        lines.append(f">>     {snippet!r}")
+    return ("\n".join(lines), True, cited)
+
+
 def run_rag(mem: vstash.Memory, question: str) -> dict:
     """Naive RAG: same dual-3 retrieval Mode A uses, but the
     Builder sees the chunks directly and produces the final
@@ -282,6 +364,61 @@ def run_rag(mem: vstash.Memory, question: str) -> dict:
         "builder_usage": usage,
         "_total_s": time.perf_counter() - t0,
     }
+
+
+def run_rag_specific(mem: vstash.Memory, question: str) -> dict:
+    """RAG with a prompt engineered for the three failure modes
+    seen in the Run 1 RAG baseline: aggregation math, knowledge-
+    update recency, and over-confident hallucination when context
+    is ambiguous. Same retrieval as RAG; only the system prompt
+    differs. Excerpt headers use the ``[excerpt N | source=X]``
+    format so the model's ``[excerpt N]`` citations are index-
+    stable for the ``_cite`` variant's deterministic footer.
+    """
+    t0 = time.perf_counter()
+    excerpts = retrieve(mem, question, top_k=TOP_K, retrieval_mode="dual")
+    stats = retrieval_stats(excerpts)
+    user = f"Context:\n{_render_excerpt_block(excerpts)}\n\nQuestion: {question}"
+    answer, dt, usage = cerebras_chat(
+        BUILDER,
+        [
+            {"role": "system", "content": RAG_SPECIFIC_SYSTEM},
+            {"role": "user", "content": user},
+        ],
+        MAX_TOKENS_DRAFT,
+    )
+    return {
+        "answer": answer,
+        "retrieved": excerpts,
+        "retrieval_stats": stats,
+        "wall_s": dt,
+        "total_tokens": usage.get("total_tokens", 0) or 0,
+        "builder_usage": usage,
+        "_total_s": time.perf_counter() - t0,
+    }
+
+
+def attach_cite_footer(r_rag_specific: dict) -> dict:
+    """Add a deterministic provenance footer to an existing
+    ``rag_specific`` result. Returns a NEW dict (does not mutate
+    the input) so the oracle sees the same underlying answer + a
+    footer; we are isolating the footer's effect rather than
+    re-running the Builder.
+
+    This is the key test: if the Builder cited excerpts and the
+    footer resolves them to source_id + verbatim snippet
+    deterministically, we get Mode A's grounded property without
+    Mode A's Judge call.
+    """
+    answer = r_rag_specific["answer"]
+    excerpts = r_rag_specific["retrieved"]
+    footer, grounded, cited_ids = _cite_footer_from_rag(answer, excerpts)
+    out = dict(r_rag_specific)
+    out["answer"] = answer + footer
+    out["grounded"] = grounded
+    out["cited_excerpt_ids"] = cited_ids
+    # Token / wall numbers are identical -- the footer is free.
+    return out
 
 
 def run_mode_a(mem: vstash.Memory, question: str) -> dict:
@@ -342,6 +479,147 @@ def run_mode_a(mem: vstash.Memory, question: str) -> dict:
     }
 
 
+# --------------------------------------------------------------------- grid
+
+
+# Prompts addressable by a short key in a grid config. New entries
+# go here; the grid YAML references them by name.
+SYSTEM_PROMPT_REGISTRY: dict[str, str] = {
+    "confident": BUILDER_MODES["confident"] or "",
+    "rag_baseline": RAG_BUILDER_SYSTEM,
+    "rag_specific": RAG_SPECIFIC_SYSTEM,
+}
+
+
+@dataclass
+class Condition:
+    """One row of a grid run. ``kind`` picks the factory; the rest
+    are kind-specific knobs. Unused knobs for a kind are silently
+    ignored so a shared YAML schema can describe every condition
+    without a discriminated union.
+    """
+
+    name: str
+    kind: str  # 'control' | 'rag' | 'rag_specific' | 'mode_a'
+    temperature: float = 0.3
+    top_k: int = TOP_K
+    retrieval_mode: str = "dual"
+    system_prompt: str = "rag_baseline"   # key in SYSTEM_PROMPT_REGISTRY
+    excerpt_truncation: int = 800          # chars per excerpt in the prompt
+    max_tokens: int = MAX_TOKENS_DRAFT
+    cite_footer: bool = False              # append deterministic footer?
+    extra: dict = field(default_factory=dict)
+
+
+def _resolve_system_prompt(key: str) -> str:
+    if key not in SYSTEM_PROMPT_REGISTRY:
+        raise KeyError(
+            f"unknown system_prompt key {key!r}; known: "
+            f"{sorted(SYSTEM_PROMPT_REGISTRY)}"
+        )
+    return SYSTEM_PROMPT_REGISTRY[key]
+
+
+def _run_control_cfg(mem: vstash.Memory, question: str, c: Condition) -> dict:
+    t0 = time.perf_counter()
+    draft, dt, usage = cerebras_chat(
+        BUILDER,
+        [
+            {"role": "system", "content": _resolve_system_prompt(c.system_prompt)},
+            {"role": "user", "content": question},
+        ],
+        c.max_tokens,
+        temperature=c.temperature,
+    )
+    return {
+        "answer": draft,
+        "wall_s": dt,
+        "total_tokens": usage.get("total_tokens", 0) or 0,
+        "builder_usage": usage,
+        "_total_s": time.perf_counter() - t0,
+    }
+
+
+def _run_rag_cfg(mem: vstash.Memory, question: str, c: Condition) -> dict:
+    t0 = time.perf_counter()
+    excerpts = retrieve(mem, question, top_k=c.top_k, retrieval_mode=c.retrieval_mode)
+    stats = retrieval_stats(excerpts)
+    joined = "\n\n---\n\n".join(
+        f"[excerpt {i} | source={e['source_id']}]\n{e['text'][:c.excerpt_truncation]}"
+        for i, e in enumerate(excerpts)
+    )
+    user = f"Context:\n{joined}\n\nQuestion: {question}"
+    answer, dt, usage = cerebras_chat(
+        BUILDER,
+        [
+            {"role": "system", "content": _resolve_system_prompt(c.system_prompt)},
+            {"role": "user", "content": user},
+        ],
+        c.max_tokens,
+        temperature=c.temperature,
+    )
+    result: dict = {
+        "answer": answer,
+        "retrieved": excerpts,
+        "retrieval_stats": stats,
+        "wall_s": dt,
+        "total_tokens": usage.get("total_tokens", 0) or 0,
+        "builder_usage": usage,
+        "_total_s": time.perf_counter() - t0,
+    }
+    if c.cite_footer:
+        footer, grounded, cited_ids = _cite_footer_from_rag(answer, excerpts)
+        result["answer"] = answer + footer
+        result["grounded"] = grounded
+        result["cited_excerpt_ids"] = cited_ids
+    return result
+
+
+def _run_mode_a_cfg(mem: vstash.Memory, question: str, c: Condition) -> dict:
+    # Mode A's internal calls still read temperature from the global
+    # default (0.3) for now. Threading temperature into run_mode_a
+    # is a follow-up; for the grid's first pass we test temperature
+    # on RAG variants, which is where the production shape lives.
+    _ = c  # kind="mode_a" uses the existing hard-coded pipeline
+    return run_mode_a(mem, question)
+
+
+CONDITION_KINDS: dict[str, Callable[[vstash.Memory, str, Condition], dict]] = {
+    "control": _run_control_cfg,
+    "rag": _run_rag_cfg,
+    "mode_a": _run_mode_a_cfg,
+}
+
+
+def run_condition(mem: vstash.Memory, question: str, c: Condition) -> dict:
+    if c.kind not in CONDITION_KINDS:
+        raise KeyError(
+            f"unknown condition kind {c.kind!r}; known: {sorted(CONDITION_KINDS)}"
+        )
+    return CONDITION_KINDS[c.kind](mem, question, c)
+
+
+def load_grid(path: Path) -> list[Condition]:
+    """Load a YAML grid spec. Schema:
+
+    ``conditions:`` list of dicts, each with ``name`` and ``kind``
+    plus optional overrides. Unknown keys become ``extra``.
+    """
+    import yaml  # lazy -- only needed in grid mode
+
+    data = yaml.safe_load(path.read_text())
+    raw = data.get("conditions") or data  # tolerate bare list
+    out: list[Condition] = []
+    known = {f.name for f in Condition.__dataclass_fields__.values()}
+    for row in raw:
+        kwargs = {k: v for k, v in row.items() if k in known}
+        extra = {k: v for k, v in row.items() if k not in known}
+        if extra:
+            kwargs["extra"] = extra
+        out.append(Condition(**kwargs))
+    return out
+
+
 # --------------------------------------------------------------------- eval loop
 
 
@@ -353,6 +631,7 @@ class EvalConfig:
     out_path: Path
     top_k: int = TOP_K
     keep_dbs: bool = False
+    grid: list[Condition] | None = None  # None => legacy 5-condition mode
 
 
 def run_eval(cfg: EvalConfig) -> list[dict]:
@@ -413,8 +692,8 @@ def run_eval(cfg: EvalConfig) -> list[dict]:
                 ingest_s = time.perf_counter() - t_ingest
                 print(f"[ingest] {n_ingested} turns in {ingest_s:.1f}s")
 
-                # Three conditions, same question, same mem for the
-                # two that need retrieval.
+                # Five conditions, same question, same mem for the
+                # four that need retrieval.
                 print("[control]")
                 r_control = run_control(conv.question)
                 print(f"  answer: {r_control['answer'][:180]!r}")
@@ -422,6 +701,20 @@ def run_eval(cfg: EvalConfig) -> list[dict]:
                 print("[rag]")
                 r_rag = run_rag(mem, conv.question)
                 print(f"  answer: {r_rag['answer'][:180]!r}")
+
+                print("[rag_specific]")
+                r_rag_specific = run_rag_specific(mem, conv.question)
+                print(f"  answer: {r_rag_specific['answer'][:180]!r}")
+
+                # Same answer, same excerpts, footer appended
+                # deterministically -- no new LLM call.
+                print("[rag_specific_cite]")
+                r_rag_cite = attach_cite_footer(r_rag_specific)
+                n_cites = len(r_rag_cite.get("cited_excerpt_ids") or [])
+                print(
+                    f"  grounded={r_rag_cite.get('grounded')} "
+                    f"cites={n_cites}"
+                )
 
                 print("[mode_a]")
                 r_mode_a = run_mode_a(mem, conv.question)
@@ -440,12 +733,20 @@ def run_eval(cfg: EvalConfig) -> list[dict]:
                 o_rag = oracle_score(
                     oracle, conv.question, gt_text, r_rag["answer"]
                 )
+                o_rag_specific = oracle_score(
+                    oracle, conv.question, gt_text, r_rag_specific["answer"]
+                )
+                o_rag_cite = oracle_score(
+                    oracle, conv.question, gt_text, r_rag_cite["answer"]
+                )
                 o_mode_a = oracle_score(
                     oracle, conv.question, gt_text, r_mode_a["answer"]
                 )
                 print(
                     f"  control={o_control['verdict']:10s} "
                     f"rag={o_rag['verdict']:10s} "
+                    f"rag_spec={o_rag_specific['verdict']:10s} "
+                    f"rag_cite={o_rag_cite['verdict']:10s} "
                     f"mode_a={o_mode_a['verdict']:10s}"
                 )
 
@@ -462,6 +763,8 @@ def run_eval(cfg: EvalConfig) -> list[dict]:
                     "conditions": {
                         "control": {**r_control, "oracle": o_control},
                         "rag": {**r_rag, "oracle": o_rag},
+                        "rag_specific": {**r_rag_specific, "oracle": o_rag_specific},
+                        "rag_specific_cite": {**r_rag_cite, "oracle": o_rag_cite},
                         "mode_a": {**r_mode_a, "oracle": o_mode_a},
                     },
                 }
@@ -494,6 +797,125 @@ def run_eval(cfg: EvalConfig) -> list[dict]:
     return rows
 
 
+def run_grid_eval(cfg: EvalConfig) -> list[dict]:
+    """Grid-mode eval. Same per-question loop as ``run_eval`` but
+    each condition is parameter-driven (top_k, temperature,
+    system_prompt, etc.). Ingestion is shared per question so
+    adding another condition is only the cost of one more Builder
+    (and optionally Judge) call per question.
+    """
+    assert cfg.grid, "run_grid_eval called with no grid config"
+    print(
+        f"[grid] subset={cfg.subset} n={cfg.n} seed={cfg.seed} "
+        f"conditions={len(cfg.grid)} out={cfg.out_path}"
+    )
+    for c in cfg.grid:
+        print(
+            f"  - {c.name:30s} kind={c.kind:8s} "
+            f"temp={c.temperature} top_k={c.top_k} "
+            f"sys={c.system_prompt} cite={c.cite_footer}"
+        )
+    conversations = load_longmemeval(subset=cfg.subset)
+    rnd = random.Random(cfg.seed)
+    sampled = rnd.sample(conversations, min(cfg.n, len(conversations)))
+    oracle = _oracle_client()
+
+    tmp_root = Path.home() / ".merken" / f"longmemeval_mode_a_{cfg.seed}"
+    tmp_root.mkdir(parents=True, exist_ok=True)
+
+    cfg.out_path.parent.mkdir(parents=True, exist_ok=True)
+    fout = cfg.out_path.open("w")
+    rows: list[dict] = []
+
+    try:
+        for i, conv in enumerate(sampled):
+            gt_text = str(conv.answer) if conv.answer is not None else ""
+            print(
+                f"\n{'='*72}\n[{i+1}/{len(sampled)}] qid={conv.question_id} "
+                f"type={conv.question_type}\n{'='*72}"
+            )
+            print(f"Q: {conv.question[:200]}")
+            print(f"GT: {gt_text[:200]}")
+
+            db_path = tmp_root / f"{conv.question_id}.db"
+            if db_path.exists():
+                db_path.unlink()
+            mem = vstash.Memory(
+                db=str(db_path),
+                project=conv.question_id,
+                collection="default",
+            )
+            try:
+                t_ingest = time.perf_counter()
+                n_ingested = _ingest(mem, conv)
+                ingest_s = time.perf_counter() - t_ingest
+                print(f"[ingest] {n_ingested} turns in {ingest_s:.1f}s")
+
+                per_cond: dict[str, Any] = {}
+                for c in cfg.grid:
+                    print(f"[{c.name}]")
+                    try:
+                        r = run_condition(mem, conv.question, c)
+                    except Exception as exc:  # noqa: BLE001
+                        print(f"  error: {exc!r}")
+                        per_cond[c.name] = {"error": repr(exc)}
+                        continue
+                    o = oracle_score(
+                        oracle, conv.question, gt_text, r["answer"]
+                    )
+                    r["oracle"] = o
+                    r["_condition_spec"] = {
+                        "kind": c.kind,
+                        "temperature": c.temperature,
+                        "top_k": c.top_k,
+                        "retrieval_mode": c.retrieval_mode,
+                        "system_prompt": c.system_prompt,
+                        "cite_footer": c.cite_footer,
+                        "max_tokens": c.max_tokens,
+                    }
+                    per_cond[c.name] = r
+                    print(
+                        f"  oracle={o.get('verdict'):10s} "
+                        f"tok={r.get('total_tokens',0)} "
+                        f"wall={r.get('_total_s', 0):.1f}s"
+                    )
+
+                audit = {
+                    "audit_id": uuid.uuid4().hex[:12],
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "question_id": conv.question_id,
+                    "question_type": conv.question_type,
+                    "question": conv.question,
+                    "ground_truth": gt_text,
+                    "answer_session_ids": conv.answer_session_ids,
+                    "n_sessions_ingested": n_ingested,
+                    "ingest_s": ingest_s,
+                    "conditions": per_cond,
+                }
+                fout.write(json.dumps(audit, default=str) + "\n")
+                fout.flush()
+                rows.append(audit)
+            except Exception as exc:  # noqa: BLE001
+                print(f"[error] qid={conv.question_id}: {exc!r}")
+                fout.write(json.dumps(
+                    {
+                        "audit_id": uuid.uuid4().hex[:12],
+                        "question_id": conv.question_id,
+                        "error": repr(exc),
+                    },
+                    default=str,
+                ) + "\n")
+                fout.flush()
+            finally:
+                mem.close()
+                if not cfg.keep_dbs and db_path.exists():
+                    db_path.unlink()
+    finally:
+        fout.close()
+
+    return rows
+
+
 # --------------------------------------------------------------------- summary
 
 
@@ -507,7 +929,12 @@ def summarize(rows: list[dict]) -> None:
         print("no rows -- nothing to summarise")
         return
 
-    conditions = ["control", "rag", "mode_a"]
+    # Legacy 5-condition layout for backward compat. Grid runs
+    # summarise differently -- see summarize_grid below.
+    first = rows[0].get("conditions", {})
+    conditions = list(first) if first else [
+        "control", "rag", "rag_specific", "rag_specific_cite", "mode_a"
+    ]
     print("\n" + "=" * 72)
     print("SUMMARY")
     print("=" * 72)
@@ -534,23 +961,26 @@ def summarize(rows: list[dict]) -> None:
         )
 
     print()
-    mode_a_rows = [r["conditions"]["mode_a"] for r in rows]
-    grounded = sum(
-        1 for r in mode_a_rows
-        if (r.get("judgment", {}).get("quoted_evidence") or "").strip()
-    )
-    with_bad = sum(
-        1 for r in mode_a_rows
-        if (r.get("n_sub_claims_unsupported") or 0) > 0
-    )
-    print(
-        f"  mode_a grounded (has quoted_evidence): "
-        f"{grounded}/{n} ({grounded/n*100:.1f}%)"
-    )
-    print(
-        f"  mode_a claim-level leaks (>=1 unsupported sub-claim): "
-        f"{with_bad}/{n} ({with_bad/n*100:.1f}%)"
-    )
+    # Mode A telemetry is only meaningful when the legacy
+    # condition key "mode_a" is present in the rows.
+    if rows and "mode_a" in rows[0].get("conditions", {}):
+        mode_a_rows = [r["conditions"]["mode_a"] for r in rows]
+        grounded = sum(
+            1 for r in mode_a_rows
+            if (r.get("judgment", {}).get("quoted_evidence") or "").strip()
+        )
+        with_bad = sum(
+            1 for r in mode_a_rows
+            if (r.get("n_sub_claims_unsupported") or 0) > 0
+        )
+        print(
+            f"  mode_a grounded (has quoted_evidence): "
+            f"{grounded}/{n} ({grounded/n*100:.1f}%)"
+        )
+        print(
+            f"  mode_a claim-level leaks (>=1 unsupported sub-claim): "
+            f"{with_bad}/{n} ({with_bad/n*100:.1f}%)"
+        )
 
 
 # --------------------------------------------------------------------- cli
@@ -573,6 +1003,16 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--keep-dbs", action="store_true",
         help="keep per-question vstash dbs after the run (default: cleanup)",
     )
+    p.add_argument(
+        "--grid",
+        type=Path,
+        default=None,
+        help=(
+            "path to a YAML grid spec. When set, runs a configurable "
+            "multi-condition eval instead of the legacy 5-condition "
+            "layout. See grids/ for example specs."
+        ),
+    )
     return p.parse_args(argv)
 
 
@@ -580,15 +1020,22 @@ def main(argv: list[str] | None = None) -> int:
     args = _parse_args(argv)
     out_dir = args.out
     out_dir.mkdir(parents=True, exist_ok=True)
-    out_path = out_dir / f"n{args.n}_seed{args.seed}.jsonl"
+    if args.grid:
+        grid = load_grid(args.grid)
+        tag = args.grid.stem
+        out_path = out_dir / f"grid-{tag}_n{args.n}_seed{args.seed}.jsonl"
+    else:
+        grid = None
+        out_path = out_dir / f"n{args.n}_seed{args.seed}.jsonl"
     cfg = EvalConfig(
         subset=args.subset,
         n=args.n,
         seed=args.seed,
         out_path=out_path,
         keep_dbs=args.keep_dbs,
+        grid=grid,
     )
-    rows = run_eval(cfg)
+    rows = run_grid_eval(cfg) if grid else run_eval(cfg)
     summarize(rows)
     print(f"\nlog: {out_path}")
     return 0
