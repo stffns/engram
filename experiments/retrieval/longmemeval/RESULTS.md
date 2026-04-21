@@ -318,3 +318,150 @@ RAG wins the cases where **Mode A over-refuses or mis-aggregates**:
   ~20-30%.
 - **Graduate to N=100 or N=500** once the cost and Judge tuning
   stabilise. Current N=49 gives a direction but CIs are wide.
+
+---
+
+## Mode C answer-quality eval (streaming decider + KV-splice)
+
+Same oracle + scoring rubric as the Mode A section above, applied
+to Mode C -- the local-first, one-generation shape with a
+continuous streaming decider and mid-stream KV-cache splices.
+The benchmark lives at
+`experiments/retrieval/longmemeval/mode_c_benchmark.py`.
+
+Builder candidates (local mlx):
+
+- `gemma-4-E2B-it-MLX-4bit` -- ~2B active / ~4B total MoE, 4-bit.
+- `gemma-4-E4B-it-MLX-4bit` -- ~4B active / ~8B total MoE, 4-bit.
+
+Retrieval substrate: the same `cerebras_midloop.retrieve` 3-way
+dual helper the Mode A baselines use, so head-to-head comparisons
+share the retrieval path.
+
+Measurement correction (landed 2026-04-21, pre-grid): the oracle
+prompt truncates the candidate to the FIRST 2000 chars. Mode C
+outputs are ~3000-4000 chars (thinking preamble + answer body),
+so head-truncation silently delivered the PREAMBLE to the oracle
+instead of the answer. Fix: strip `<channel|>` preamble, then
+tail-truncate `[-2000:]`. Pre-fix 33% dropped to honest 13.3%.
+All numbers below are post-fix. Writeup in
+`notes/mode-c-continuous-decider.md`.
+
+### Mode C knob grid (2026-04-21) -- N=30 / seed 42 / longmemeval_s
+
+Branch: `feature/mode-c-e2e-demo` (PR #36).
+
+Seven variants of Mode C plus the honest baseline, same 30
+questions (seed=42), identical retrieval substrate. Builder
+varies per row.
+
+| run | model | force_first | multi-chunk | correct | sup/par/con/neu | tok/q | wall/q | splc/q |
+|---|---|---|---|---|---|---|---|---|
+| baseline | E2B | - | - | **13.3%** (4/30) | 3/1/6/20 | 425 | 10.3s | 2.23 |
+| H1 | E2B | t=30 | - | **23.3%** (7/30) | 4/3/9/13 | 452 | 11.9s | 2.13 |
+| H2 | E2B (q-only) | - | - | **13.3%** (4/30) | 4/0/3/23 | 452 | 7.2s | 2.43 |
+| H3 | E4B | - | - | **26.7%** (8/30) | 6/2/10/12 | 800 | 43.2s | 2.80 |
+| H12 | E2B | - | top-K | **33.3%** (10/30) | 9/1/3/17 | 454 | 9.8s | 4.27 |
+| H1+H12 | E2B | t=30 | top-K | **13.3%** (4/30) | 2/2/7/19 | 484 | 9.2s | 3.73 |
+| **H3+H12** | **E4B** | **-** | **top-K** | **40.0%** (12/30) | **9/3/6/12** | **800** | **38.3s** | **5.03** |
+| H1+H3+H12 | E4B | t=30 | top-K | **33.3%** (10/30) | 8/2/6/14 | 800 | 36.2s | 4.77 |
+
+Multi-chunk policy (H12): on each decider firing, retrieve top-5
+from vstash, keep the chunks where `score >= 0.0161` (up to 3),
+splice them all in one firing up to a 2000-token budget. Replaces
+top-1-per-firing, which deterministically spliced the rank-1 hit
+even when the correct chunk sat at rank 2-3 of the pool.
+
+Force-first (H1): unconditional decider firing at token t=30,
+bypassing heuristic regex patterns. Motivated by the observation
+that HeuristicClaimDetector rarely fires before t=700 on gemma
+outputs (the preamble tokens are not claim-shaped), by which
+point the Builder has committed to a refusal.
+
+### Headline
+
+- **H3+H12 is the winning config at 40.0%** -- nearly 3x the
+  honest baseline, on the same 30 questions, same retrieval
+  substrate, same oracle.
+- **H12 (multi-chunk retrieval) is the single biggest lever
+  (+20pp).** The BBQ diagnostic that motivated it showed the
+  correct chunk at retrieval rank 3 while top-1-per-firing was
+  spliceing rank 1 -- the model never saw the right content.
+- **H3 (E4B Builder) adds +13pp on its own, +6.7pp on top of
+  H12.** E4B's extra capacity is what turns multi-chunk context
+  into correct answers instead of refusals.
+- **H1 (force-first-fire) helps alone (+10pp) but is
+  anti-additive with multi-chunk** (H1+H12 = 13.3%,
+  H1+H3+H12 = 33.3% vs H3+H12 = 40.0%). Forcing retrieval at
+  t=30 before the model has oriented to the question causes
+  the three spliced chunks to confuse rather than ground the
+  output.
+- **H2 (question-only retrieval) is a no-op on this corpus.**
+  Flat at 13.3%. The window_text drift that H2 was meant to fix
+  does not dominate on LongMemEval.
+
+### Mode C vs RAG vs Mode A
+
+With the honest baseline fixed at 13.3% and the winning config
+at 40.0%:
+
+| shape | correct | tok/q | wall/q | API $/q |
+|---|---|---|---|---|
+| RAG-k3 (llama3.1-8b Cerebras) | 70-74% | 1394-2288 | ~1.1s | ~$0.0006 |
+| Mode A v4 (llama3.1-8b + 235b Judge) | 64-71% | 9048 | ~5.3s | ~$0.008 |
+| Mode C H3+H12 (E4B local) | **40.0%** | 800 | **~38s** | **$0** |
+
+Mode C closes ~60% of the RAG gap with zero API spend, but
+trades API cost for wall time: ~38s/q on E4B 4-bit MLX vs
+~1s on Cerebras. The architectural claim (continuous decider +
+mid-stream splicing works at all) is validated; the correctness
+claim is "cheaper than RAG but only 57% as accurate".
+
+### Per-question-type breakdown (H3+H12 vs baseline)
+
+| type | baseline | H3+H12 | delta |
+|---|---|---|---|
+| knowledge-update | 0/3 | 2/3 | +2 |
+| multi-session | 0/8 | 2/8 | +2 |
+| single-session-assistant | 0/1 | 1/1 | +1 |
+| single-session-preference | 0/1 | 1/1 | +1 |
+| single-session-user | 4/8 | 5/8 | +1 |
+| temporal-reasoning | 0/9 | 1/9 | +1 |
+
+The multi-chunk splice mechanism closed the knowledge-update
+and multi-session zeroes that were the most damning holes in
+the baseline. Temporal-reasoning (1/9) remains the stubborn
+category where local E4B with KV-splice does not yet compete.
+
+### What this supports
+
+- **The production shape (continuous streaming decider +
+  mid-stream KV-cache splice) works mechanically on local mlx
+  inference.** 30/30 runs completed, zero crashes, audit-row
+  provenance captured for every splice.
+- **The multi-chunk retrieval policy (H12) is load-bearing.**
+  Top-1-per-firing was the hidden failure mode that the initial
+  13.3% number exposed.
+- **Builder capacity matters.** E4B's +13pp over E2B on the
+  same pipeline confirms the gap was not all plumbing.
+
+### What this does NOT support
+
+- That Mode C is production-ready to replace RAG on an
+  open-domain memory task. 40% vs 70-74% is a real correctness
+  gap.
+- That the refusal problem is fully solved. 12/30 questions
+  still oracle as `neutral` (refusal / abstain), all on the
+  E4B winning config -- something structural about
+  gemma-it-4-bit-MLX is still refusing memory-backed questions.
+- That these numbers generalize beyond N=30. Graduate to N=100
+  before claiming stability.
+
+### Artifact trail
+
+Per-question audit rows in
+`experiments/retrieval/longmemeval/mode_c_runs_v3/mode_c_n30_seed42_{tag}.jsonl`
+(one file per grid cell; tags: (baseline), H1, H2, H3, H12,
+H1_H12, H3_H12, H1_H3_H12). Per-stage debug trace on a winning
+case lives at
+`experiments/midloop_concept/medlocal/mode_c_trace.py`.

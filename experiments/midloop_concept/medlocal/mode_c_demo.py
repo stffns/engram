@@ -75,9 +75,22 @@ COOLDOWN = 40
 MAX_SPLICES = 3
 # Retrieval pool size. We ask for more than one hit so the
 # ``fresh`` filter (dedup against already-spliced sources) still
-# has candidates to draw from on subsequent fires; only the top
-# fresh hit is spliced per firing.
+# has candidates to draw from on subsequent fires.
 RETRIEVAL_POOL = 5
+# H12 (2026-04-21). Splice MULTIPLE top chunks per firing if
+# their score passes the confidence threshold. Up to 3 chunks
+# per firing, each must clear ``MULTI_SPLICE_SCORE_THRESHOLD``.
+# Fewer than 3 qualifying -> splice however many (1 or 2). Zero
+# qualifying -> skip the firing. The BBQ fail case showed the
+# correct chunk at rank 3; top-1-per-firing guaranteed we
+# spliced the wrong chunk first and never reached the right one.
+#
+# Budget cap on the total splice payload: 2000 tokens worth of
+# concatenated chunk text per firing. Individual chunks that
+# push past the budget are truncated.
+MULTI_SPLICE_MAX_CHUNKS = 3
+MULTI_SPLICE_SCORE_THRESHOLD = 0.0161
+MULTI_SPLICE_BUDGET_TOKENS = 2000
 
 # Splice wrapper. Keeping the injected K/V as natural English
 # (not raw markdown) helps the model integrate the content with
@@ -235,6 +248,8 @@ def run_mode_c(
     *,
     model=None,
     tokenizer=None,
+    force_first_fire_at_token: int | None = None,
+    question_only_retrieval: bool = False,
 ) -> ModeCResult:
     """Run one Mode C generation. Pass ``model`` + ``tokenizer``
     (from ``load_model``) to skip the per-call model load; omit
@@ -266,6 +281,7 @@ def run_mode_c(
         window_size=WINDOW_SIZE,
         cooldown=COOLDOWN,
         max_firings_per_generation=MAX_SPLICES,
+        force_first_fire_at_token=force_first_fire_at_token,
     )
 
     result = ModeCResult(question=question)
@@ -312,63 +328,107 @@ def run_mode_c(
                 # this Mode C was on vstash's default search while
                 # the baselines were on dual; the comparison was
                 # biased.
+                # H2: when ``question_only_retrieval`` is set, drop
+                # the window_text from the query. Motivated by
+                # observing that window_text captures the model's
+                # refusal / meta-reasoning text which drifts the
+                # retrieval away from the user's actual ask.
+                ret_query = (
+                    question if question_only_retrieval
+                    else f"{question}\n{window_text}"
+                )
                 excerpts = cerebras_retrieve(
                     mem,
-                    f"{question}\n{window_text}",
+                    ret_query,
                     top_k=RETRIEVAL_POOL,
                     retrieval_mode="dual",
                 )
+                # Filter to fresh (not-yet-spliced) candidates, then
+                # keep those whose score clears the confidence
+                # threshold, keeping at most MULTI_SPLICE_MAX_CHUNKS.
+                # Splice all qualifying chunks in a single firing
+                # so the model sees top-1/2/3 in its KV cache at
+                # the same position -- addresses the BBQ failure
+                # mode where the correct chunk sat at rank 3 but
+                # top-1-per-firing could not reach it in time.
                 fresh = [
                     e for e in excerpts
                     if e.get("source_id", "memory") not in spliced_sources
                 ]
-                if not fresh:
+                qualifying = [
+                    e for e in fresh
+                    if isinstance(e.get("score"), (int, float))
+                    and e["score"] >= MULTI_SPLICE_SCORE_THRESHOLD
+                ][:MULTI_SPLICE_MAX_CHUNKS]
+
+                if not qualifying:
                     print(
-                        "[fire] no fresh vstash hits "
+                        "[fire] no fresh vstash hits above threshold "
+                        f"{MULTI_SPLICE_SCORE_THRESHOLD} "
                         f"(already spliced {len(spliced_sources)} sources)"
                         " -- skipping this splice, continuing generation"
                     )
-                    # Don't break: the budget may still allow a
-                    # useful answer even without another splice.
-                    # Keep the decider's cooldown active by
-                    # treating this as a fire (prevents immediate
-                    # re-fire on the same window). We do NOT
-                    # re-enter generate_step with a fresh prompt;
-                    # let the outer while loop iterate again with
-                    # an empty current_input so the next batch
-                    # continues from the cache as-is.
-                    current_input = []
-                    if not current_input:
-                        # generate_step requires a non-empty prompt
-                        # to begin sampling. Feed the last sampled
-                        # token so generation continues; it's
-                        # already in the cache so the forward-pass
-                        # is cheap and no duplicate gets written
-                        # (the cache offset tracking handles it).
-                        current_input = [result.answer_tokens[-1]]
+                    current_input = [result.answer_tokens[-1]]
                     continue
-                top = fresh[0]
-                source_id = top.get("source_id", "memory")
-                spliced_sources.add(source_id)
-                splice_text = SPLICE_ENVELOPE.format(
-                    source_id=source_id,
-                    text=top.get("text", ""),
-                )
-                splice_ids = _encode(tokenizer, splice_text, add_special=False)
+
+                # Build a combined splice from up to 3 chunks, cap
+                # the total payload at MULTI_SPLICE_BUDGET_TOKENS so
+                # a very long chunk doesn't blow the context.
+                combined_parts: list[str] = []
+                combined_ids: list[int] = []
+                picked: list[dict] = []
+                for c in qualifying:
+                    src = c.get("source_id", "memory")
+                    part = SPLICE_ENVELOPE.format(
+                        source_id=src,
+                        text=c.get("text", ""),
+                    )
+                    part_ids = _encode(tokenizer, part, add_special=False)
+                    if len(combined_ids) + len(part_ids) > MULTI_SPLICE_BUDGET_TOKENS:
+                        # Truncate this chunk to fit the remaining
+                        # budget. Cut on the token side to avoid
+                        # slicing mid-character.
+                        remaining = MULTI_SPLICE_BUDGET_TOKENS - len(combined_ids)
+                        if remaining <= 50:
+                            # Not enough room to be useful -- stop.
+                            break
+                        part_ids = part_ids[:remaining]
+                    combined_ids.extend(part_ids)
+                    combined_parts.append(part)
+                    spliced_sources.add(src)
+                    picked.append(c)
+
+                splice_ids = combined_ids
+                source_ids = [p.get("source_id", "memory") for p in picked]
+                score_strs = [
+                    f"{p.get('score', 0):.4f}" if isinstance(p.get("score"), (int, float))
+                    else "?"
+                    for p in picked
+                ]
                 print(
-                    f"[retrieving: {source_id} | "
-                    f"{len(splice_ids)} tok splice]"
+                    f"[retrieving: {len(picked)} chunk(s) | "
+                    f"{len(splice_ids)} tok splice | "
+                    f"sources={source_ids} scores={score_strs}]"
                 )
 
-                result.splices.append(SpliceEvent(
-                    trigger_token_index=decision.token_index,
-                    reason=decision.reason,
-                    window_text=window_text,
-                    source_id=str(source_id),
-                    source_score=top.get("score"),
-                    splice_tokens=len(splice_ids),
-                    pre_decision_text=pre_text,
-                ))
+                # Record one SpliceEvent per chunk in the combined
+                # splice so the audit trail captures each source
+                # that entered the cache at this firing.
+                for p in picked:
+                    part_text = SPLICE_ENVELOPE.format(
+                        source_id=p.get("source_id", "memory"),
+                        text=p.get("text", ""),
+                    )
+                    part_ids = _encode(tokenizer, part_text, add_special=False)
+                    result.splices.append(SpliceEvent(
+                        trigger_token_index=decision.token_index,
+                        reason=decision.reason,
+                        window_text=window_text,
+                        source_id=str(p.get("source_id", "memory")),
+                        source_score=p.get("score"),
+                        splice_tokens=len(part_ids),
+                        pre_decision_text=pre_text,
+                    ))
 
                 # We do NOT add splice_ids to answer_tokens.
                 # The earlier iteration tried that ("fill the

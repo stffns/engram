@@ -85,6 +85,35 @@ def main() -> int:
         default=Path.home()
         / ".lmstudio/models/lmstudio-community/gemma-4-E2B-it-MLX-4bit",
     )
+    parser.add_argument(
+        "--force-first-fire",
+        type=int,
+        default=None,
+        help=(
+            "H1: force the decider to fire at this token index "
+            "regardless of claim patterns. Bypasses the late-firing "
+            "issue where the heuristic detector only trips after "
+            "the thinking preamble hardens into a committed answer."
+        ),
+    )
+    parser.add_argument(
+        "--question-only-retrieval",
+        action="store_true",
+        help=(
+            "H2: search vstash with the question only (not "
+            "question + window_text). Avoids query drift into "
+            "the model's meta-reasoning."
+        ),
+    )
+    parser.add_argument(
+        "--tag",
+        default=None,
+        help=(
+            "suffix appended to the output filename so multiple "
+            "experiment conditions can coexist in the same output "
+            "directory"
+        ),
+    )
     args = parser.parse_args()
 
     if not args.model.exists():
@@ -92,7 +121,8 @@ def main() -> int:
         return 2
 
     args.out.mkdir(parents=True, exist_ok=True)
-    out_path = args.out / f"mode_c_n{args.n}_seed{args.seed}.jsonl"
+    tag = f"_{args.tag}" if args.tag else ""
+    out_path = args.out / f"mode_c_n{args.n}_seed{args.seed}{tag}.jsonl"
 
     print(f"[config] subset={args.subset} n={args.n} seed={args.seed}")
     print(f"[config] out={out_path}")
@@ -150,6 +180,8 @@ def main() -> int:
                     question=conv.question,
                     model=model,
                     tokenizer=tokenizer,
+                    force_first_fire_at_token=args.force_first_fire,
+                    question_only_retrieval=args.question_only_retrieval,
                 )
                 mc_wall = time.perf_counter() - t_mc
                 print(

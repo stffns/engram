@@ -93,6 +93,16 @@ class StreamingDecider:
     window_size: int = 40
     cooldown: int = 30
     max_firings_per_generation: int = 5
+    # H1 2026-04-21: force the first firing at a fixed early
+    # position regardless of claim patterns. Motivated by the
+    # N=30 Mode C observation that the heuristic detector rarely
+    # fires before t=700, by which point gemma-4-E2B-it has
+    # committed to a refusal. Setting e.g.
+    # ``force_first_fire_at_token=30`` guarantees the model gets
+    # memory context BEFORE the thinking preamble hardens into
+    # a committed answer. ``None`` disables (honours cadence-only
+    # firing, the pre-H1 default).
+    force_first_fire_at_token: int | None = None
     # internal state. ``_last_fire_at`` is None until the first
     # firing so cooldown does not suppress the first candidate --
     # an earlier implementation initialised this to 0 and reported
@@ -125,6 +135,26 @@ class StreamingDecider:
             # recent ``window_size`` tokens.
             overflow = len(self._buffer) - self.window_size
             del self._buffer[:overflow]
+
+        # H1 forced-first-fire. When the knob is set and we have
+        # NOT fired yet, unconditionally emit a fire decision at
+        # the configured token index. Subsequent firings honour
+        # the normal cadence / cooldown / budget path.
+        if (
+            self.force_first_fire_at_token is not None
+            and self._firings == 0
+            and self._token_count >= self.force_first_fire_at_token
+        ):
+            self._firings += 1
+            self._last_fire_at = self._token_count
+            return FiringDecision(
+                token_index=self._token_count,
+                fire=True,
+                reason="forced_first_fire",
+                window_text="".join(self._buffer),
+                claims=(),
+                signals={"forced": 1.0},
+            )
 
         # Only emit a decision on cadence-aligned boundaries --
         # avoids calling the underlying detector every token

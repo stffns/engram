@@ -95,6 +95,44 @@ out the answer.
 Risk: on complex questions the model may not fit the full
 answer in 250 tokens. Check wall + truncation rate.
 
+## Tier 1.5 -- surfaced during H1/H2 analysis (2026-04-21)
+
+### H12. Splice top-K chunks per firing (not top-1)
+
+Observation (BBQ trace): vstash returned the correct chunk at
+RANK 3 of the top-5 retrieval pool. The current code takes
+``fresh[0]`` -- only top-1 per firing. With MAX_SPLICES=3,
+three separate firings each splice one chunk. But the first
+firing locks in a near-miss; by the time the third firing
+surfaces the right chunk, the model has committed to the wrong
+answer.
+
+Hypothesis: splicing ``fresh[:3]`` (concatenated) per firing so
+the model's KV cache sees up to 3 candidate chunks
+simultaneously on the very first fire. Matches how RAG inlines
+top-5 chunks upfront.
+
+Test: change mode_c_demo to concatenate top-K per splice.
+Rerun N=30 with K=3, MAX_SPLICES=2. Expected lift: wherever
+the correct chunk was in rank 2-3 of the retrieval pool (most
+multi-session and temporal questions).
+
+Cost: splice payload grows ~3x per firing (~300 tok -> ~900
+tok). Within existing 800-token budget if we also cut
+MAX_SPLICES to 2.
+
+### H13. Increase MAX_SPLICES to 5-6
+
+Observation: some questions need 4+ chunks of context to
+answer (multi-session aggregation, temporal ordering). Current
+cap=3 truncates retrieval coverage.
+
+Test: same as H12 but cap=6 with top-1 per firing. Cheaper per
+firing but more firings.
+
+Combined H12+H13: top-3 per firing × MAX_SPLICES=3 = up to 9
+chunks covered. Probably overkill; pick the smaller move first.
+
 ## Tier 2 -- moderate effort, moderate signal
 
 ### H6. Stronger anti-refusal preface
