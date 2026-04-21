@@ -143,7 +143,13 @@ def mode_a_specifics(rows: list[dict]) -> str:
         jud = ma.get("judgment", {})
         if (jud.get("quoted_evidence") or "").strip():
             grounded += 1
-        claims = jud.get("claims") or []
+        # Defensive: a malformed model response could emit
+        # non-dict items inside ``claims`` (e.g. a bare string).
+        # Skip anything that isn't a dict rather than crashing on
+        # ``.get`` below -- keeps the analyser robust across old /
+        # stored logs with slightly different shapes.
+        raw_claims = jud.get("claims") or []
+        claims = [c for c in raw_claims if isinstance(c, dict)]
         bad = sum(1 for c in claims if c.get("verdict") in ("contradicts", "neutral"))
         if bad > 0:
             with_leak += 1

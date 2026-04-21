@@ -35,6 +35,7 @@ side report to stdout + a structured JSON log at
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 import sys
@@ -773,13 +774,24 @@ def retrieve(
         if chunk_id is not None:
             key = f"chunk:{chunk_id}"
         else:
+            # Fallback when vstash does not publish chunk_id on this
+            # SearchResult: digest the (source, text) pair so the
+            # dedup set stays bounded in memory regardless of
+            # excerpt length. Full-content concat was O(total_text)
+            # per key and labelled "hash:" without actually hashing
+            # (bot review flagged both issues). blake2s over the
+            # composed bytes is ~microseconds and 32 bytes per key.
             src_raw = (
                 getattr(h, "title", None)
                 or getattr(h, "document_title", None)
                 or getattr(h, "tags", None)
                 or ""
             )
-            key = f"hash:{src_raw}::{text}"
+            digest = hashlib.blake2s(
+                f"{src_raw}::{text}".encode("utf-8", "replace"),
+                digest_size=16,
+            ).hexdigest()
+            key = f"hash:{digest}"
         if key in seen:
             continue
         seen.add(key)

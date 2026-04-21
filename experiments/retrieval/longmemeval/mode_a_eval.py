@@ -446,13 +446,21 @@ def run_mode_a(mem: vstash.Memory, question: str) -> dict:
     excerpts = retrieve(mem, query, top_k=TOP_K, retrieval_mode="dual")
     stats = retrieval_stats(excerpts)
 
-    # Point the Judge at the personal domain frame for this eval.
-    # Mutated once globally per call; the Judge prompt is idempotent
-    # across runs so setting it every iteration is cheap.
-    _mod.JUDGE_SYSTEM = JUDGE_SYSTEM_TEMPLATE.format(
-        domain_frame=DOMAIN_FRAMES["personal"]
-    )
-    judgment, j_dt, j_usage = judge_once(question, draft, excerpts)
+    # Point the Judge at the personal domain frame for this eval,
+    # then RESTORE whatever the original module-level JUDGE_SYSTEM
+    # was after the call. Previously we left the global mutated,
+    # which could silently change the Judge prompt for any other
+    # process importing cerebras_midloop after this eval. The
+    # module is single-threaded-safe but this eliminates the
+    # cross-test contamination failure mode flagged by bot review.
+    _prior = _mod.JUDGE_SYSTEM
+    try:
+        _mod.JUDGE_SYSTEM = JUDGE_SYSTEM_TEMPLATE.format(
+            domain_frame=DOMAIN_FRAMES["personal"]
+        )
+        judgment, j_dt, j_usage = judge_once(question, draft, excerpts)
+    finally:
+        _mod.JUDGE_SYSTEM = _prior
 
     final = annotate_deterministic(draft, judgment, excerpts)
 
@@ -629,8 +637,11 @@ class EvalConfig:
     n: int
     seed: int
     out_path: Path
-    top_k: int = TOP_K
     keep_dbs: bool = False
+    # In legacy mode top_k is hardcoded to TOP_K (5) in each run_*
+    # helper. In grid mode each Condition carries its own top_k.
+    # A top-level cfg.top_k would be misleading (the runs ignore it)
+    # so it is intentionally not exposed here.
     grid: list[Condition] | None = None  # None => legacy 5-condition mode
 
 
