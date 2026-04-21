@@ -35,6 +35,7 @@ side report to stdout + a structured JSON log at
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 import sys
@@ -144,7 +145,13 @@ def _cerebras_client():
     return Cerebras()
 
 
-def cerebras_chat(model: str, messages: list[dict], max_tokens: int) -> tuple[str, float, dict]:
+def cerebras_chat(
+    model: str,
+    messages: list[dict],
+    max_tokens: int,
+    *,
+    temperature: float = 0.3,
+) -> tuple[str, float, dict]:
     """Return (text, wall_seconds, usage). Bubbles SDK exceptions up
     after a short retry window.
 
@@ -182,7 +189,7 @@ def cerebras_chat(model: str, messages: list[dict], max_tokens: int) -> tuple[st
                 model=model,
                 messages=messages,
                 max_tokens=max_tokens,
-                temperature=0.3,
+                temperature=temperature,
             )
             break
         except APIStatusError as exc:
@@ -754,7 +761,37 @@ def retrieve(
         text = getattr(h, "text", None) or getattr(h, "content", None) or ""
         if not text:
             continue
-        key = text[:120]
+        # Dedup key. Previously ``text[:120]`` which collides on
+        # conversational haystacks (LongMemEval turns like
+        # ``"user: hi, how are you"`` / ``"user: hi, how are you
+        # doing today?"`` share the same 120-char prefix), silently
+        # dropping distinct excerpts. Fix 2026-04-21: prefer
+        # vstash's ``chunk_id`` (the authoritative per-chunk id)
+        # when it's on the SearchResult; fall back to the full-
+        # content tuple (source_id + full text) so we never alias
+        # two different rows on any prefix.
+        chunk_id = getattr(h, "chunk_id", None)
+        if chunk_id is not None:
+            key = f"chunk:{chunk_id}"
+        else:
+            # Fallback when vstash does not publish chunk_id on this
+            # SearchResult: digest the (source, text) pair so the
+            # dedup set stays bounded in memory regardless of
+            # excerpt length. Full-content concat was O(total_text)
+            # per key and labelled "hash:" without actually hashing
+            # (bot review flagged both issues). blake2s over the
+            # composed bytes is ~microseconds and 32 bytes per key.
+            src_raw = (
+                getattr(h, "title", None)
+                or getattr(h, "document_title", None)
+                or getattr(h, "tags", None)
+                or ""
+            )
+            digest = hashlib.blake2s(
+                f"{src_raw}::{text}".encode("utf-8", "replace"),
+                digest_size=16,
+            ).hexdigest()
+            key = f"hash:{digest}"
         if key in seen:
             continue
         seen.add(key)

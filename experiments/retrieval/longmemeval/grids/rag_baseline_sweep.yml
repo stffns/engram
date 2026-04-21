@@ -1,0 +1,42 @@
+# Temperature + top_k sweep on the RAG BASELINE prompt (not
+# rag_specific, which over-prescribed and regressed -20pp in
+# Run 3). The baseline system prompt is:
+#
+#   "Answer the user question using the provided context.
+#    Quote specific numbers or names from the context when
+#    they appear. Keep the answer under 150 words. Do not hedge."
+#
+# Production candidate shape is likely:
+#   - RAG baseline prompt
+#   - temperature 0.0 for determinism
+#   - top_k tuned for the corpus
+#   - cite_footer True for the grounded property
+#
+# Grid: 3 temperatures x 3 top_k = 9 conditions, ~$0.15 on
+# Cerebras + Gemini at N=50.
+#
+#   python -m experiments.retrieval.longmemeval.mode_a_eval \
+#     --grid experiments/retrieval/longmemeval/grids/rag_baseline_sweep.yml \
+#     --subset longmemeval_s --n 50 --seed 42 \
+#     --out experiments/retrieval/longmemeval/mode_a_eval_grids
+
+conditions:
+  # Temperature sweep at top_k=5 (matches Run 1-3 baseline)
+  - {name: rag_t00_k5,     kind: rag, temperature: 0.0, top_k: 5,
+     retrieval_mode: dual, system_prompt: rag_baseline, cite_footer: true}
+  - {name: rag_t01_k5,     kind: rag, temperature: 0.1, top_k: 5,
+     retrieval_mode: dual, system_prompt: rag_baseline, cite_footer: true}
+  - {name: rag_t03_k5,     kind: rag, temperature: 0.3, top_k: 5,
+     retrieval_mode: dual, system_prompt: rag_baseline, cite_footer: true}
+
+  # top_k sweep at temp=0.0 (the stable ceiling)
+  - {name: rag_t00_k1,     kind: rag, temperature: 0.0, top_k: 1,
+     retrieval_mode: dual, system_prompt: rag_baseline, cite_footer: true}
+  - {name: rag_t00_k3,     kind: rag, temperature: 0.0, top_k: 3,
+     retrieval_mode: dual, system_prompt: rag_baseline, cite_footer: true}
+  - {name: rag_t00_k10,    kind: rag, temperature: 0.0, top_k: 10,
+     retrieval_mode: dual, system_prompt: rag_baseline, cite_footer: true}
+
+  # control anchor for reference
+  - {name: control_t00,    kind: control, temperature: 0.0,
+     system_prompt: confident, max_tokens: 300}

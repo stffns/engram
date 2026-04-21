@@ -1,0 +1,37 @@
+# Temperature sweep on the rag_specific production candidate.
+# Same retrieval, same prompt; only temperature varies. Run
+# at N=50 seed 42 to match the legacy comparison.
+#
+# Hypothesis: temp=0.0 gives a stable ceiling (no cross-run
+# variance), temp=0.1 is a middle ground, temp=0.3 is today's
+# default and the source of the Run 1 vs Run 2 flips.
+#
+#   python -m experiments.retrieval.longmemeval.mode_a_eval \
+#     --grid experiments/retrieval/longmemeval/grids/temperature_sweep.yml \
+#     --subset longmemeval_s --n 50 --seed 42 \
+#     --out experiments/retrieval/longmemeval/mode_a_eval_grids
+
+conditions:
+  - name: rag_specific_t00
+    kind: rag
+    temperature: 0.0
+    top_k: 5
+    retrieval_mode: dual
+    system_prompt: rag_specific
+    cite_footer: true
+
+  - name: rag_specific_t01
+    kind: rag
+    temperature: 0.1
+    top_k: 5
+    retrieval_mode: dual
+    system_prompt: rag_specific
+    cite_footer: true
+
+  - name: rag_specific_t03
+    kind: rag
+    temperature: 0.3
+    top_k: 5
+    retrieval_mode: dual
+    system_prompt: rag_specific
+    cite_footer: true
