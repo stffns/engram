@@ -174,6 +174,57 @@ without memory), Mode C expected cost ~70% of RAG-k3 = ~1000
 tok. Running mlx-locally drops API cost to zero; Cerebras cost
 remains below RAG.
 
+## Measurement artifact lesson (2026-04-21, Mode C benchmark)
+
+Running Mode C on LongMemEval N=30 exposed a nasty oracle-scoring
+artifact. First pass reported 33% correct; detailed code review
+caught three fixes; re-run reported 13% correct. Same pipeline,
+same model, same questions. The 33% was **wrong**.
+
+Root cause. gemma-4-E2B-it wraps its output as:
+
+```
+<|channel>thought
+...150-400 tokens of internal reasoning / speculation...
+<channel|>
+...the actual user-facing answer...
+<turn|>
+```
+
+The mode_a_eval oracle prompt truncates the candidate to the
+FIRST 2000 chars. Mode C outputs clocked in at 3000-4000 chars.
+That head-truncation delivered the THINKING PREAMBLE to the
+oracle while discarding the real answer. The preamble often
+speculates correctly on the ground truth (\"probably June 3rd
+based on context\"), which the oracle then scored as `supports`.
+The user-facing answer frequently disagreed (\"10th and 17th of
+June\") but the oracle never saw it.
+
+Fixes landed:
+
+1. Strip the thinking preamble via \`rsplit(\"<channel|>\", 1)[-1]\`
+   before passing to oracle.
+2. Tail-truncate instead of head-truncate: \`candidate[-2000:]\`.
+3. Don\'t inject splice_ids into answer_tokens -- they are
+   prefilled KV-cache content, not model output. Including them
+   made the oracle grade the retrieved chunk instead of the
+   model\'s actual answer.
+4. Use cerebras_midloop.retrieve(retrieval_mode=\"dual\") so Mode
+   C hits the same retrieval substrate as the Mode A baselines
+   (head-to-head fairness).
+
+Post-fix numbers: Mode C at 13-20% correct on N=30. The honest
+quality gap vs RAG-k3 (70%) is WIDER than the original measurement
+implied.
+
+Why this matters beyond Mode C: the pre-run code-review rule
+(CLAUDE.md global) exists precisely to catch this class of silent
+bias before it lands as a claim in RESULTS.md. The bots missed
+the oracle-truncation issue; the code-reviewer subagent caught
+it. Invoking code-reviewer before shipping a measured result is
+not a nicety -- it is the thing that stops a fake win from
+entering the project\'s record.
+
 ## What stays open
 
 - **Long-splice probe**: Phase 0b proved 14-token splice produces

@@ -159,8 +159,23 @@ def main() -> int:
                     f"termination={mc_result.terminated_reason}"
                 )
 
+                # Mode C answer_text can be 3000-4000 chars:
+                # 300-400 tokens of ``<|channel>thought``
+                # preamble + splice payloads + the actual answer
+                # body at the end. The oracle prompt truncates
+                # ``candidate`` to the first 2000 chars, which
+                # would silently discard the real answer. Strip
+                # the preamble (last ``<channel|>`` marker
+                # separates thought from response body) and
+                # tail-truncate so the oracle sees the answer.
+                raw = mc_result.answer_text
+                answer_for_oracle = (
+                    raw.rsplit("<channel|>", 1)[-1]
+                    if "<channel|>" in raw else raw
+                )
+                answer_for_oracle = answer_for_oracle[-2000:]
                 o = oracle_score(
-                    oracle, conv.question, gt_text, mc_result.answer_text
+                    oracle, conv.question, gt_text, answer_for_oracle
                 )
                 print(f"[oracle] verdict={o.get('verdict')}")
 

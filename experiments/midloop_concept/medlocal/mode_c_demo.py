@@ -73,8 +73,11 @@ CADENCE = 20
 WINDOW_SIZE = 40
 COOLDOWN = 40
 MAX_SPLICES = 3
-TOP_K = 1  # one chunk per splice for the demo -- keeps the
-           # injected payload focused
+# Retrieval pool size. We ask for more than one hit so the
+# ``fresh`` filter (dedup against already-spliced sources) still
+# has candidates to draw from on subsequent fires; only the top
+# fresh hit is spliced per firing.
+RETRIEVAL_POOL = 5
 
 # Splice wrapper. Keeping the injected K/V as natural English
 # (not raw markdown) helps the model integrate the content with
@@ -161,6 +164,14 @@ def _stream_until_fire_or_eos(
     ``(reason, tokens_emitted, last_decision)``.
 
     ``reason`` in {"fire", "eos", "budget"}.
+
+    Decoding uses a cumulative tail-decode pattern to handle
+    BPE UTF-8 fragmentation correctly: a multi-byte character
+    can span several tokens, and decoding each token alone
+    emits replacement characters. We decode the tail of the
+    running token list on every step and feed only the delta
+    to the decider so the decider's window text is always
+    valid UTF-8.
     """
     import mlx.core as mx
     from mlx_lm.generate import generate_step
@@ -168,6 +179,7 @@ def _stream_until_fire_or_eos(
     eos_id = getattr(tokenizer, "eos_token_id", None)
     tokens: list[int] = []
     last_decision = None
+    last_decoded_prefix = ""
 
     for tok, _lp in generate_step(
         prompt=mx.array(input_ids),
@@ -179,8 +191,20 @@ def _stream_until_fire_or_eos(
         tokens.append(tok_int)
         if eos_id is not None and tok_int == eos_id:
             return "eos", tokens, last_decision
-        tok_text = tokenizer.decode([tok_int])
-        last_decision = decider.on_token(tok_text)
+        # Full decode each step so multi-byte UTF-8 characters
+        # that span token boundaries resolve correctly. O(N^2)
+        # in tokens but each decode is cheap; for N<=800 the
+        # total cost is <1% of generation wall time.
+        decoded = tokenizer.decode(tokens)
+        if decoded.startswith(last_decoded_prefix):
+            delta = decoded[len(last_decoded_prefix):]
+        else:
+            # Rare: BPE "undo" where a later token rewrites an
+            # earlier partial. Fall back to the whole string so
+            # the decider sees a self-consistent window.
+            delta = decoded
+        last_decoded_prefix = decoded
+        last_decision = decider.on_token(delta)
         if last_decision is not None and last_decision.fire:
             return "fire", tokens, last_decision
         if len(tokens) >= max_new_tokens:
@@ -220,6 +244,9 @@ def run_mode_c(
     import vstash
     from mlx_lm.models.cache import make_prompt_cache
 
+    from experiments.midloop_concept.medlocal.cerebras_midloop import (
+        retrieve as cerebras_retrieve,
+    )
     from experiments.midloop_concept.medlocal.streaming_claim_detector import (
         StreamingDecider,
     )
@@ -229,7 +256,10 @@ def run_mode_c(
         model, tokenizer = load_model(model_path)
 
     t0 = time.perf_counter()
-    mem = vstash.Memory(db=str(db_path), project=project)
+    # Explicit collection="default" so the Memory opened here
+    # hits the same collection our ingestion writes to (both
+    # benchmark and demo callers default to "default").
+    mem = vstash.Memory(db=str(db_path), project=project, collection="default")
     decider = StreamingDecider(
         detector=HeuristicClaimDetector(),
         cadence=CADENCE,
@@ -275,37 +305,58 @@ def run_mode_c(
                     f"reason={decision.reason}  "
                     f"window tail: {window_text[-80:]!r}"
                 )
-                # Search memory using the recent output window --
-                # in production we would also fuse the question
-                # and a learned query extractor, but the window
-                # alone is good enough for the demo.
-                # Pull up to 5 hits so we can dedup against
-                # already-spliced sources and still return the
-                # next-best chunk. Without this the decider often
-                # re-fires on near-duplicate content and the same
-                # source gets spliced multiple times.
-                hits = mem.search(f"{question}\n{window_text}", top_k=5)
+                # 3-way dual retrieval via the same helper the
+                # mode_a baselines use, so Mode C and RAG / Mode
+                # A hit the same retrieval substrate (hybrid +
+                # fts(q+draft) + fts(q-only) interleaved). Without
+                # this Mode C was on vstash's default search while
+                # the baselines were on dual; the comparison was
+                # biased.
+                excerpts = cerebras_retrieve(
+                    mem,
+                    f"{question}\n{window_text}",
+                    top_k=RETRIEVAL_POOL,
+                    retrieval_mode="dual",
+                )
                 fresh = [
-                    h for h in hits
-                    if str(getattr(h, "title", "memory")) not in spliced_sources
+                    e for e in excerpts
+                    if e.get("source_id", "memory") not in spliced_sources
                 ]
                 if not fresh:
                     print(
                         "[fire] no fresh vstash hits "
-                        f"(already spliced {len(spliced_sources)} sources) "
-                        "-- skipping splice"
+                        f"(already spliced {len(spliced_sources)} sources)"
+                        " -- skipping this splice, continuing generation"
                     )
-                    result.terminated_reason = "no_fresh_retrieval"
-                    break
+                    # Don't break: the budget may still allow a
+                    # useful answer even without another splice.
+                    # Keep the decider's cooldown active by
+                    # treating this as a fire (prevents immediate
+                    # re-fire on the same window). We do NOT
+                    # re-enter generate_step with a fresh prompt;
+                    # let the outer while loop iterate again with
+                    # an empty current_input so the next batch
+                    # continues from the cache as-is.
+                    current_input = []
+                    if not current_input:
+                        # generate_step requires a non-empty prompt
+                        # to begin sampling. Feed the last sampled
+                        # token so generation continues; it's
+                        # already in the cache so the forward-pass
+                        # is cheap and no duplicate gets written
+                        # (the cache offset tracking handles it).
+                        current_input = [result.answer_tokens[-1]]
+                    continue
                 top = fresh[0]
-                spliced_sources.add(str(getattr(top, "title", "memory")))
+                source_id = top.get("source_id", "memory")
+                spliced_sources.add(source_id)
                 splice_text = SPLICE_ENVELOPE.format(
-                    source_id=getattr(top, "title", "memory"),
-                    text=getattr(top, "text", ""),
+                    source_id=source_id,
+                    text=top.get("text", ""),
                 )
                 splice_ids = _encode(tokenizer, splice_text, add_special=False)
                 print(
-                    f"[retrieving: {getattr(top, 'title', '?')} | "
+                    f"[retrieving: {source_id} | "
                     f"{len(splice_ids)} tok splice]"
                 )
 
@@ -313,16 +364,39 @@ def run_mode_c(
                     trigger_token_index=decision.token_index,
                     reason=decision.reason,
                     window_text=window_text,
-                    source_id=str(getattr(top, "title", "memory")),
-                    source_score=getattr(top, "score", None),
+                    source_id=str(source_id),
+                    source_score=top.get("score"),
                     splice_tokens=len(splice_ids),
                     pre_decision_text=pre_text,
                 ))
 
+                # We do NOT add splice_ids to answer_tokens.
+                # The earlier iteration tried that ("fill the
+                # transcript gap") but the splice content is
+                # NOT what the model output -- it is what entered
+                # the model's KV cache. Including it in
+                # answer_text bleeds the retrieved chunk verbatim
+                # into the user-facing string, which confuses
+                # downstream oracle scoring (oracle ends up
+                # grading the retrieved chunk instead of the
+                # model's answer). The splice payloads live in
+                # SpliceEvent.splice_tokens for audit-trail
+                # completeness; answer_tokens stays faithful to
+                # what the model actually sampled.
+
                 current_input = splice_ids
 
         result.answer_text = tokenizer.decode(result.answer_tokens)
+        # answer_tokens now contains ONLY sampled tokens (no
+        # splice payloads), so total_tokens_sampled is just the
+        # length. Matches how the Cerebras-side baselines report
+        # token counts.
         result.total_tokens_sampled = len(result.answer_tokens)
+        if not result.terminated_reason:
+            # Natural exit from ``while budget > 0`` without an
+            # inner break. Record it explicitly so audit rows do
+            # not silently land with an empty reason.
+            result.terminated_reason = "budget_exhausted"
     finally:
         mem.close()
     result.wall_s = time.perf_counter() - t0

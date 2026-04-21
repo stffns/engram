@@ -59,3 +59,8 @@ experiments/midloop_pilot/training_data/
 # experiments/extract_labels_to_jsonl.py.
 data/
 *.jsonl
+
+# Mode C demo / benchmark local artifacts (regeneratable; auto-written
+# by mode_c_demo.py and mode_c_benchmark.py).
+experiments/midloop_concept/medlocal/mode_c_demo_last.json
+experiments/midloop_concept/medlocal/phase0*_report.json
