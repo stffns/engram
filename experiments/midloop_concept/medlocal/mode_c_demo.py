@@ -83,6 +83,21 @@ TOP_K = 1  # one chunk per splice for the demo -- keeps the
 # explicit in case we experiment with other Builders.
 SPLICE_ENVELOPE = "\n\n[Source: {source_id}]\n{text}\n\n"
 
+# Confident-mode system-prompt equivalent for gemma-4-E2B-it.
+# Gemma does not support a dedicated system role, so the
+# instruction is prefixed to the user message. Without this
+# preface the model often refuses personal-info questions with
+# a long "I am an AI, cannot give medical advice" meta-reasoning
+# preamble (observed on LongMemEval N=2 smoke); the mode_a
+# baselines already use a "confident" system prompt, so this
+# keeps Mode C on the same footing for head-to-head comparison.
+PROMPT_PREFACE = (
+    "Answer the question directly using the context available. "
+    "Be specific, quote numbers and names verbatim. Do not hedge, "
+    "do not refuse. If the answer is not in memory, say 'not in "
+    "memory' rather than guessing.\n\n"
+)
+
 
 @dataclass
 class SpliceEvent:
@@ -111,13 +126,16 @@ class ModeCResult:
 
 
 def _apply_chat(tokenizer, user_text: str) -> str:
-    messages = [{"role": "user", "content": user_text}]
+    # Prefix the confident-mode instruction so gemma does not
+    # drop into its refusal preamble on personal-info questions.
+    prefaced = PROMPT_PREFACE + user_text
+    messages = [{"role": "user", "content": prefaced}]
     try:
         return tokenizer.apply_chat_template(
             messages, tokenize=False, add_generation_prompt=True
         )
     except Exception:  # pragma: no cover
-        return user_text
+        return prefaced
 
 
 def _encode(tokenizer, text: str, *, add_special: bool) -> list[int]:
@@ -170,14 +188,36 @@ def _stream_until_fire_or_eos(
     return "budget", tokens, last_decision
 
 
+def load_model(model_path: Path):
+    """Load model + tokenizer once. Callers that run Mode C on
+    many questions should reuse the return value rather than
+    reloading the model per question (gemma-4-E2B-it takes 2-3s
+    to load -- amortising this across N calls is a real win for
+    benchmarks).
+    """
+    from mlx_lm import load
+
+    t0 = time.perf_counter()
+    model, tokenizer = load(str(model_path))
+    print(f"[model] loaded in {time.perf_counter()-t0:.1f}s")
+    return model, tokenizer
+
+
 def run_mode_c(
     model_path: Path,
     db_path: Path,
     project: str,
     question: str,
+    *,
+    model=None,
+    tokenizer=None,
 ) -> ModeCResult:
+    """Run one Mode C generation. Pass ``model`` + ``tokenizer``
+    (from ``load_model``) to skip the per-call model load; omit
+    them to load from ``model_path`` inline (suitable for the
+    ``__main__`` demo entry).
+    """
     import vstash
-    from mlx_lm import load
     from mlx_lm.models.cache import make_prompt_cache
 
     from experiments.midloop_concept.medlocal.streaming_claim_detector import (
@@ -185,10 +225,10 @@ def run_mode_c(
     )
     from merken.policies.claim_detector import HeuristicClaimDetector
 
-    t0 = time.perf_counter()
-    model, tokenizer = load(str(model_path))
-    print(f"[model] loaded in {time.perf_counter()-t0:.1f}s")
+    if model is None or tokenizer is None:
+        model, tokenizer = load_model(model_path)
 
+    t0 = time.perf_counter()
     mem = vstash.Memory(db=str(db_path), project=project)
     decider = StreamingDecider(
         detector=HeuristicClaimDetector(),
