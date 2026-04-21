@@ -236,6 +236,28 @@ JUDGE_SYSTEM_TEMPLATE = (
     "- No prose outside the JSON. No markdown fences."
 )
 
+# Builder modes. The default ("auto") sends the user's question
+# with no system prompt -- this is the realistic CHW-agent edge
+# case where the Builder often refuses or hedges, so Mode A's
+# grounding path mostly fires on "I cannot verify"-shaped drafts.
+# "confident" mode forces the Builder to answer authoritatively
+# with specific claims, exercising the Mode A hallucination-
+# correction path instead. Used for Run 3 adversarial smoke
+# (2026-04-21) after Run 2 revealed 4/5 personal drafts were
+# refusals and only 1/5 was a real confabulation.
+BUILDER_MODES = {
+    "auto": None,
+    "confident": (
+        "You are answering a user question. Provide a direct, "
+        "confident, specific answer. Do not hedge. Do not say "
+        "'I am not sure', 'I cannot verify', 'I do not have "
+        "information', or anything similar -- answer with "
+        "concrete facts, numbers, names, and steps. If you are "
+        "uncertain, commit to your best informed guess as if it "
+        "were correct. Keep the answer under 200 words."
+    ),
+}
+
 DOMAIN_FRAMES = {
     "clinical": (
         "You are the verification + rewriter stage of a retrieval-"
@@ -410,17 +432,41 @@ def seed_vstash(chunk_paths: list[Path]) -> int:
 
 # --------------------------------------------------------------- pipeline
 
-def retrieve(mem, query: str, top_k: int = 5) -> list[tuple[str, str]]:
-    """Return list of (source_id, text). One vstash call, no LLM.
+def retrieve(
+    mem,
+    query: str,
+    top_k: int = 5,
+    *,
+    retrieval_mode: str = "hybrid",
+) -> list[tuple[str, str]]:
+    """Return list of (source_id, text).
 
-    We use a single query -- the draft+question -- rather than a
-    Judge-derived query list, because every derivation call costs
-    tokens and a single well-formed query against a good embedding
-    index is usually sufficient. If retrieval quality degrades on
-    broader queries we can add a tiny keyword extraction pass later.
+    ``retrieval_mode``:
+      - ``"hybrid"`` (default): one vstash.search call with the
+        stock adaptive RRF weighting. Cheap, ~100ms.
+      - ``"dual"``: run the hybrid search AND an fts_only search,
+        then merge. Added 2026-04-21 after the Run 3b diagnostic
+        showed that vec-dominant hybrid buries exact-keyword
+        matches for dense clinical chunks (e.g. the WOMAN-trial
+        TXA chunk, fts top-1 but hybrid not in top-10). Each call
+        returns up to ``top_k``; merged list is capped at
+        ``2 * top_k`` after dedup. Extra cost: one more search
+        call (~100-200ms), no LLM spend.
     """
     try:
-        hits = mem.search(query, top_k=top_k)
+        if retrieval_mode == "dual":
+            hybrid_hits = mem.search(query, top_k=top_k)
+            fts_hits = mem.search(query, top_k=top_k, fts_only=True)
+            # Interleave so neither mode monopolises the prefix; the
+            # Judge sees a balanced candidate pool and is less
+            # likely to fixate on whichever mode ranked first.
+            hits: list = []
+            for pair in zip(hybrid_hits, fts_hits):
+                hits.extend(pair)
+            remaining = hybrid_hits[len(fts_hits):] + fts_hits[len(hybrid_hits):]
+            hits.extend(remaining)
+        else:
+            hits = mem.search(query, top_k=top_k)
     except Exception as e:
         print(f"    search error for {query[:60]!r}: {e}")
         return []
@@ -447,20 +493,30 @@ def retrieve(mem, query: str, top_k: int = 5) -> list[tuple[str, str]]:
     return out
 
 
-def run_one(mem, question: str) -> dict:
+def run_one(
+    mem,
+    question: str,
+    *,
+    builder_mode: str = "auto",
+    retrieval_mode: str = "hybrid",
+) -> dict:
     """Two-call pipeline: Builder draft + Judge finalize.
 
     Retrieval runs once with the draft+question as the query.
     Annotation is deterministic (no extra LLM call).
+    ``builder_mode`` selects a Builder system prompt from
+    ``BUILDER_MODES``; ``"auto"`` sends no system prompt and is
+    the realistic production default.
     """
     print(f"\n{'='*72}\nQ: {question}\n{'='*72}")
 
     # --- stage 1: Builder draft ------------------------------------
-    draft, b_dt, b_usage = cerebras_chat(
-        BUILDER,
-        [{"role": "user", "content": question}],
-        MAX_TOKENS_DRAFT,
-    )
+    b_sys = BUILDER_MODES.get(builder_mode)
+    b_messages: list[dict] = []
+    if b_sys is not None:
+        b_messages.append({"role": "system", "content": b_sys})
+    b_messages.append({"role": "user", "content": question})
+    draft, b_dt, b_usage = cerebras_chat(BUILDER, b_messages, MAX_TOKENS_DRAFT)
     print(f"\n[BUILDER | {b_dt:.2f}s | tok={b_usage.get('total_tokens', '?')}]\n{draft}")
 
     # --- stage 2: retrieve (no LLM) --------------------------------
@@ -468,7 +524,7 @@ def run_one(mem, question: str) -> dict:
     # surfaces chunks relevant to whatever the Builder actually said,
     # not just to the abstract question.
     query = f"{question}\n{draft[:400]}"
-    excerpts = retrieve(mem, query, top_k=5)
+    excerpts = retrieve(mem, query, top_k=5, retrieval_mode=retrieval_mode)
     print(
         f"[RETRIEVE] got {len(excerpts)} excerpts"
         + (f"; top_src={excerpts[0][0]}" if excerpts else "")
@@ -517,6 +573,8 @@ def run_smoke(
     questions: list[tuple[str, str]],
     *,
     log_name: str = "cerebras_smoke.jsonl",
+    builder_mode: str = "auto",
+    retrieval_mode: str = "hybrid",
 ) -> list[dict]:
     from vstash import Memory
     if not Path(DB_PATH).exists():
@@ -528,8 +586,14 @@ def run_smoke(
     logs: list[dict] = []
     try:
         for qid, q in questions:
-            row = run_one(mem, q)
+            row = run_one(
+                mem, q,
+                builder_mode=builder_mode,
+                retrieval_mode=retrieval_mode,
+            )
             row["qid"] = qid
+            row["builder_mode"] = builder_mode
+            row["retrieval_mode"] = retrieval_mode
             logs.append(row)
     finally:
         mem.close()
@@ -604,6 +668,29 @@ def main() -> int:
         default=None,
         help="override the output jsonl filename (default cerebras_smoke.jsonl)",
     )
+    sp_run.add_argument(
+        "--retrieval-mode",
+        choices=["hybrid", "dual"],
+        default="hybrid",
+        help=(
+            "Retrieval strategy. 'hybrid' (default) = one vstash "
+            "adaptive-RRF search. 'dual' = hybrid + fts_only merged, "
+            "for corpora where vec-dominant ranking buries exact-"
+            "keyword matches (e.g. dense clinical guideline chunks)."
+        ),
+    )
+    sp_run.add_argument(
+        "--builder-mode",
+        choices=sorted(BUILDER_MODES.keys()),
+        default="auto",
+        help=(
+            "Builder system prompt. 'auto' (default) sends no system "
+            "prompt and lets the small model hedge/refuse naturally. "
+            "'confident' forces authoritative answers -- used for the "
+            "adversarial smoke that exercises Mode A's hallucination-"
+            "correction path instead of its refusal path."
+        ),
+    )
 
     args = ap.parse_args()
     if args.cmd == "seed":
@@ -637,11 +724,30 @@ def main() -> int:
         else:
             qs = default_questions
 
+        # Non-default knobs get suffixed logs so they do not
+        # clobber a baseline-mode log for the same domain.
+        if args.log_name is None:
+            parts = []
+            if args.builder_mode != "auto":
+                parts.append(args.builder_mode)
+            if args.retrieval_mode != "hybrid":
+                parts.append(args.retrieval_mode)
+            if parts:
+                stem = Path(log_name).stem
+                suffix = Path(log_name).suffix or ".jsonl"
+                log_name = f"{stem}_{'_'.join(parts)}{suffix}"
+
         print(
-            f"[config] domain={args.domain} db={DB_PATH} "
-            f"project={PROJECT} log={log_name}"
+            f"[config] domain={args.domain} builder_mode={args.builder_mode} "
+            f"retrieval_mode={args.retrieval_mode} "
+            f"db={DB_PATH} project={PROJECT} log={log_name}"
         )
-        run_smoke(qs, log_name=log_name)
+        run_smoke(
+            qs,
+            log_name=log_name,
+            builder_mode=args.builder_mode,
+            retrieval_mode=args.retrieval_mode,
+        )
         return 0
 
     ap.print_help()
