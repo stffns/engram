@@ -1,0 +1,17 @@
+{
+  "model": "gemma-4-E2B-it-MLX-4bit",
+  "ok": true,
+  "facts": [
+    "loaded in 2.47s",
+    "baseline tokens: '\\n \\n \\n \\n \\n \\n \\n \\n \\n \\n \\n'",
+    "pre-splice tokens: '\\n \\n \\n'",
+    "splice payload: 14 tokens, text='\\nActually, use capital letters instead: A, B, C,'",
+    "post-splice tokens: ' D, E, F, G, G, G, G, G,'",
+    "baseline tail (same position as post-splice): ' \\n \\n \\n \\n \\n \\n \\n \\n'",
+    "letter/digit signals: post-splice letter=True digit=False | baseline-tail letter=False digit=False",
+    "KV-SPLICE WORKS -- Mode C feasible: splice altered the continuation without restart."
+  ],
+  "baseline_text": "\n \n \n \n \n \n \n \n \n \n \n",
+  "spliced_text": "\n \n \n\nActually, use capital letters instead: A, B, C, D, E, F, G, G, G, G, G,",
+  "verdict": "KV-SPLICE WORKS -- Mode C feasible: splice altered the continuation without restart."
+}
