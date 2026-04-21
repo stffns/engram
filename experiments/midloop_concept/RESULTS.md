@@ -438,7 +438,83 @@ fts results when the same question recurs, drop fts_k back to
 top_k*2 when the question is short and unambiguous, etc. Not
 in scope now.
 
-### Move 2 verdict (final, Run 5)
+---
+
+## Run 6 -- KV-cache splice POC (Move 3) (2026-04-21)
+
+Phase 0 (`phase0_feasibility.py`, prior session) proved the
+observe + stop + relaunch mechanics for Mode A/B. Move 3 asks
+the harder question: can we append K/V to a live cache mid-
+stream and have the continuation reflect it without a restart?
+That's the Mode C shape Jay wants for production.
+
+**Mechanism.** `mlx_lm.models.cache.KVCache` stores per-layer
+(keys, values) tensors and grows when tokens forward through
+the model with that cache. `generate_step` accepts an existing
+`prompt_cache` and the prefill step extends it with the new
+"prompt" K/V before sampling continues. Splicing is just two
+`generate_step` calls that share one cache.
+
+**Probe:** `experiments/midloop_concept/medlocal/phase0b_kv_splice.py`
+on gemma-4-E2B-it-MLX-4bit.
+
+- Prompt: `"Count to 10: "`.
+- Baseline: generate 21 tokens, no splice.
+- Spliced: generate 5 tokens, splice `"\nActually, use capital
+  letters instead: A, B, C,"` (14 token payload, no fresh BOS),
+  generate 16 more tokens.
+
+**Result.**
+
+| stream | tokens produced (decoded) |
+|---|---|
+| baseline (21 tok) | `"\n \n \n \n \n \n \n \n \n \n \n"` |
+| pre-splice (5 tok) | `"\n \n \n"` |
+| post-splice (16 tok) | `" D, E, F, G, G, G, G, G,"` |
+
+The signal is clean: baseline and pre-splice both drift into
+whitespace (the E2B-it instruction prompt format is not quite
+what this model likes for raw counting), but the post-splice
+continuation CONTAINS LETTERS and zero digits -- exactly the
+behavior the spliced instruction requested, continuing from
+`A, B, C,` into `D, E, F, G, G, G, ...`. The splice altered
+the continuation without a restart. The baseline at the same
+token offset contains no letters, so the signal is not a
+random draw.
+
+Verdict: **KV-splice works on mlx-lm. Mode C is mechanically
+feasible.**
+
+Artifact: `phase0b_report.json` next to the probe, machine-
+readable, so a future session can grep the verdict without
+re-running.
+
+### What this unblocks
+
+- Phase 1-3 of the original `notes/midloop-concept-test-medlocal.md`
+  plan (observation + intervention-via-regeneration +
+  mid-stream injection). Phase 0 proved A/B; Phase 0b proved C.
+- A production path where Mode A runs as a sidecar
+  alongside a local small-model Builder, and when Judge
+  decides to splice, we append source text to the Builder's
+  KV-cache mid-stream instead of restarting. Latency impact:
+  one additional forward pass over splice_ids K/V
+  (~few ms for <50-token payloads on a 2B model).
+
+### What this does NOT prove
+
+- Splicing preserves coherent output for LONG spliced context
+  (e.g. 500 tokens of vstash chunk pasted mid-way). Needs a
+  separate probe with realistic Mode A retrieved excerpts.
+- Splicing works for every chat-template-formatted prompt.
+  The probe used a raw continuation prompt; a properly-
+  templated Gemma instruction turn may interact with the
+  splice differently because of role markers.
+- Production semantics: how should a splice be framed so the
+  end user sees a coherent "corrected" answer rather than a
+  draft-turns-into-different-subject mid-sentence. This is the
+  Mode A annotator problem, already partially solved in
+  `annotate_deterministic`; Mode C will need its own variant.
 
 - `retrieval_mode=dual` with 3-way search closes the last
   stuck neutral on clinical.
@@ -510,14 +586,8 @@ moves the number.
 
 ## Next moves
 
-**Moves 1b, 2, and the supports-on-refusal bug fix** all
-shipped 2026-04-21. Single open item:
-
-- **Move 3 -- KV-cache splice POC.** Prove minimal mlx-lm
-  cache append-K/V in a probe script. Unlocks Mode C (mid-
-  stream context injection without restart). Exit: a demo
-  that generates N tokens, injects context, continues, and
-  visibly reflects the injected context in the continuation.
+**Moves 1b, 2, the supports-on-refusal bug fix, and Move 3
+KV-splice POC** all shipped 2026-04-21.
 
 Open secondary issue (noted, not in Move 3):
 
