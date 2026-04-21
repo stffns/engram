@@ -143,9 +143,178 @@ with a strikethrough and a link to the correction. We do not silently
 edit history. See `notes/prior-art.md` for the cautionary tale that
 pinned this rule down.
 
-The n ≤ 10 numbers above are **absolute positioning only** — they
+The n <= 10 numbers above are **absolute positioning only** -- they
 cannot support any claim of the form "merken matches X" or "merken
-beats Y." Claims like that require n ≥ 50 with a non-degenerate CI
+beats Y." Claims like that require n >= 50 with a non-degenerate CI
 on the same `longmemeval_s_cleaned` split against the same metric.
 Until such a row exists in this table, the claim does not get made
 anywhere in the repo.
+
+---
+
+## Mode A answer-quality eval (not R@k)
+
+Different question. The table above measures whether retrieval
+surfaces a chunk from the answer session (R@k). `mode_a_eval.py`
+adds a layer: **did we actually give the user a correct answer?**
+That means running a Builder on each question, optionally with
+retrieved chunks, and scoring the final answer against the ground
+truth with an LLM-as-judge. See
+`experiments/retrieval/longmemeval/mode_a_eval.py`.
+
+Three conditions per question:
+
+- **control** -- Builder alone (llama3.1-8b), confident-mode system
+  prompt, no retrieval.
+- **rag** -- Builder with top-5 retrieved chunks (3-way dual
+  retrieval, same as Mode A) inlined into the user prompt. No
+  Judge.
+- **mode_a** -- full Mode A v4 pipeline (draft + dual-3 retrieval
+  + claim-level Judge + deterministic annotator + provenance
+  footer).
+
+Oracle: Gemini 2.5 Flash scores `(question, ground_truth, answer)`
+triples as `supports | partial | contradicts | neutral`. Correct =
+`supports + partial`. Different model family from the
+Builder/Judge on purpose, to avoid intra-family bias.
+
+### Run 1 (2026-04-21) -- N=49 / seed 42 / longmemeval_s
+
+Commit: `ccf6ce2` base (Mode A v4, PR #33 merged) + this branch's
+eval harness. One question hit an `APIConnectionError` from
+Cerebras and was logged as an error row rather than breaking the
+loop (per-question try/except working as intended).
+
+#### Headline
+
+| condition | correct | supports | partial | contradicts | neutral | avg_tok | avg_s |
+|---|---|---|---|---|---|---|---|
+| control | **8.2%** (4/49) | 1 | 3 | 3 | 42 | 288 | 0.7 |
+| rag | **71.4%** (35/49) | 30 | 5 | 9 | 5 | 2210 | 1.4 |
+| mode_a | **71.4%** (35/49) | 33 | 2 | 7 | 7 | 8759 | 5.3 |
+
+**RAG and Mode A tie on top-line correctness.** Mode A is NOT
+better than naive RAG on these 49 questions. Mode A costs ~4x
+the tokens and ~4x the wall time for equal correctness.
+
+Mode A telemetry:
+- **Grounded (verbatim `quoted_evidence` present): 40/49 = 81.6%.**
+  This is the value Mode A buys over RAG -- every answer with a
+  cite-able source trail.
+- Claim-level leak (>=1 unsupported sub-claim): 5/49 = 10.2%.
+- Sub-claims total: 125, of which 14 = 11.2% are unsupported.
+- Judge top-level verdict distribution: contradicts 40 / no_claim
+  5 / neutral 4. Mode A overrode the Builder draft in 82% of
+  cases.
+
+#### By question_type
+
+| type | n | control | rag | mode_a | delta (mode_a - rag) |
+|---|---|---|---|---|---|
+| knowledge-update | 7 | 0% | 57% | **71%** | **+14pp** |
+| multi-session | 17 | 12% | 65% | 65% | 0 |
+| single-session-assistant | 3 | 0% | 100% | 100% | 0 |
+| single-session-preference | 2 | 100% | 50% | 50% | 0 (n=2, noise) |
+| single-session-user | 9 | 0% | 100% | 100% | 0 |
+| temporal-reasoning | 11 | 0% | 64% | 55% | **-9pp** |
+
+**Mode A wins on `knowledge-update`** (facts that evolve across
+sessions, where the later assertion corrects the earlier one).
+The Judge / claim-level rigor picks the right chunk instead of
+averaging across contradictory ones.
+
+**Mode A loses on `temporal-reasoning`** (questions that need
+arithmetic or time-window reasoning). The Judge refuses when it
+should have answered, or the Builder's arithmetic fails and Mode
+A doesn't catch it.
+
+Trivial lookups (`single-session-*`) are 100% for both -- they
+are solved at the retrieval layer.
+
+#### RAG vs Mode A disagreements (4 wins each; cases visible in log)
+
+Mode A wins the cases that need **aggregation across multiple
+chunks**:
+- "money raised for charity total" (GT $3,750): RAG listed items,
+  Mode A summed them.
+- "rollercoasters across events July-October" (GT 10): RAG
+  enumerated without totaling, Mode A aggregated.
+- "engineers I lead (before / now)" (GT 4 / 5): RAG got cut off
+  mid-sentence, Mode A produced a clean both-numbers answer.
+- "book discount %" (GT 20%): RAG said "not mentioned", Mode A
+  retrieved it correctly.
+
+RAG wins the cases where **Mode A over-refuses or mis-aggregates**:
+- "how many projects led" (GT 2): RAG guessed "at least one",
+  Mode A refused entirely ("I don't have information...").
+- "total $ from markets" (GT $495): Mode A summed but got $595.
+  The Judge's arithmetic produced a wrong corrected_text.
+- "sports event 2 weeks ago": RAG got partial credit, Mode A
+  refused. Temporal reasoning weakness.
+
+#### Caveats (code-reviewer pass before the run flagged these)
+
+1. **Same dedup bug on both conditions.** `retrieve()` in this
+   run used a 120-char prefix as dedup key. Conversational turns
+   with identical prefixes (`"user: "`, `"assistant: "`) alias and
+   drop distinct excerpts. Both RAG and Mode A hit this
+   identically, so the A/B is still fair, but the absolute
+   numbers under-represent what a bug-free retrieval could
+   deliver. Fix landed on the same branch for Run 2.
+2. **Control uses `confident` builder mode.** The Builder is told
+   not to hedge. Refusals still dominate (42/49 = 86% control
+   neutral) because the model genuinely lacks the personal
+   information. But on the 7 non-refusal controls, the confident
+   prompt pushes toward confabulation -- which the oracle scores
+   as `contradicts`. Mostly this makes control look worse.
+3. **RAG uses question-only query; Mode A uses question + draft
+   query.** Two retrieval pools differ. Mode A's draft expansion
+   can fetch chunks RAG would miss (knowledge-update advantage)
+   OR noisy chunks RAG would skip.
+4. **RAG truncates each excerpt to 800 chars** before inlining;
+   Mode A's Judge sees the full excerpt text. If an answer lives
+   past char 800 in a long chunk, RAG misses it. At N=49 this did
+   not dominate the comparison but is a source of residual bias.
+
+#### What this supports (conservative)
+
+- Mode A at v4 **does not improve top-line correctness** over a
+  naive inlined-context RAG baseline on LongMemEval_s at N=49.
+- Mode A **does improve auditability**: 81.6% of answers carry
+  a verbatim source quote; all answers carry the source_id and
+  claim-level decomposition in the audit row.
+- Mode A **has a real edge on `knowledge-update` questions**
+  (+14pp over RAG) and a real weakness on `temporal-reasoning`
+  (-9pp).
+
+#### What this does NOT support
+
+- That Mode A is production-ready as a drop-in replacement for
+  RAG. Same correctness at 4x cost is a negative trade unless
+  the auditability / grounded-source property is worth the
+  premium.
+- That the 4x token cost buys nothing -- it buys the grounded
+  evidence trail, which is invisible in "did the oracle say
+  supports?" but central to the "verifiable truth with source"
+  thesis.
+- That temporal-reasoning regressions are unfixable -- the
+  Judge's arithmetic behavior and over-refusal rate are both
+  tunable.
+
+### Next moves (surfaced by this run)
+
+- **Rerun with dedup fix (Run 2)**, same seed, same N. Measure
+  whether both conditions move together (expected) or whether
+  Mode A recovers ground vs RAG (less expected but possible).
+- **Tune Judge for temporal questions.** The `-9pp` on
+  temporal-reasoning comes mostly from over-refusal. A prompt
+  that lets the Judge emit `contradicts` when arithmetic can
+  be inferred from excerpts (rather than demanding a verbatim
+  quote for the computed answer) would likely recover several
+  points.
+- **Token-cost levers.** 4x is steep. Cost profiling on the v1
+  audit rows: excerpts dominate the Judge input. Score-threshold
+  cutoff + hash-dedup (the latter already shipped) should cut
+  ~20-30%.
+- **Graduate to N=100 or N=500** once the cost and Judge tuning
+  stabilise. Current N=49 gives a direction but CIs are wide.

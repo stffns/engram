@@ -754,7 +754,26 @@ def retrieve(
         text = getattr(h, "text", None) or getattr(h, "content", None) or ""
         if not text:
             continue
-        key = text[:120]
+        # Dedup key. Previously ``text[:120]`` which collides on
+        # conversational haystacks (LongMemEval turns like
+        # ``"user: hi, how are you"`` / ``"user: hi, how are you
+        # doing today?"`` share the same 120-char prefix), silently
+        # dropping distinct excerpts. Fix 2026-04-21: prefer
+        # vstash's ``chunk_id`` (the authoritative per-chunk id)
+        # when it's on the SearchResult; fall back to the full-
+        # content tuple (source_id + full text) so we never alias
+        # two different rows on any prefix.
+        chunk_id = getattr(h, "chunk_id", None)
+        if chunk_id is not None:
+            key = f"chunk:{chunk_id}"
+        else:
+            src_raw = (
+                getattr(h, "title", None)
+                or getattr(h, "document_title", None)
+                or getattr(h, "tags", None)
+                or ""
+            )
+            key = f"hash:{src_raw}::{text}"
         if key in seen:
             continue
         seen.add(key)
