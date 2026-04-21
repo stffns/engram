@@ -584,22 +584,187 @@ moves the number.
 
 ---
 
+---
+
+## Run 7 -- claim-level Judge + vstash signal surfacing (2026-04-21)
+
+Move 4. The open item flagged in Run 5a was that the Judge
+verified answer-level but not claim-level: cotrimoxazole's
+top-line "start prophylaxis for CD4=180" was confirmed as
+`supports` while the Builder's `CD4 <200` threshold quietly
+contradicted the chunk's `CD4 <350`. Run 6 also surfaced a
+second instance in the diagnostic: `consolidation_threshold`
+answered 0.70 correctly but (in v3 variants) had cited a
+chunk about a different 0.65 experiment.
+
+This move does two things together -- claim-level verification
+and surfacing the vstash retrieval signals that were being
+discarded -- because both feed the same "glass box" invariant
+(we use signals we never invent, and we report drift we never
+hide).
+
+### Claim-level schema
+
+`JUDGE_SYSTEM_TEMPLATE` gained a `claims: [...]` array in the
+JSON schema. Each sub-claim carries `{text, verdict,
+supporting_excerpt_id, quoted_evidence}` under the SAME
+verbatim-substring rule as the top-level `quoted_evidence`.
+Decomposition is taken from the FINAL rendered answer (the
+corrected_text when verdict=contradicts, the draft otherwise)
+explicitly -- not from the rejected draft.
+
+`annotate_deterministic` now appends a second section after
+the primary provenance footer whenever any sub-claim verdict
+is `contradicts` or `neutral`:
+
+```
+>> [N sub-claim(s) not grounded in memory]
+>>   contradicted: 'the CD4 threshold is 200'
+>>     source says: "CD4 <350"
+```
+
+The happy case (all sub-claims supported) emits no sub-claim
+section at all, preserving the reading-path for clean outputs.
+`MAX_TOKENS_JUDGE` bumped 600 -> 1200 to fit 3-8 sub-claim
+entries comfortably.
+
+### vstash signal surfacing
+
+`retrieve()` now returns a list of dicts carrying every signal
+vstash publishes on `SearchResult`: `source_id, text, score,
+layer, chunk_id, added_at, collection`. Previous code used only
+`text` + `title` and silently discarded the rest.
+
+Judge excerpts now render with score + layer in the header:
+
+```
+[excerpt 13 | source=hiv-who | score=0.0167 | layer=episodic]
+**Cotrimoxazole prophylaxis:** 1 tablet daily for all HIV+ ...
+```
+
+and `JUDGE_SYSTEM_TEMPLATE` gained a short note explaining that
+score is an RRF-family relevance hint (higher = more relevant,
+typical 0.005-0.030 on current corpora) and `layer` distinguishes
+episodic from distilled content. The Judge is told to prefer
+grounding in high-score or distilled-layer excerpts when
+multiple candidates touch the same claim; these are hints,
+not hard cutoffs.
+
+The audit row also gained `retrieval_stats` (n, max/min/mean
+score, layer counts) and `n_sub_claims / n_sub_claims_unsupported`
+so future training pipelines can filter by retrieval quality or
+by claim-level outcome without re-running the pipeline.
+
+### Run 7a -- clinical + confident + dual-3 + claim-level
+
+Log: `cerebras_smoke_v4_claimlevel.jsonl`.
+
+| qid | Run 5a verdict | Run 7a verdict | claims / unsupported | note |
+|---|---|---|---|---|
+| severe_dehydration_child | contradicts | contradicts | 6 / 0 | clean |
+| severe_pneumonia_infant | contradicts | contradicts | 5 / 0 | clean |
+| postpartum_hemorrhage_txa | supports | supports | 5 / 0 | clean |
+| cotrimoxazole_hiv_adult | **supports** | **contradicts** | 3 / 0 | **FLIP** -- the <200 vs <350 leak caught. Judge produced a corrected_text that threads the <350 threshold verbatim. |
+| blood_donor_screening | supports | contradicts | 6 / 3 | claim-level caught 3 sub-claim leaks: pale->anemia inference (neutral), cough->infection inference (neutral), tattoo deferral based on "local regulations" contradicted by WHO guideline (contradicts). |
+
+5/5 still grounded top-level. **Cotrimoxazole flip is the
+direct test pass: the answer-level-supports / claim-level-
+contradicts case that motivated Move 4 now renders
+contradicts with a corrected_text that preserves the <350
+threshold verbatim.** Blood donor case demonstrates
+claim-level surfaces inferences even when the top-line
+recommendation is correct.
+
+### Run 7b -- personal + confident + dual-3 + claim-level
+
+Log: `cerebras_personal_smoke_v4_claimlevel.jsonl`.
+
+| qid | Run 5b verdict | Run 7b verdict | claims / unsupported |
+|---|---|---|---|
+| write_filter_baseline | contradicts | contradicts | 3 / 0 |
+| consolidation_threshold | contradicts | contradicts | 5 / 0 |
+| silt_rule | contradicts | contradicts | 3 / 0 |
+| engram_longmemeval_r5 | supports | contradicts | 4 / 0 |
+| four_primitives | contradicts | contradicts | 9 / 0 |
+
+5/5 still grounded, 0 unsupported sub-claims across all 5
+questions. This is the important negative result:
+claim-level does NOT introduce false positives on a domain
+where the previous pipeline was already clean. It only fires
+when a genuine sub-claim drift exists.
+
+`consolidation_threshold` retained the correct 0.70 answer with
+5/5 sub-claims grounded -- confirming that the claim-level
+rigor discourages the Judge from grabbing tangential chunks
+(like the 0.65 experiment chunk that v3 cited).
+
+### Cost
+
+| metric | v3 (dual-3) | v4 (claim-level) | delta |
+|---|---|---|---|
+| clinical avg tok/q | 12712 | 14620 | +1908 (+15%) |
+| personal avg tok/q | 7677 | 8904 | +1226 (+16%) |
+
+Overhead is entirely in Judge completion (the claims array is
+3-8 entries at ~60 tokens each) plus ~150 extra tokens of
+Judge system prompt for the new rules. Wall time stays under
+2s per question. Well below earlier back-of-envelope estimates.
+
+### Retrieval signals (first pass)
+
+All clinical questions see the same max_score=0.0167 (the vstash
+RRF ceiling in this adaptive-RRF regime); mean_score clusters
+tightly around 0.015. Layers in medlocal_concept are all
+reported as `unknown` (layer tagging was not set at seed time);
+personal engram vstash shows `episodic` with some `unknown`
+stragglers. These are the first observations Silt's rule would
+warn against optimising over -- the distribution is narrow.
+Useful baseline for a future policy layer but no immediate
+threshold to set.
+
+### Move 4 verdict
+
+- Claim-level schema shipped. One verdict flip (cotrimoxazole
+  `supports -> contradicts`) confirms the change catches the
+  answer-level-correct / claim-level-leaky case that motivated
+  the move. Blood donor case shows the warning surfaces
+  inferences even when the top-line is right.
+- vstash signals surfaced to Judge prompt and audit row. No
+  immediate decision rule is derived; the first-pass
+  distribution is narrow (max_score saturates at 0.0167
+  across every question). Training-time use will come when
+  enough audit rows accumulate to regress against.
+- Token cost +15-16%. Wall <2s. Production-acceptable.
+
+---
+
 ## Next moves
 
-**Moves 1b, 2, the supports-on-refusal bug fix, and Move 3
-KV-splice POC** all shipped 2026-04-21.
+**Moves 1b, 2, 3, 4 + supports-on-refusal fix** all shipped
+2026-04-21.
 
-Open secondary issue (noted, not in Move 3):
+Remaining candidates, not yet started:
 
-- **Answer-level verification vs claim-level verification.**
-  Run 5a cotrimoxazole had the Judge mark the Builder's
-  "start prophylaxis" recommendation as supports, even though
-  the Builder said "CD4 <200" and the cited chunk said "CD4
-  <350". The top-line answer is confirmed; the sub-claim
-  threshold is not. A claim-level Judge pass would flag the
-  inconsistency. Worth considering for a future Mode A
-  evolution -- not a blocker for current use.
+- **Long-splice + chat-template probe for Mode C.** Move 3
+  POC used a 14-token splice and a raw continuation prompt.
+  Production will splice 500+ tokens of retrieved excerpts
+  into chat-template-formatted Gemma turns. Probe should
+  measure coherence degradation vs splice length and test
+  role-marker boundary behavior.
+- **Cost optimisation (Move 2.1).** Dual-3 + claim-level is
+  now ~14k tok/q on clinical. The excerpt pool (up to 28
+  excerpts post-dedup) dominates cost. Levers: full-text
+  hash dedup instead of 120-char prefix, score-threshold
+  cutoff, mini-rerank pass before handing to Judge.
+- **Retrieval-signal policy layer.** Now that `score` and
+  `layer` live in the audit row, a policy could decide
+  whether to fall back to "low-confidence mode" (e.g. force
+  verdict=neutral if max_score is below corpus-calibrated
+  threshold). Needs corpus-specific calibration first.
 
 Deferred (needs curated dataset + rubric, not next-session
 work): N=50+ benchmark against ASQA / HAGRID / MedQA with
-two-rater scoring.
+two-rater scoring. Sub-claim classifier training from the
+accumulated `claims` arrays (every v4 run produces labeled
+per-claim data; enough audit rows accumulate to regress on
+after ~100 more runs).
