@@ -52,7 +52,10 @@ JUDGE = "qwen-3-235b-a22b-instruct-2507"
 # Draft caps where a clinical answer comfortably fits; Judge caps
 # where the verdict + quoted evidence + optional rewrite fit.
 MAX_TOKENS_DRAFT = 300
-MAX_TOKENS_JUDGE = 600
+# Bumped 2026-04-21 from 600 to 1200 when the Judge schema grew
+# a `claims` array. 3-8 sub-claim entries at ~60 tokens each plus
+# the original fields fit comfortably under 1200 with headroom.
+MAX_TOKENS_JUDGE = 1200
 
 DB_PATH = str(Path.home() / ".merken" / "medlocal_concept.db")
 PROJECT = "medlocal_concept"
@@ -142,21 +145,50 @@ def _cerebras_client():
 
 
 def cerebras_chat(model: str, messages: list[dict], max_tokens: int) -> tuple[str, float, dict]:
-    """Return (text, wall_seconds, usage). Bubbles SDK exceptions up.
+    """Return (text, wall_seconds, usage). Bubbles SDK exceptions up
+    after a short retry window.
+
+    Cerebras intermittently returns 503 ``queue_exceeded`` under
+    load. A smoke run that fires 2 calls per question times N
+    questions has a non-trivial probability of hitting one. Retry
+    up to 3 times with exponential backoff (2s, 4s, 8s) so a
+    single transient 503 does not lose all the tokens spent
+    earlier in the run. Persistent 5xx still bubbles up.
 
     ``usage`` is a dict of prompt_tokens / completion_tokens /
     total_tokens taken from ``resp.usage`` when Cerebras populates
     it. Empty dict when the SDK response omits the field, so the
     caller can sum defensively.
     """
+    from cerebras.cloud.sdk import InternalServerError
+
     client = _cerebras_client()
     t0 = time.perf_counter()
-    resp = client.chat.completions.create(
-        model=model,
-        messages=messages,
-        max_tokens=max_tokens,
-        temperature=0.3,
-    )
+    last_err: Exception | None = None
+    for attempt in range(3):
+        try:
+            resp = client.chat.completions.create(
+                model=model,
+                messages=messages,
+                max_tokens=max_tokens,
+                temperature=0.3,
+            )
+            break
+        except InternalServerError as exc:
+            last_err = exc
+            # 5xx on the last attempt -> let it bubble; the caller
+            # already has the partial run state it needs.
+            if attempt == 2:
+                raise
+            backoff = 2 ** (attempt + 1)
+            print(
+                f"    cerebras 5xx (attempt {attempt+1}/3), "
+                f"backing off {backoff}s: {exc}"
+            )
+            time.sleep(backoff)
+    else:  # pragma: no cover -- the break above covers the success path
+        if last_err is not None:
+            raise last_err
     dt = time.perf_counter() - t0
     usage = {}
     u = getattr(resp, "usage", None)
@@ -211,33 +243,75 @@ def _extract_json_object(raw: str) -> dict:
 # applies to both clinical and personal runs.
 JUDGE_SYSTEM_TEMPLATE = (
     "{domain_frame}\n\n"
+    "Each excerpt header carries retrieval signals from the memory "
+    "store: `score` is an RRF-family relevance score (higher = more "
+    "relevant; typical range 0.005-0.030 on this corpus); `layer` "
+    "is the memory layer tag (episodic = raw, brief/semantic = "
+    "distilled). Prefer grounding your verdict in high-score and "
+    "distilled-layer excerpts when multiple candidates touch the "
+    "same claim. These are hints, not hard cutoffs.\n\n"
     "Your job in ONE JSON response:\n"
     "  1. decide the verdict of the draft against the excerpts.\n"
     "  2. if contradicts, produce the corrected answer using only "
-    "     information grounded in the excerpts.\n\n"
+    "     information grounded in the excerpts.\n"
+    "  3. decompose the final rendered answer (the corrected_text "
+    "     if verdict=contradicts, otherwise the draft) into atomic "
+    "     sub-claims and verify EACH one against the excerpts.\n\n"
     "Respond ONLY with a JSON object:\n"
     "{{\n"
     '  "has_claim": bool,              // draft contains a verifiable factual claim?\n'
     '  "verdict": "supports"|"contradicts"|"neutral"|"no_claim",\n'
     '  "cited_excerpt_ids": [int, ...], // 0-based indices into excerpts\n'
     '  "quoted_evidence": "...",       // verbatim sentence(s) from the excerpts\n'
-    '  "corrected_text": "..."         // required iff verdict=contradicts; empty otherwise\n'
+    '  "corrected_text": "...",        // required iff verdict=contradicts; empty otherwise\n'
+    '  "claims": [                    // per sub-claim verification; see Rules below\n'
+    "    {{\n"
+    '      "text": "...",             // the atomic sub-claim as a short sentence\n'
+    '      "verdict": "supports"|"contradicts"|"neutral",\n'
+    '      "supporting_excerpt_id": int|null, // 0-based index, or null when neutral/contradicts\n'
+    '      "quoted_evidence": "..."   // verbatim substring from that excerpt; "" when neutral\n'
+    "    }}\n"
+    "  ]\n"
     "}}\n\n"
-    "Rules:\n"
-    "- supports: some excerpt VERBATIM matches the draft. Fill "
-    "cited_excerpt_ids + quoted_evidence. Leave corrected_text empty.\n"
+    "Rules (top-level verdict):\n"
+    "- supports: some excerpt VERBATIM matches the draft's top-line "
+    "answer. Fill cited_excerpt_ids + quoted_evidence. Leave "
+    "corrected_text empty.\n"
     "- contradicts: some excerpt contradicts the draft. Fill all "
     "fields; corrected_text is the final user-facing answer.\n"
     "- neutral: excerpts do not cover the claim. Leave cited_excerpt_ids "
     "[] and quoted_evidence \"\".\n"
     "- no_claim: draft has no verifiable factual claim.\n\n"
+    "Rules (claims array -- applies when has_claim=true):\n"
+    "- Decompose the FINAL rendered answer into 3-8 atomic "
+    "sub-claims. 'Final rendered answer' = corrected_text when "
+    "verdict=contradicts, draft otherwise. **Do NOT include any "
+    "statements that appear only in the draft when a "
+    "corrected_text is present** -- the draft is the rejected "
+    "version; only the corrected_text is user-facing.\n"
+    "- Atomic means one specific fact per sub-claim (e.g. 'start "
+    "co-trimoxazole prophylaxis' and 'CD4 threshold is 200' are "
+    "two separate sub-claims).\n"
+    "- For each sub-claim, emit verdict/supporting_excerpt_id/"
+    "quoted_evidence using the SAME verbatim-substring rule as the "
+    "top-level quoted_evidence.\n"
+    "- If a sub-claim's verdict is 'contradicts', quoted_evidence "
+    "must be a verbatim substring of the excerpt it contradicts.\n"
+    "- If verdict is 'neutral' for a sub-claim, "
+    "supporting_excerpt_id = null and quoted_evidence = \"\".\n"
+    "- claims may be [] when has_claim=false.\n\n"
     "HARD RULES (enforce every time):\n"
-    "- quoted_evidence MUST be a substring of one excerpt. If you "
-    "cannot find verbatim supporting evidence in the excerpts, "
-    "verdict = 'neutral'. Do NOT synthesise evidence from your "
-    "own general knowledge.\n"
+    "- quoted_evidence (top-level AND per-claim) MUST be a substring "
+    "of one excerpt. If you cannot find verbatim supporting evidence "
+    "in the excerpts, verdict = 'neutral'. Do NOT synthesise evidence "
+    "from your own general knowledge.\n"
     "- corrected_text MUST only contain claims grounded in "
     "quoted_evidence. Keep it to <= 120 words, numbered points ok.\n"
+    "- The 'claims' array is the lever that makes answer-level "
+    "verdicts honest. A 'supports' top-level verdict that ALSO has "
+    "sub-claims with verdict=contradicts means the top-line is "
+    "correct but the body drifts from the source -- emit that "
+    "faithfully, do NOT hide the drift.\n"
     "- No prose outside the JSON. No markdown fences."
 )
 
@@ -291,15 +365,18 @@ JUDGE_SYSTEM = JUDGE_SYSTEM_TEMPLATE.format(domain_frame=DOMAIN_FRAMES["clinical
 
 
 def judge_once(
-    question: str, draft: str, excerpts: list[tuple[str, str]],
+    question: str, draft: str, excerpts: list[dict],
 ) -> tuple[dict, float, dict]:
     """One Judge call that performs detect + verify + rewrite in
     a single pass. Returns (parsed_json, wall_s, usage_dict).
 
-    ``excerpts`` is a list of ``(source_id, text)`` so the Judge
-    can cite sources by their memory tag rather than by ephemeral
-    index alone. Indices remain 0-based in cited_excerpt_ids; the
-    source_id is carried through into the deterministic annotator.
+    ``excerpts`` is a list of dicts (see ``retrieve``) carrying
+    text plus the vstash signals (score, layer, ...). The Judge
+    sees each excerpt rendered with a header that exposes those
+    signals so a sub-claim anchored to a high-score excerpt is
+    distinguishable from one anchored to a rank-20 low-score
+    chunk. This is the "glass box" principle -- the Judge
+    decides using information we never invented, only surfaced.
     """
     if not excerpts:
         # No retrieval -> no verification possible. Short-circuit
@@ -311,14 +388,26 @@ def judge_once(
                 "cited_excerpt_ids": [],
                 "quoted_evidence": "",
                 "corrected_text": "",
+                "claims": [],
             },
             0.0,
             {},
         )
-    joined = "\n---\n".join(
-        f"[excerpt {i} | source={src}]\n{text}"
-        for i, (src, text) in enumerate(excerpts)
-    )
+    joined_parts = []
+    for i, e in enumerate(excerpts):
+        src = e.get("source_id", "memory")
+        score = e.get("score")
+        layer = e.get("layer") or "unknown"
+        # Score is an RRF-family float; round to 4dp so the Judge
+        # doesn't fixate on spurious precision. The literal string
+        # "none" flags missing scores without collapsing to 0.0.
+        score_str = f"{score:.4f}" if isinstance(score, (int, float)) else "none"
+        header = (
+            f"[excerpt {i} | source={src} | score={score_str} "
+            f"| layer={layer}]"
+        )
+        joined_parts.append(f"{header}\n{e.get('text', '')}")
+    joined = "\n---\n".join(joined_parts)
     user = (
         f"Question:\n{question}\n\n"
         f"Draft response:\n{draft}\n\n"
@@ -345,7 +434,13 @@ def judge_once(
             "cited_excerpt_ids": [],
             "quoted_evidence": "",
             "corrected_text": "",
+            "claims": [],
         }
+    # Ensure every returned judgment has the claims field so the
+    # annotator does not need to None-guard it. Older stored logs
+    # predate this field -- leaving it absent there is fine (the
+    # annotator treats missing as []).
+    parsed.setdefault("claims", [])
     return parsed, dt, usage
 
 
@@ -380,10 +475,45 @@ def _draft_is_refusal(draft: str) -> bool:
     return any(m in lower for m in REFUSAL_MARKERS)
 
 
+def _claims_warning(claims: list[dict]) -> str:
+    """If any sub-claim has verdict=contradicts or neutral, emit a
+    warning section listing them. Empty string when all sub-claims
+    are grounded.
+
+    The warning is appended AFTER the primary provenance footer so
+    the consumer sees top-line attribution first, then the per-
+    sub-claim caveats. This preserves the reading-path for the
+    happy case (all sub-claims supported -> no warning at all) and
+    makes the drift loud when it exists.
+    """
+    if not claims:
+        return ""
+    unsupported = [
+        c for c in claims
+        if isinstance(c, dict) and c.get("verdict") in ("contradicts", "neutral")
+    ]
+    if not unsupported:
+        return ""
+    lines = [f"\n\n>> [{len(unsupported)} sub-claim(s) not grounded in memory]"]
+    for c in unsupported:
+        v = c.get("verdict", "?")
+        text = (c.get("text") or "").strip().replace("\n", " ")
+        text = (text[:120] + "...") if len(text) > 120 else text
+        if v == "contradicts":
+            ev = (c.get("quoted_evidence") or "").strip()
+            ev_short = (ev[:120] + "...") if len(ev) > 120 else ev
+            lines.append(f">>   contradicted: {text!r}")
+            if ev_short:
+                lines.append(f">>     source says: \"{ev_short}\"")
+        else:
+            lines.append(f">>   unsupported: {text!r}")
+    return "\n".join(lines)
+
+
 def annotate_deterministic(
     draft: str,
     judgment: dict,
-    excerpts: list[tuple[str, str]],
+    excerpts: list[dict],
 ) -> str:
     """Assemble the final user-facing response with provenance
     footer. Zero extra LLM calls.
@@ -400,6 +530,14 @@ def annotate_deterministic(
     - neutral / no_claim / no_retrieval: draft + [generated, no
       memory coverage] footer.
 
+    Regardless of top-level verdict, if the Judge returned a
+    ``claims`` array with any sub-claim whose verdict is
+    ``contradicts`` or ``neutral``, a second warning section is
+    appended listing those unsupported sub-claims. This is the
+    lever that closes the answer-level-correct / claim-level-
+    leaky gap surfaced on 2026-04-21 (cotrimoxazole threshold
+    <200 vs <350, consolidation threshold 0.65 vs 0.70).
+
     The footer is a single-line marker so the downstream consumer
     can grep for it or strip it. An inline-per-sentence annotation
     would need another LLM call; the per-question footer gives the
@@ -408,13 +546,16 @@ def annotate_deterministic(
     verdict = judgment.get("verdict", "neutral")
     cited_ids = judgment.get("cited_excerpt_ids") or []
     quoted = (judgment.get("quoted_evidence") or "").strip()
+    claims = judgment.get("claims") or []
 
     def _cite_sources() -> str:
         srcs = []
         for i in cited_ids:
             if isinstance(i, int) and 0 <= i < len(excerpts):
-                srcs.append(excerpts[i][0])
+                srcs.append(excerpts[i].get("source_id", "memory"))
         return ", ".join(srcs) if srcs else "unknown"
+
+    claims_note = _claims_warning(claims)
 
     if verdict == "contradicts":
         body = (judgment.get("corrected_text") or draft).strip()
@@ -423,7 +564,7 @@ def annotate_deterministic(
             f"\n\n>> [corrected from prior draft: {_cite_sources()}]"
             f"\n>> quoted evidence: \"{quoted_short}\""
         )
-        return body + footer
+        return body + footer + claims_note
 
     if verdict == "supports":
         quoted_short = (quoted[:200] + "...") if len(quoted) > 200 else quoted
@@ -435,18 +576,20 @@ def annotate_deterministic(
                 f"\n\n>> [recovered from uncertain draft: {_cite_sources()}]"
                 f"\n>> quoted evidence: \"{quoted_short}\""
             )
-            return body + footer
+            return body + footer + claims_note
         footer = (
             f"\n\n>> [confirmed: {_cite_sources()}]"
             f"\n>> quoted evidence: \"{quoted_short}\""
         )
-        return draft.strip() + footer
+        return draft.strip() + footer + claims_note
 
     if verdict == "no_claim":
-        return draft.strip() + "\n\n>> [no verifiable claim]"
+        return draft.strip() + "\n\n>> [no verifiable claim]" + claims_note
 
     # neutral, no_retrieval, or fail-closed fallback
-    return draft.strip() + "\n\n>> [generated, no memory coverage]"
+    return (
+        draft.strip() + "\n\n>> [generated, no memory coverage]" + claims_note
+    )
 
 
 # --------------------------------------------------------------- seed
@@ -489,8 +632,25 @@ def retrieve(
     top_k: int = 5,
     *,
     retrieval_mode: str = "hybrid",
-) -> list[tuple[str, str]]:
-    """Return list of (source_id, text).
+) -> list[dict]:
+    """Return an excerpt pool as a list of dicts, each carrying the
+    text plus every vstash signal we currently propagate:
+
+      {
+        "source_id": str,
+        "text":      str,
+        "score":     float | None,    # RRF score when available
+        "layer":     str   | None,    # vstash layer tag
+        "chunk_id":  str   | None,    # stable id for audit trails
+        "added_at":  str   | None,    # ISO timestamp, freshness signal
+        "collection": str  | None,    # bucket within the db
+      }
+
+    Downstream code (`judge_once`, the audit row) uses these to
+    render a score-aware Judge prompt and to surface retrieval
+    quality in the audit log -- see Silt's rule "before proposing
+    an algorithm, look at the distribution of the data" and the
+    glass-box invariant in the merken CONSTITUTION.
 
     ``retrieval_mode``:
       - ``"hybrid"`` (default): one vstash.search call with the
@@ -564,7 +724,7 @@ def retrieve(
     except Exception as e:
         print(f"    search error for {query[:60]!r}: {e}")
         return []
-    out: list[tuple[str, str]] = []
+    out: list[dict] = []
     seen: set[str] = set()
     for h in hits:
         text = getattr(h, "text", None) or getattr(h, "content", None) or ""
@@ -583,8 +743,52 @@ def retrieve(
             or getattr(h, "tags", None)
             or "memory"
         )
-        out.append((str(src_id), text))
+        # Pull every signal vstash publishes. Missing fields stay
+        # None so downstream code can uniformly treat them as
+        # "unknown" without a KeyError.
+        out.append({
+            "source_id": str(src_id),
+            "text": text,
+            "score": getattr(h, "score", None),
+            "layer": getattr(h, "layer", None),
+            "chunk_id": getattr(h, "chunk_id", None),
+            "added_at": getattr(h, "added_at", None),
+            "collection": getattr(h, "collection", None),
+        })
     return out
+
+
+def retrieval_stats(excerpts: list[dict]) -> dict:
+    """Summarise the excerpt pool for the audit log. No per-query
+    decision is derived from these numbers yet; we surface them so
+    later sessions can spot patterns (e.g. "all neutrals had
+    max_score < 0.012") without re-running everything.
+    """
+    scores = [
+        e.get("score") for e in excerpts
+        if isinstance(e.get("score"), (int, float))
+    ]
+    layers: dict[str, int] = {}
+    for e in excerpts:
+        layer = e.get("layer") or "unknown"
+        layers[layer] = layers.get(layer, 0) + 1
+    if not scores:
+        return {
+            "n_excerpts": len(excerpts),
+            "n_scored": 0,
+            "max_score": None,
+            "min_score": None,
+            "mean_score": None,
+            "layers": layers,
+        }
+    return {
+        "n_excerpts": len(excerpts),
+        "n_scored": len(scores),
+        "max_score": max(scores),
+        "min_score": min(scores),
+        "mean_score": sum(scores) / len(scores),
+        "layers": layers,
+    }
 
 
 def run_one(
@@ -619,21 +823,39 @@ def run_one(
     # not just to the abstract question.
     query = f"{question}\n{draft[:400]}"
     excerpts = retrieve(mem, query, top_k=5, retrieval_mode=retrieval_mode)
+    r_stats = retrieval_stats(excerpts)
+    top_src = excerpts[0].get("source_id") if excerpts else None
     print(
         f"[RETRIEVE] got {len(excerpts)} excerpts"
-        + (f"; top_src={excerpts[0][0]}" if excerpts else "")
+        + (f"; top_src={top_src}" if top_src else "")
+        + (
+            f"; scores[max={r_stats['max_score']:.4f} "
+            f"min={r_stats['min_score']:.4f} "
+            f"mean={r_stats['mean_score']:.4f}]"
+            if r_stats["max_score"] is not None else ""
+        )
     )
 
     # --- stage 3: Judge single call --------------------------------
     judgment, j_dt, j_usage = judge_once(question, draft, excerpts)
+    claims = judgment.get("claims") or []
+    bad_claims = [
+        c for c in claims
+        if isinstance(c, dict) and c.get("verdict") in ("contradicts", "neutral")
+    ]
     print(
         f"[JUDGE | {j_dt:.2f}s | tok={j_usage.get('total_tokens', '?')}] "
         f"has_claim={judgment.get('has_claim')} "
         f"verdict={judgment.get('verdict')} "
-        f"cited={judgment.get('cited_excerpt_ids')}"
+        f"cited={judgment.get('cited_excerpt_ids')} "
+        f"sub_claims={len(claims)} unsupported={len(bad_claims)}"
     )
     if judgment.get("verdict") == "contradicts":
         print(f"         corrected_text: {judgment.get('corrected_text', '')[:180]}...")
+    for c in bad_claims:
+        v = c.get("verdict", "?")
+        text = (c.get("text") or "")[:100]
+        print(f"         sub-claim {v}: {text!r}")
 
     # --- stage 4: deterministic annotation (no LLM) ----------------
     final = annotate_deterministic(draft, judgment, excerpts)
@@ -643,6 +865,14 @@ def run_one(
     # Audit-ready row: every Mode A run IS a labeled training example.
     # The builder / judge identifiers + timestamp let downstream
     # trainers slice by model version and freshness.
+    #
+    # `retrieved` now carries every vstash signal (score, layer,
+    # chunk_id, added_at, collection) per excerpt so downstream
+    # training code can build features on retrieval quality
+    # without re-running the pipeline. `retrieval_stats` is the
+    # per-query summary for fast pandas-style filtering.
+    # `judgment.claims` is the per-sub-claim label array (the
+    # claim-level ground truth for a sub-claim classifier).
     return {
         "audit_id": uuid.uuid4().hex[:12],
         "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -652,7 +882,8 @@ def run_one(
         "draft": draft,
         "draft_s": b_dt,
         "draft_usage": b_usage,
-        "retrieved": [{"source_id": s, "text": t} for s, t in excerpts],
+        "retrieved": excerpts,
+        "retrieval_stats": r_stats,
         "judgment": judgment,
         "judge_s": j_dt,
         "judge_usage": j_usage,
@@ -660,6 +891,8 @@ def run_one(
         "total_tokens": total_tokens,
         "verdict": judgment.get("verdict"),
         "fired": judgment.get("verdict") == "contradicts",
+        "n_sub_claims": len(claims),
+        "n_sub_claims_unsupported": len(bad_claims),
     }
 
 
