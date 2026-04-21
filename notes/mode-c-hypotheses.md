@@ -133,6 +133,72 @@ firing but more firings.
 Combined H12+H13: top-3 per firing × MAX_SPLICES=3 = up to 9
 chunks covered. Probably overkill; pick the smaller move first.
 
+### H14. Relative score threshold (top1 * factor)
+
+Observation: absolute threshold 0.0161 was calibrated against
+queries with full window_text appended. The Emily probe showed
+the target chunk keeps score 0.0167 regardless of query form,
+but rank-2 noise scores range from 0.0036 to 0.0164 depending
+on whether the query has window or not. A fixed absolute cutoff
+cannot distinguish signal from noise across regimes.
+
+Hypothesis: cutoff = `top1_score * factor` adapts automatically.
+Factor 0.5 means "keep chunks at least half as relevant as the
+best hit" -- generous enough for multi-chunk aggregation,
+strict enough to reject the 10x drop-off noise.
+
+Test: run H3+H12 with `relative_threshold_factor=0.5`. Result
+(2026-04-21): 40.0%, exact tie with H3+H12 absolute. Spliced
+8.40 chunks/q vs 5.03 on absolute -- extra chunks accepted but
+Builder ignored them, no signal gain. SHIPPED as a knob
+(disabled by default).
+
+### H15. Short retrieval window (last N chars)
+
+Observation: full window_text (40 tokens, ~200-300 chars) has
+enough surface area to inflate noise scores into the 0.016x
+range where they pass threshold. The probe showed a 20-token
+window keeps target-score stable while collapsing noise.
+
+Hypothesis: truncating the window to the last 80 chars gives
+the decider enough context for intent detection while keeping
+the retrieval query compact.
+
+Test: H3+H12 with `retrieval_window_tokens=80`. Result
+(2026-04-21): 36.7%, -3.3pp regression. Short window cut off
+reasoning state the decider needed, lost 1 supports + 1
+contradicts, went to 15 neutral. REJECTED.
+
+### H16. Question-only retrieval + lowered threshold
+
+Observation: H2 (question-only) was measured at 13.3% with the
+absolute threshold locked at 0.0161, which collapsed the noise
+floor but also collapsed the multi-chunk policy to top-1
+(because only rank-1 passed). Re-measure with threshold 0.008
+so H12 can still pick top-3.
+
+Hypothesis: question-only + lowered threshold should give the
+cleanest retrieval (no window drift) AND preserve multi-chunk
+KV enrichment.
+
+Test: H3+H12+H16 with `--question-only-retrieval
+--score-threshold-override 0.008`. Result (2026-04-21):
+**20.0%, -20pp major regression**. Root cause: with a static
+query across 3 firings, spliced-source dedup pushes firings 2
+and 3 to ranks 4-9 of an unchanging pool -- all garbage. Low
+threshold accepts them all. KV cache fills with three rounds
+of off-topic chunks; Builder defaults to "not in memory"
+19/30 times. REJECTED (and informative).
+
+## Summary of Tier 1.5 follow-up (2026-04-21 PM)
+
+All three retrieval-quality tweaks to H3+H12 either regressed
+or tied. The Emily-probe finding ("clean queries have wider
+signal gaps") is true in vitro but does not dominate in the
+broader eval. The 30pp gap to RAG-k3 lives in the Builder,
+not the retrieval pool -- H6 (prompt engineering) and H11
+(non-refusing Builder) are the next plausible levers.
+
 ## Tier 2 -- moderate effort, moderate signal
 
 ### H6. Stronger anti-refusal preface

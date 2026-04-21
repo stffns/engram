@@ -106,6 +106,38 @@ def main() -> int:
         ),
     )
     parser.add_argument(
+        "--relative-threshold-factor",
+        type=float,
+        default=None,
+        help=(
+            "H14: multi-chunk score cutoff becomes "
+            "top1_score * FACTOR instead of the absolute 0.0161. "
+            "Typical values 0.5-0.7. Adapts to query-noise regime."
+        ),
+    )
+    parser.add_argument(
+        "--retrieval-window-tokens",
+        type=int,
+        default=None,
+        help=(
+            "H15: retrieval query uses only the last N chars of "
+            "the decider window (not the full 40-token window). "
+            "Typical value: 80. Reduces noise inflation of "
+            "irrelevant chunks."
+        ),
+    )
+    parser.add_argument(
+        "--score-threshold-override",
+        type=float,
+        default=None,
+        help=(
+            "H16: replace the default absolute 0.0161 threshold "
+            "with a caller-supplied value. Used with "
+            "--question-only-retrieval to lower the cutoff once "
+            "window_text is no longer inflating scores."
+        ),
+    )
+    parser.add_argument(
         "--tag",
         default=None,
         help=(
@@ -182,6 +214,9 @@ def main() -> int:
                     tokenizer=tokenizer,
                     force_first_fire_at_token=args.force_first_fire,
                     question_only_retrieval=args.question_only_retrieval,
+                    relative_threshold_factor=args.relative_threshold_factor,
+                    retrieval_window_tokens=args.retrieval_window_tokens,
+                    score_threshold_override=args.score_threshold_override,
                 )
                 mc_wall = time.perf_counter() - t_mc
                 print(

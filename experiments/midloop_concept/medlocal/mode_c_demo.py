@@ -250,6 +250,9 @@ def run_mode_c(
     tokenizer=None,
     force_first_fire_at_token: int | None = None,
     question_only_retrieval: bool = False,
+    relative_threshold_factor: float | None = None,
+    retrieval_window_tokens: int | None = None,
+    score_threshold_override: float | None = None,
 ) -> ModeCResult:
     """Run one Mode C generation. Pass ``model`` + ``tokenizer``
     (from ``load_model``) to skip the per-call model load; omit
@@ -333,10 +336,20 @@ def run_mode_c(
                 # observing that window_text captures the model's
                 # refusal / meta-reasoning text which drifts the
                 # retrieval away from the user's actual ask.
-                ret_query = (
-                    question if question_only_retrieval
-                    else f"{question}\n{window_text}"
-                )
+                # H15: when ``retrieval_window_tokens`` is set, only
+                # send the last N tokens of the window (not the full
+                # 40-token window). Rationale: the Emily probe
+                # showed a long window pulls the target score from
+                # 0.0167 down to ~0.0069 for the target chunk while
+                # inflating unrelated chunks into the 0.016x range
+                # where the absolute threshold cannot distinguish
+                # them from signal.
+                if question_only_retrieval:
+                    ret_query = question
+                elif retrieval_window_tokens is not None:
+                    ret_query = f"{question}\n{window_text[-retrieval_window_tokens:]}"
+                else:
+                    ret_query = f"{question}\n{window_text}"
                 excerpts = cerebras_retrieve(
                     mem,
                     ret_query,
@@ -351,20 +364,48 @@ def run_mode_c(
                 # the same position -- addresses the BBQ failure
                 # mode where the correct chunk sat at rank 3 but
                 # top-1-per-firing could not reach it in time.
+                #
+                # H14: relative threshold. When
+                # ``relative_threshold_factor`` is set, the cutoff
+                # becomes ``top1_score * factor`` instead of a fixed
+                # absolute. Adapts to query-noise regime: long
+                # windowed queries produce inflated scores across the
+                # board, short ones have wider gaps between signal
+                # and noise. The Emily probe showed the target chunk
+                # kept score 0.0167 across all query variants while
+                # the rank=2 noise ranged from 0.0036 to 0.0164 --
+                # a relative cutoff separates signal from noise in
+                # both regimes.
+                #
+                # H16: ``score_threshold_override`` lets the caller
+                # substitute a different absolute threshold for the
+                # question-only regime where the default 0.0161 is
+                # too aggressive (the absence of window_text
+                # collapses the noise floor well below it).
                 fresh = [
                     e for e in excerpts
                     if e.get("source_id", "memory") not in spliced_sources
                 ]
+                if fresh and relative_threshold_factor is not None:
+                    top_score = fresh[0].get("score")
+                    if isinstance(top_score, (int, float)):
+                        effective_threshold = top_score * relative_threshold_factor
+                    else:
+                        effective_threshold = MULTI_SPLICE_SCORE_THRESHOLD
+                elif score_threshold_override is not None:
+                    effective_threshold = score_threshold_override
+                else:
+                    effective_threshold = MULTI_SPLICE_SCORE_THRESHOLD
                 qualifying = [
                     e for e in fresh
                     if isinstance(e.get("score"), (int, float))
-                    and e["score"] >= MULTI_SPLICE_SCORE_THRESHOLD
+                    and e["score"] >= effective_threshold
                 ][:MULTI_SPLICE_MAX_CHUNKS]
 
                 if not qualifying:
                     print(
                         "[fire] no fresh vstash hits above threshold "
-                        f"{MULTI_SPLICE_SCORE_THRESHOLD} "
+                        f"{effective_threshold:.4f} "
                         f"(already spliced {len(spliced_sources)} sources)"
                         " -- skipping this splice, continuing generation"
                     )

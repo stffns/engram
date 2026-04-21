@@ -465,3 +465,73 @@ Per-question audit rows in
 H1_H12, H3_H12, H1_H3_H12). Per-stage debug trace on a winning
 case lives at
 `experiments/midloop_concept/medlocal/mode_c_trace.py`.
+
+### Follow-up grid (2026-04-21 PM) -- retrieval-quality knobs
+
+After the H3+H12 winner landed, a debug trace on a failing case
+(`qid=1faac195`, "Where does my sister Emily live?", oracle
+`neutral`) revealed that the correct chunk (Denver) was at
+retrieval rank=1 but the 2nd and 3rd chunks that passed the
+0.0161 absolute threshold were unrelated noise (Sweden welfare,
+spinning Emily distractor, rabbit fur). A probe showed that
+simpler queries produce much cleaner score gaps -- e.g.
+`"Emily live"` gave target=0.0167, rank-2=0.0086 (2x gap), while
+the production query `question + "\n" + window` gave
+target=0.0167 but rank-3=0.0164 (~1% gap, noise passes).
+
+Three retrieval-quality hypotheses tested on top of the H3+H12
+winner (E4B + multi-chunk):
+
+- **H14 relative threshold** -- cutoff = top1_score * 0.5
+  (adapts to query-noise regime).
+- **H15 short window** -- retrieval query uses only last 80
+  chars of the 40-token window.
+- **H16 question-only + threshold 0.008** -- re-measure H2
+  with an absolute cutoff calibrated for the question-only
+  (no window) regime where scores naturally collapse.
+
+| run | correct | sup/par/con/neu | tok/q | wall/q | splc/q |
+|---|---|---|---|---|---|
+| H3+H12 (winner) | **40.0%** | 9/3/6/12 | 800 | 38.3s | 5.03 |
+| H3+H12+H14 | 40.0% | 10/2/7/11 | 800 | 37.4s | 8.40 |
+| H3+H12+H15 | 36.7% | 8/3/4/15 | 800 | 38.7s | 4.73 |
+| H3+H12+H16 | 20.0% | 5/1/5/19 | 800 | 33.5s | 8.50 |
+
+**None of the 3 improved over H3+H12.** The Emily-probe insight
+did not generalize:
+
+- **H14** held at 40% but spliced 67% more chunks per question
+  (8.4 vs 5.03). The extra noise-tolerant chunks neither helped
+  nor hurt -- the Builder ignored the extras. This is a robustness
+  signal for H3+H12: adding more borderline chunks does not
+  degrade correctness.
+- **H15** (-3.3pp) lost on temporal and multi-session questions;
+  the short window cut off reasoning state the decider needed to
+  formulate a query.
+- **H16** (-20pp) was the instructive failure. With the same
+  question-only query across 3 firings, dedup pushed each
+  subsequent firing to ranks 4-7 of a static pool -- and the low
+  0.008 threshold accepted them all. The KV cache filled with
+  three rounds of increasingly-off-topic chunks; the Builder
+  defaulted to `neutral` (refusal) 19/30 times.
+
+### What this new signal says about the gap
+
+The 30pp correctness gap between Mode C H3+H12 (40%) and RAG-k3
+(70%) is NOT primarily a retrieval-quality gap. With two
+orthogonal attempts to clean up the retrieval pool (H15 short
+window, H16 threshold calibration) failing and a third (H14
+relative threshold) landing exactly flat, the evidence points
+to the remaining gap living in:
+
+1. **Builder refusal behavior** -- 12/30 `neutral` on H3+H12
+   and 19/30 on H16 where noise increased. gemma-4-E4B-it
+   defaults to "not in memory" when confidence dips, even when
+   the target chunk is in cache. Requires prompt engineering
+   (H6) or non-refusing Builder (H11) to attack.
+2. **Temporal reasoning (1/9 on H3+H12)** -- not a retrieval
+   problem; arithmetic across time-stamps is a Builder
+   capability issue.
+
+Retrieval-quality follow-ups are parked. Next moves target the
+Builder side.
