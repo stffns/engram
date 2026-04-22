@@ -1305,7 +1305,10 @@ Interventions shipped:
 
 Rejected: H2, H11 Qwen, H11b abliterated, H15, H16, H23
 force-second-fire, H25b bypass always, Chunking A turn-pair
-re-ingest, Chunking C broad trigger.
+re-ingest, Chunking C broad trigger, **H28 conditional
+stop-off** (aggregation exempt, didn't rescue non-agg
+regressions), **H30 stop-off globally** (broke aggregation
+flips -- stop-at-turn is necessary for aggregation wins).
 
 Remaining fails are structural: retrieval information-not-in-
 top-50, corpus-level missing timestamps, Builder-level

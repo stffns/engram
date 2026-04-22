@@ -394,6 +394,22 @@ def run_mode_c(
         prompt_ids = _encode(tokenizer, chatted, add_special=False)
         cache = make_prompt_cache(model)
 
+        # H28 attempted to conditionally disable stop-at-turn for
+        # aggregation questions, hypothesising that stop-at-turn
+        # was cutting off aggregation before the Builder could
+        # sum. H28 smoke showed the hypothesis was wrong -- the
+        # regressions were in non-aggregation questions, where
+        # stop-at-turn still applied, so H28 didn't help them.
+        # H30 tried disabling stop-at-turn entirely and that
+        # REGRESSED aggregation cases (charity flipped
+        # supports->neutral without the termination signal).
+        # Conclusion: stop-at-turn is necessary for aggregation
+        # wins and the 3 H27v2 regressions have a different
+        # root cause (likely oracle variance or budget
+        # interaction). Leaving the knob purely as caller-
+        # controlled via ``stop_at_first_answer_block``.
+        _effective_stop_at_turn = stop_at_first_answer_block
+
         current_input = prompt_ids
         budget = max_total_tokens if max_total_tokens is not None else MAX_TOTAL_TOKENS
         # Sources already spliced in this generation -- skip them
@@ -408,7 +424,7 @@ def run_mode_c(
             )
             reason, tokens, decision = _stream_until_fire_or_eos(
                 model, tokenizer, cache, current_input, budget, decider,
-                stop_at_first_answer_block=stop_at_first_answer_block,
+                stop_at_first_answer_block=_effective_stop_at_turn,
             )
             result.answer_tokens.extend(tokens)
             budget -= len(tokens)
