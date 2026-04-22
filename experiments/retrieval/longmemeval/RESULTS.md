@@ -898,3 +898,48 @@ Gap to RAG-k3 (70%) stays ~13pp. Next plausible levers remain
 Builder-side (ensemble, bigger Qwen) or reasoning-side
 (claim-level Judge post-hoc verification, the Mode A pattern
 applied to Mode C output).
+
+### Qwen3.5-4B thinking-ON ablation (2026-04-22 late)
+
+To isolate whether Qwen's 0/9 on temporal-reasoning was caused
+by `enable_thinking=False` (no arithmetic scratch) or by the
+model's underlying reasoning, re-ran the 4-qid smoke with
+thinking-ON and `force_first_fire=30`:
+
+| config (4-qid smoke) | Emily | Melbourne | Wake | Imagine |
+|---|---|---|---|---|
+| Qwen thinking-OFF fire=1 | partial | neutral | neutral | supports |
+| **Qwen thinking-ON fire=30** | neutral | neutral | neutral | supports |
+
+Thinking-ON regresses. Inspecting the outputs: Qwen starts its
+thinking template ("Thinking Process: 1. Analyze the Request: ...")
+and then falls into a ~700-token whitespace/newline loop,
+exhausting the 800-token budget without reaching the answer body.
+Only Imagine Dragons (where the chunk contains the answer
+verbatim and the thinking block finishes quickly) produces a
+correct answer.
+
+This separates two previously conflated explanations for the
+Qwen4B vs gemma gap:
+
+- It is NOT "Qwen has no scratch space". With thinking-ON it
+  has 800 tokens of scratch and still cannot answer.
+- It IS architectural: Qwen's thinking template + the 4-bit
+  MLX OptiQ quantization produces degenerate thinking blocks
+  (whitespace loops, mid-thinking chunk quotation without
+  synthesis) on these questions.
+
+Qwen3.5-4B is **decisively rejected** as a Builder for this
+task. H11 does not close the gap under any tested toggle. The
+winner remains gemma-4-E4B-it + H1+H3+H12+H6b at 56.7%.
+
+### Next-session handle
+
+The 9B variant (`mlx-community/Qwen3.5-9B-OptiQ-4bit`) was
+identified as the cleanest follow-up -- same family with 2.3x
+params, Apache 2.0, thinking toggle -- but bandwidth on this
+session (0.65 MB/s measured) made the 6GB download
+impractical. Save for a session with better bandwidth. The
+exact question the 9B would answer: "is the Qwen gap
+parameter-count or architectural?" -- our thinking-ON ablation
+already suggests architectural, so 9B may not rescue.
