@@ -97,7 +97,30 @@ MULTI_SPLICE_BUDGET_TOKENS = 2000
 # its own turn. Empirically in phase0c/d gemma handled
 # WHO-style markdown fine, but the envelope makes the intent
 # explicit in case we experiment with other Builders.
-SPLICE_ENVELOPE = "\n\n[Source: {source_id}]\n{text}\n\n"
+#
+# Variants:
+# - SPLICE_ENVELOPE_V1 (original, gemma-friendly): bare [Source:]
+#   header + chunk text. Works for gemma which has strong safety
+#   tuning that re-anchors to the user question. Fails on Qwen3+
+#   which reads the leading "user: ..." / "assistant: ..." chunk
+#   prefixes as ChatML-style turn markers and hallucinates
+#   additional [Source:] blocks of its own to continue the
+#   pattern (observed 2026-04-22 on Qwen3.5-4B-OptiQ smoke --
+#   splices=1 but the model emitted 6 forged copies of the same
+#   chunk with incremented source indices).
+# - SPLICE_ENVELOPE_V2 (Builder-agnostic): fenced excerpt block
+#   that is harder for the model to treat as a conversational
+#   turn. Use together with ``strip_turn_prefixes=True`` which
+#   removes literal "user: " / "assistant: " prefixes from the
+#   chunk text before splicing, so the Builder sees context, not
+#   a transcript.
+SPLICE_ENVELOPE_V1 = "\n\n[Source: {source_id}]\n{text}\n\n"
+SPLICE_ENVELOPE_V2 = (
+    "\n\n<<<MEMORY_EXCERPT source={source_id}>>>\n"
+    "{text}\n"
+    "<<<END_MEMORY_EXCERPT>>>\n\n"
+)
+SPLICE_ENVELOPE = SPLICE_ENVELOPE_V1
 
 # Confident-mode system-prompt equivalent for gemma-4-E2B-it.
 # Gemma does not support a dedicated system role, so the
@@ -141,15 +164,36 @@ class ModeCResult:
     terminated_reason: str = ""
 
 
-def _apply_chat(tokenizer, user_text: str, preface: str | None = None) -> str:
+def _apply_chat(
+    tokenizer,
+    user_text: str,
+    preface: str | None = None,
+    enable_thinking: bool | None = None,
+) -> str:
     # Prefix the confident-mode instruction so gemma does not
     # drop into its refusal preamble on personal-info questions.
     # ``preface`` overrides the module-level PROMPT_PREFACE when
     # supplied -- used by the CLI to swap in variants without
     # editing source (H6 variants A/B).
+    #
+    # ``enable_thinking`` (Qwen3+ family): when False the chat
+    # template inserts an EMPTY ``<think></think>`` pair so the
+    # model skips its thinking preamble. For Mode C this saves
+    # ~300-400 tokens of budget that otherwise disappear into
+    # meta-reasoning before the answer body surfaces. Ignored by
+    # tokenizers that don't accept the kwarg (gemma, llama).
     prefaced = (preface if preface is not None else PROMPT_PREFACE) + user_text
     messages = [{"role": "user", "content": prefaced}]
     try:
+        kwargs = {
+            "tokenize": False,
+            "add_generation_prompt": True,
+        }
+        if enable_thinking is not None:
+            kwargs["enable_thinking"] = enable_thinking
+        return tokenizer.apply_chat_template(messages, **kwargs)
+    except TypeError:
+        # Tokenizer does not accept enable_thinking; retry without it.
         return tokenizer.apply_chat_template(
             messages, tokenize=False, add_generation_prompt=True
         )
@@ -257,6 +301,9 @@ def run_mode_c(
     retrieval_window_tokens: int | None = None,
     score_threshold_override: float | None = None,
     prompt_preface: str | None = None,
+    enable_thinking: bool | None = None,
+    splice_envelope: str | None = None,
+    strip_turn_prefixes: bool = False,
 ) -> ModeCResult:
     """Run one Mode C generation. Pass ``model`` + ``tokenizer``
     (from ``load_model``) to skip the per-call model load; omit
@@ -293,7 +340,11 @@ def run_mode_c(
 
     result = ModeCResult(question=question)
     try:
-        chatted = _apply_chat(tokenizer, question, preface=prompt_preface)
+        chatted = _apply_chat(
+            tokenizer, question,
+            preface=prompt_preface,
+            enable_thinking=enable_thinking,
+        )
         prompt_ids = _encode(tokenizer, chatted, add_special=False)
         cache = make_prompt_cache(model)
 
@@ -419,14 +470,43 @@ def run_mode_c(
                 # Build a combined splice from up to 3 chunks, cap
                 # the total payload at MULTI_SPLICE_BUDGET_TOKENS so
                 # a very long chunk doesn't blow the context.
+                # ``splice_envelope`` overrides the module default
+                # (V1 bare [Source:] header) so Builder-specific
+                # formatting can avoid the "model treats splice
+                # as a continued transcript" failure seen with Qwen.
+                # ``strip_turn_prefixes`` removes leading "user:" /
+                # "assistant:" markers from the chunk text before
+                # splicing -- LongMemEval chunks come with those
+                # prefixes and Qwen+ reads them as ChatML role
+                # markers and hallucinates additional turn blocks.
+                active_envelope = (
+                    splice_envelope if splice_envelope is not None
+                    else SPLICE_ENVELOPE
+                )
+
+                def _prepare_chunk_text(t: str) -> str:
+                    if not strip_turn_prefixes or not t:
+                        return t
+                    import re as _re_strip
+                    # Strip a leading "user:" or "assistant:" token,
+                    # optionally preceded by whitespace. Only the
+                    # very first one -- interior occurrences stay
+                    # intact so multi-turn chunks retain their
+                    # conversational shape minus the outermost
+                    # role marker.
+                    return _re_strip.sub(
+                        r"^\s*(user|assistant)\s*:\s*", "",
+                        t, count=1, flags=_re_strip.IGNORECASE
+                    )
+
                 combined_parts: list[str] = []
                 combined_ids: list[int] = []
                 picked: list[dict] = []
                 for c in qualifying:
                     src = c.get("source_id", "memory")
-                    part = SPLICE_ENVELOPE.format(
+                    part = active_envelope.format(
                         source_id=src,
-                        text=c.get("text", ""),
+                        text=_prepare_chunk_text(c.get("text", "")),
                     )
                     part_ids = _encode(tokenizer, part, add_special=False)
                     if len(combined_ids) + len(part_ids) > MULTI_SPLICE_BUDGET_TOKENS:
@@ -460,9 +540,9 @@ def run_mode_c(
                 # splice so the audit trail captures each source
                 # that entered the cache at this firing.
                 for p in picked:
-                    part_text = SPLICE_ENVELOPE.format(
+                    part_text = active_envelope.format(
                         source_id=p.get("source_id", "memory"),
-                        text=p.get("text", ""),
+                        text=_prepare_chunk_text(p.get("text", "")),
                     )
                     part_ids = _encode(tokenizer, part_text, add_special=False)
                     result.splices.append(SpliceEvent(

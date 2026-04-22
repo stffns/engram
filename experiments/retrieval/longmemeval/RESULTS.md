@@ -740,3 +740,80 @@ gemma-specific (safety-induced number confusion), a different
 local model may lift the 8/30 contradict count closer to zero.
 If the ceiling persists, the answer is Builder reasoning
 capability, not model swap.
+
+### H11 Qwen3.5-4B Builder swap (2026-04-22) -- rejected
+
+Swapped the Builder to `mlx-community/Qwen3.5-4B-OptiQ-4bit` (4B
+params, Apache 2.0, 262K context, `enable_thinking=False` toggle
+for no preamble). Same pipeline (H1+H3+H12 + Variant B preface).
+
+First smoke result: **0/4 correct**. Root cause was NOT the model
+-- it was the splice envelope. Qwen read the V1 envelope literally
+as ChatML-style turn markers and hallucinated 6+ forged copies of
+the same chunk with incremented source indices. Splices=1 but the
+model emitted the splice pattern as its own output. gemma had
+masked this bug because its safety-tuning re-anchored to the user
+question; Qwen is less safety-tuned and happily continued the
+pattern.
+
+Fix: envelope V2 (fenced `<<<MEMORY_EXCERPT>>>...<<<END>>>` block,
+harder to read as a turn) + strip leading `"user:"/"assistant:"`
+prefixes from chunk text before splicing. Second smoke: **2/4**.
+Graduated to N=30.
+
+Final: **Qwen3.5-4B v2env = 13/30 = 43.3%.** -13.4pp vs gemma
+winner (56.7%). Qwen is 2.4x faster wall-clock (14.6s/q vs
+35.6s/q) but trades correctness for speed.
+
+Per-type comparison reveals a clear split:
+
+| type | gemma H6b | Qwen3.5 v2env | winner |
+|---|---|---|---|
+| knowledge-update | 1/3 | **2/3** | Qwen +1 |
+| multi-session | 2/8 | **4/8** | Qwen +2 |
+| single-session-preference | 0/1 | **1/1** | Qwen +1 |
+| single-session-assistant | 1/1 | 1/1 | tie |
+| single-session-user | **8/8** | 5/8 | gemma +3 |
+| temporal-reasoning | **5/9** | 0/9 | gemma +5 |
+| **total** | **17/30** | 13/30 | **gemma +4** |
+
+Qwen is stronger on aggregation and knowledge-update. Gemma
+dominates temporal-reasoning because its thinking-mode-by-default
+spends 300-400 tokens on arithmetic of dates; Qwen with
+`enable_thinking=False` jumps to the answer body with no
+arithmetic scratch, and loses 0/9 on temporal questions. Flipping
+`enable_thinking=True` on Qwen would consume the same budget as
+gemma -- no free lunch.
+
+### Artifact shipped even though H11 was rejected
+
+The envelope V2 + `strip_turn_prefixes` plumbing is Builder-
+agnostic hardening, worth keeping in the codebase:
+
+- `--splice-envelope {v1,v2}` CLI flag.
+- `--strip-turn-prefixes` CLI flag.
+- `--disable-thinking` CLI flag for Qwen3+ family.
+
+Future Builder experiments should default to v2 envelope +
+strip-prefixes unless the Builder has been empirically verified
+on v1. The v1 was fit-for-gemma-only, the v2 is a more robust
+starting point.
+
+### Production state at end of session 2026-04-22
+
+**Winner: gemma-4-E4B-it-MLX-4bit + H1+H3+H12+H6b at 56.7%.**
+
+CLI reproduction:
+```
+python -m experiments.retrieval.longmemeval.mode_c_benchmark \
+  --n 30 --seed 42 \
+  --model ~/.lmstudio/models/lmstudio-community/gemma-4-E4B-it-MLX-4bit \
+  --force-first-fire 30 --tag winner \
+  --prompt-preface "<Variant B>"
+```
+
+Gap to RAG-k3 (70%) stays at ~13pp. H11 did not close the gap;
+the gap lives in Builder reasoning capability (gemma) plus
+Builder safety refusal (both). Next plausible moves: ensemble
+(gemma for temporal/lookups, Qwen for aggregation), or a bigger
+Builder (Qwen3.5-9B or Qwen3.5-27B).

@@ -45,6 +45,8 @@ from pathlib import Path
 import vstash
 
 from experiments.midloop_concept.medlocal.mode_c_demo import (
+    SPLICE_ENVELOPE_V1,
+    SPLICE_ENVELOPE_V2,
     load_model,
     run_mode_c,
 )
@@ -178,6 +180,41 @@ def main() -> int:
             "a refusal license). Omit to use the default."
         ),
     )
+    parser.add_argument(
+        "--disable-thinking",
+        action="store_true",
+        help=(
+            "Qwen3+ family: pass enable_thinking=False to the chat "
+            "template so the model emits an empty <think></think> "
+            "pair and skips the thinking preamble. Saves the ~300 "
+            "token budget that otherwise disappears into "
+            "meta-reasoning before the answer body."
+        ),
+    )
+    parser.add_argument(
+        "--splice-envelope",
+        choices=["v1", "v2"],
+        default="v1",
+        help=(
+            "Envelope format for KV-splice payloads. v1 = original "
+            "'[Source: X] {text}' (gemma-friendly but breaks on "
+            "Qwen which hallucinates additional blocks). v2 = "
+            "fenced '<<<MEMORY_EXCERPT>>>...<<<END_MEMORY_EXCERPT>>>' "
+            "block that resists being read as a conversational turn."
+        ),
+    )
+    parser.add_argument(
+        "--strip-turn-prefixes",
+        action="store_true",
+        help=(
+            "Strip leading 'user:' / 'assistant:' role markers "
+            "from chunk text before splicing. LongMemEval stores "
+            "transcripts with those prefixes literally and Qwen "
+            "reads them as ChatML turn markers -- stripping them "
+            "prevents the model from continuing a hallucinated "
+            "dialogue."
+        ),
+    )
     args = parser.parse_args()
 
     if not args.model.exists():
@@ -261,6 +298,12 @@ def main() -> int:
                     retrieval_window_tokens=args.retrieval_window_tokens,
                     score_threshold_override=args.score_threshold_override,
                     prompt_preface=args.prompt_preface,
+                    enable_thinking=(False if args.disable_thinking else None),
+                    splice_envelope=(
+                        SPLICE_ENVELOPE_V2 if args.splice_envelope == "v2"
+                        else SPLICE_ENVELOPE_V1
+                    ),
+                    strip_turn_prefixes=args.strip_turn_prefixes,
                 )
                 mc_wall = time.perf_counter() - t_mc
                 print(
@@ -319,11 +362,20 @@ def main() -> int:
                 # Defensive: some outputs interleave multiple
                 # ``<turn|>`` tokens inside the answer body;
                 # collapse consecutive runs so the oracle candidate
-                # is legible.
+                # is legible. Also strip Qwen ChatML markers
+                # (<|im_end|>, <|im_start|>, <think>...</think>)
+                # when a Qwen3+ Builder is in use -- the oracle
+                # should never see transcript scaffolding.
                 answer_for_oracle = _re.sub(
                     r"(<turn\|>)+", "", answer_for_oracle
                 )
-                answer_for_oracle = answer_for_oracle[-2000:]
+                answer_for_oracle = _re.sub(
+                    r"<\|im_(start|end)\|>", "", answer_for_oracle
+                )
+                answer_for_oracle = _re.sub(
+                    r"<think>.*?</think>", "", answer_for_oracle, flags=_re.DOTALL
+                )
+                answer_for_oracle = answer_for_oracle.strip()[-2000:]
                 o = oracle_score(
                     oracle, conv.question, gt_text, answer_for_oracle
                 )
