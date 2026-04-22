@@ -35,12 +35,26 @@ from experiments.retrieval.longmemeval.mode_a_eval import (
 
 ANSWER_BLOCK = re.compile(r"<channel\|>(.*?)<turn\|>", re.DOTALL)
 TURN_RUN = re.compile(r"(<turn\|>)+")
+QWEN_MARKERS = re.compile(r"<\|im_(start|end)\|>")
+THINK_BLOCK = re.compile(r"<think>.*?</think>", re.DOTALL)
+EXCERPT_BLOCK_V2 = re.compile(
+    r"<<<MEMORY_EXCERPT[^>]*>>>.*?<<<END_MEMORY_EXCERPT>>>", re.DOTALL
+)
+EXCERPT_ORPHAN_V2 = re.compile(r"<<<(MEMORY_EXCERPT[^>]*|END_MEMORY_EXCERPT)>>>")
+EXCERPT_V1_HEADER = re.compile(r"\[Source: [^\]]+\]\s*\n[^\[]*")
 
 
 def _extract_answer(raw: str) -> str:
-    """Fixed extraction: return the last complete answer block, with
-    <turn|> spam stripped. Falls back to the old rsplit behavior if
-    no complete block exists in the output.
+    """Fixed extraction: return the last complete answer block with
+    Builder scaffolding stripped so the oracle sees only the tokens
+    the model sampled as its user-facing answer. Covers:
+
+    - gemma multi-channel extraction (<channel|>...<turn|>)
+    - ChatML markers from Qwen (<|im_start|>, <|im_end|>)
+    - Thinking blocks (<think>...</think>)
+    - Regurgitated V2 envelope blocks
+      (<<<MEMORY_EXCERPT ...>>>...<<<END_MEMORY_EXCERPT>>>)
+    - Regurgitated V1 envelope headers ([Source: X] + chunk text)
     """
     blocks = ANSWER_BLOCK.findall(raw)
     if blocks:
@@ -50,7 +64,12 @@ def _extract_answer(raw: str) -> str:
     else:
         candidate = raw
     candidate = TURN_RUN.sub("", candidate)
-    return candidate[-2000:]
+    candidate = QWEN_MARKERS.sub("", candidate)
+    candidate = THINK_BLOCK.sub("", candidate)
+    candidate = EXCERPT_BLOCK_V2.sub("", candidate)
+    candidate = EXCERPT_ORPHAN_V2.sub("", candidate)
+    candidate = EXCERPT_V1_HEADER.sub("", candidate)
+    return candidate.strip()[-2000:]
 
 
 def _correct(v: str) -> bool:

@@ -817,3 +817,84 @@ the gap lives in Builder reasoning capability (gemma) plus
 Builder safety refusal (both). Next plausible moves: ensemble
 (gemma for temporal/lookups, Qwen for aggregation), or a bigger
 Builder (Qwen3.5-9B or Qwen3.5-27B).
+
+### Measurement correction #3 (2026-04-22 late) -- envelope regurgitation
+
+Jay asked: "the judge should evaluate the same way for every
+Builder, right?" That pointed at a third measurement artifact
+the H11 Qwen experiment exposed:
+
+When the Builder regurgitated splice envelopes into its own
+output (Qwen V2 envelope copy, or gemma V1 envelope copy on
+some edge cases), the oracle was receiving up to 2000 chars of
+**chunk content** -- not the model's actual answer. A Qwen
+output that looked like:
+
+```
+You
+
+<<<MEMORY_EXCERPT source=X>>>
+The user visited sister Emily in Denver...
+<<<END_MEMORY_EXCERPT>>>
+```
+
+...was being oracled as if "The user visited sister Emily in
+Denver..." was the model's answer. It wasn't -- that was the
+chunk content the model copied. Verdicts were structurally
+inflated.
+
+Fixed extraction strips:
+- V2 envelope blocks (`<<<MEMORY_EXCERPT>>>...<<<END>>>`) and
+  orphaned open/close tags when budget truncates mid-block
+- V1 envelope headers (`[Source: X]` + following chunk text)
+- `<think>...</think>` blocks
+- `<|im_start|>` / `<|im_end|>` Qwen markers
+- Redundant `<turn|>` runs (previous fix)
+
+Rescored both gemma (no change) and Qwen (major drop):
+
+| run | reported | envelope-aware |
+|---|---|---|
+| gemma H1+H3+H12+H6b | 17/30 = 56.7% | **17/30 = 56.7%** (unchanged) |
+| Qwen3.5-4B v2env | 13/30 = 43.3% | **9/30 = 30.0%** (-4 false positives) |
+
+gemma H6b was honest; the Qwen experiment looked -13pp vs winner
+but was really **-26.7pp**. H11 is more decisively rejected.
+
+Rule now enforced in `mode_c_benchmark.py` AND
+`mode_c_rescore.py`: any future Builder swap MUST pass oracle
+extraction that is Builder-agnostic and explicitly envelope-
+aware. Four measurement artifacts have bitten this branch
+already (head-truncation, channel-rsplit, turn-spam,
+envelope-regurgitation) -- the rule deserves its own feedback
+memory.
+
+### Final rescored grid (2026-04-22 end-of-session)
+
+All N=30 seed=42 longmemeval_s, honest extraction:
+
+| config | correct | note |
+|---|---|---|
+| baseline E2B | 8/30 = 26.7% | no knobs |
+| H1 force-first t=30 | 12/30 = 40.0% | |
+| H2 q-only | 9/30 = 30.0% | no-op |
+| H3 E4B Builder | 11/30 = 36.7% | |
+| H12 multi-chunk | 9/30 = 30.0% | |
+| H3+H12 | 12/30 = 40.0% | |
+| H1+H3+H12 | 13/30 = 43.3% | |
+| H3+H12+H14 | 13/30 = 43.3% | relative threshold |
+| H3+H12+H15 | 11/30 = 36.7% | short window |
+| H3+H12+H16 | 8/30 = 26.7% | q-only+low |
+| **H1+H3+H12+H6b** | **17/30 = 56.7%** | **WINNER** |
+| Qwen3.5-4B v2env | 9/30 = 30.0% | H11 rejected |
+
+H6b preface is worth **+13.4pp** on top of the best non-preface
+gemma config (H1+H3+H12 = 43.3%). That is the single largest
+intervention in the knob grid. Even H3 Builder swap (E2B -> E4B
+= +10pp) and H12 multi-chunk splice (+3pp over baseline) pale
+next to it.
+
+Gap to RAG-k3 (70%) stays ~13pp. Next plausible levers remain
+Builder-side (ensemble, bigger Qwen) or reasoning-side
+(claim-level Judge post-hoc verification, the Mode A pattern
+applied to Mode C output).

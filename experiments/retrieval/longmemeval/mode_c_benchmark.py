@@ -375,6 +375,32 @@ def main() -> int:
                 answer_for_oracle = _re.sub(
                     r"<think>.*?</think>", "", answer_for_oracle, flags=_re.DOTALL
                 )
+                # V2 envelope cleanup (shipped 2026-04-22, H11):
+                # when the Builder (notably Qwen3+) regurgitates
+                # the splice envelope as part of its own output,
+                # the oracle was receiving up to 2000 chars of
+                # chunk content instead of the model's actual
+                # answer. Strip complete <<<MEMORY_EXCERPT ...
+                # <<<END_MEMORY_EXCERPT>>> blocks AND orphaned
+                # envelope markers (budget truncated the closing
+                # tag).
+                answer_for_oracle = _re.sub(
+                    r"<<<MEMORY_EXCERPT[^>]*>>>.*?<<<END_MEMORY_EXCERPT>>>",
+                    "", answer_for_oracle, flags=_re.DOTALL
+                )
+                answer_for_oracle = _re.sub(
+                    r"<<<(MEMORY_EXCERPT[^>]*|END_MEMORY_EXCERPT)>>>",
+                    "", answer_for_oracle
+                )
+                # V1 envelope cleanup: strip [Source: X] headers
+                # and the chunk text that follows if the model
+                # regurgitated them (same failure mode as V2 but
+                # for the old envelope, in case older Builders
+                # still produce such outputs).
+                answer_for_oracle = _re.sub(
+                    r"\[Source: [^\]]+\]\s*\n[^\[]*",
+                    "", answer_for_oracle
+                )
                 answer_for_oracle = answer_for_oracle.strip()[-2000:]
                 o = oracle_score(
                     oracle, conv.question, gt_text, answer_for_oracle
