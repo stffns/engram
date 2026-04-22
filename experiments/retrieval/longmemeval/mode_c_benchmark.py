@@ -352,6 +352,16 @@ def main() -> int:
                     r"<channel\|>(.*?)<turn\|>", raw, flags=_re.DOTALL
                 )
                 if answer_blocks:
+                    # Last complete answer block. Empirically
+                    # (2026-04-22) this is the best choice for
+                    # safety-tuned gemma (refined last-block >
+                    # initial). Abliterated gemma breaks this
+                    # assumption by hijacking its own turn after
+                    # emitting the first answer -- those runs
+                    # need ``stop_at_first_turn=True`` plumbing
+                    # at generation time rather than extraction
+                    # time. Tested alternatives: first-block
+                    # dropped H18 -2pp, joined dropped -1pp.
                     answer_for_oracle = answer_blocks[-1].strip()
                 else:
                     # Fallback: no complete block, use prior logic.

@@ -58,6 +58,9 @@ def _extract_answer(raw: str) -> str:
     """
     blocks = ANSWER_BLOCK.findall(raw)
     if blocks:
+        # Last complete block. Empirically best for safety-tuned
+        # gemma. Abliterated gemma needs stop-at-first-turn at
+        # generation time (plumbing TODO).
         candidate = blocks[-1].strip()
     elif "<channel|>" in raw:
         candidate = raw.rsplit("<channel|>", 1)[-1]
