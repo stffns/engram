@@ -644,3 +644,99 @@ With honest baseline and winner both rescored:
 Gap to RAG-k3 narrowed from the pre-rescored 30pp to **~20pp**.
 Still meaningful but not the chasm the broken measurement
 implied.
+
+### H6b (commit-to-context preface) -- new winner (2026-04-22)
+
+Having the extraction fix + the rescored baseline, re-ran the H6
+hypothesis (prompt engineering against Builder refusal) on top of
+the winning config. Two variants tested on a 4-qid smoke (3
+refusals + 1 known winner) before committing to a full N=30:
+
+- **Variant A** -- Remove the explicit "say 'not in memory'" escape
+  hatch. Net smoke: 1/4 (preserved winner, flipped wake-up case
+  only, Emily/Melbourne kept refusing with substituted phrases like
+  "I do not have information"). The phrase was convenient but not
+  load-bearing -- gemma-E4B has the refusal habit intrinsically.
+- **Variant B** -- Replace the preface with a "commit to the
+  best interpretation of the context" instruction that affirms
+  answers live in the context and forbids the "do not have"
+  escape. Smoke: 3/4 true supports + 1 false-negative that the
+  extraction fix revealed as a fourth supports (Imagine Dragons
+  `<turn|>` spam crashing the oracle).
+
+Promoted Variant B to N=30 with the full
+`H1+H3+H12+H6b` stack:
+
+| config | correct | sup/par/con/neu | tok/q | wall/q |
+|---|---|---|---|---|
+| H1+H3+H12 rescored (prior winner) | 15/30 = 50.0% | ~/~/~/~ | 800 | 37s |
+| **H1+H3+H12+H6b** | **17/30 = 56.7%** | 15/2/8/5 | 800 | 36s |
+
+Per-type vs the rescored prior winner:
+
+| type | H1+H3+H12 | H1+H3+H12+H6b | delta |
+|---|---|---|---|
+| knowledge-update | 2/3 | 1/3 | -1 |
+| multi-session | 2/8 | 2/8 | 0 |
+| single-session-assistant | 1/1 | 1/1 | 0 |
+| single-session-preference | 0/1 | 0/1 | 0 |
+| **single-session-user** | 7/8 | **8/8** | **+1** |
+| **temporal-reasoning** | 3/9 | **5/9** | **+2** |
+
+Key moves:
+
+- **single-session-user perfect (8/8).** Every direct-lookup
+  question with the target in a cacheable chunk now succeeds.
+  Emily/Denver flipped, Melbourne flipped to partial, every
+  previously-refusing lookup committed to the correct answer.
+- **temporal-reasoning 3/9 -> 5/9.** Wake-up-times
+  (`gpt4_2c50253f`), brother's graduation days
+  (`8c18457d`), vehicle-first-February (`gpt4_76048e76`) all
+  flipped from neutral to supports. The preface broke the
+  "not in memory" habit on questions where the answer was in
+  cache but the Builder was hedging.
+- **knowledge-update -1.** One case that had accidentally
+  landed as partial in the prior run now contradicts because
+  the model now commits confidently to the wrong number
+  instead of refusing. Net trade: we want committed answers.
+
+### Refusal vs hallucination trade
+
+Variant B breaks the refusal floor but unmasks the underlying
+hallucination ceiling:
+
+| failure mode | H1+H3+H12 (prior) | H1+H3+H12+H6b |
+|---|---|---|
+| "not in memory" refusals | ~10/30 | **5/30** |
+| Wrong-number hallucinations | ~3/30 | **8/30** |
+
+The Builder now commits to answers it could not aggregate
+correctly (multi-session totals, temporal deltas requiring
+arithmetic). H6b fixes the easy cases (single-session lookups
+with the target in cache) but can't give the model reasoning
+capability it doesn't have.
+
+### Updated Mode C vs RAG vs Mode A
+
+| shape | correct | tok/q | wall/q | API $/q |
+|---|---|---|---|---|
+| RAG-k3 (Cerebras llama3.1-8b) | 70-74% | 1394-2288 | ~1.1s | ~$0.0006 |
+| Mode A v4 (Cerebras + 235b Judge) | 64-71% | 9048 | ~5.3s | ~$0.008 |
+| Mode C H1+H3+H12+H6b (E4B local) | **56.7%** | 800 | ~36s | **$0** |
+
+Gap to RAG-k3 now **~13-17pp**, down from 30pp under the broken
+extraction, down from 57pp under the even-more-broken head
+truncation of the very first run. The remaining gap is
+predominantly multi-session aggregation and knowledge-update
+recency questions that Builder capability (not retrieval)
+constrains.
+
+### Next move
+
+Graduate from H6 prompt engineering to H11 Builder swap:
+qwen-2.5-3b-instruct or llama-3.2-3B-instruct via mlx-lm. Same
+pipeline, different Builder. If the hallucination ceiling is
+gemma-specific (safety-induced number confusion), a different
+local model may lift the 8/30 contradict count closer to zero.
+If the ceiling persists, the answer is Builder reasoning
+capability, not model swap.
