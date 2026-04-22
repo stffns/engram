@@ -1027,3 +1027,59 @@ Four measurement artifacts caught en route (head-truncation,
 channel-rsplit, turn-spam, envelope-regurgitation). H11 Qwen
 Builder swap rejected. H18 preface is the single largest
 correctness lever of the entire grid (+13.3pp over H6b).
+
+### H11b abliterated gemma-4-E4B (2026-04-22 late) -- no improvement
+
+Tested `Jiunsong/supergemma4-e4b-abliterated-mlx` (same base as
+our gemma winner, safety-refusal ablated via orthogonal
+projection on 17 of 42 layers, Apache 2.0). Hypothesis: remove
+the residual refusal floor in H18 (~3/30 neutrals) by swapping
+to the abliterated variant.
+
+Immediate issue surfaced: abliteration breaks stop behavior.
+After emitting the correct answer in the first
+`<channel|>ANSWER<turn|>` block, the model hijacks its own turn
+and fabricates a new user question + new answer. Our last-block
+oracle extraction (gemma-optimal) picks up the hijack tail.
+
+Tested 3 extraction strategies on both N=30 logs so the
+comparison is fair:
+
+| Builder | last | first | shortest |
+|---|---|---|---|
+| H18 gemma | **22/30 = 73.3%** | 21/30 = 70.0% | 19/30 = 63.3% |
+| abliterated H18 | 17/30 = 56.7% | 19/30 = 63.3% | 19/30 = 63.3% |
+
+Even under the abliterated-favoring extractors (first, shortest)
+it plateaus at 63.3%, well below H18 gemma (70-73%). Oracle
+variance is ~±2pp run-to-run (H18 last was 21/30 in the
+production run, 22/30 in the rescore).
+
+Why abliteration does not help on this corpus:
+
+- H18 preface already neutralizes most refusals in regular
+  gemma; removing safety is largely redundant
+- contradicts counts are similar (6-8 on each) -- abliteration
+  does not fix arithmetic/aggregation hallucination
+- a new failure mode emerges: turn-hijacking contaminates the
+  transcript and requires stop-at-first-turn plumbing to even
+  measure fairly
+
+H11b rejected. Production winner stays H1+H3+H12+H18 on
+gemma-4-E4B-it-MLX-4bit.
+
+### TODO for next session (not blocking)
+
+- **Stop-at-first-turn plumbing**: modify
+  `_stream_until_fire_or_eos` in `mode_c_demo.py` to detect
+  `<turn|>` following a `<channel|>` block as an end signal,
+  not just the tokenizer's EOS. Would let abliterated Builders
+  be evaluated without the 6pp hijack penalty and enable
+  production use with them if a future task benefits.
+- **Oracle consensus**: multi-draw Gemini scoring (3-5 samples
+  per answer, majority vote) would collapse the ±2pp run-to-run
+  variance to <1pp. Each current headline number has an
+  implicit CI of roughly ±2pp just from oracle noise.
+- **N=100 graduation**: all current numbers are N=30 seed=42.
+  A graduated N=100 pass with the H18 config would confirm the
+  70-73% result outside oracle noise.
