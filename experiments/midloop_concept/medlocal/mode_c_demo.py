@@ -153,6 +153,52 @@ PROMPT_PREFACE = (
     "memory' rather than guessing.\n\n"
 )
 
+# H6b preface (commit-to-context). 2026-04-22. Variant B of the
+# anti-refusal experiment. First preface that broke the refusal
+# floor in gemma-4-E4B-it: took H1+H3+H12 from 50.0% to 56.7%.
+# Swaps gemma's default "I cannot" habit for an extraction
+# mandate. Subsumed by PROMPT_PREFACE_H18 below for production
+# use but kept as a named constant for replayability.
+PROMPT_PREFACE_H6B = (
+    "You are answering a question about the user's past "
+    "conversations. The context contains the answer. Extract the "
+    "exact name, number, or phrase from the context and state it "
+    "directly. Do not say you do not have the information. Do not "
+    "hedge. Commit to the best interpretation of the context.\n\n"
+)
+
+# H18 preface (aggregation + temporal + recency). 2026-04-22.
+# Builds on H6b by adding explicit guidance for the three failure
+# categories of the H6b winner:
+#   - aggregation: "READ ALL excerpts and ADD UP" rescues
+#     multi-session totals (charity, rollercoasters)
+#   - temporal arithmetic: "identify the two dates and compute"
+#     rescues temporal-reasoning date deltas
+#   - recency: "MOST RECENT value is current, older are stale"
+#     rescues knowledge-update questions where multiple values
+#     exist over time
+# Took H1+H3+H12 from 56.7% (H6b) to 70.0% (H18) on N=30
+# seed=42 longmemeval_s -- the single largest preface lever
+# measured. Matches RAG-k3 range (70-74%). Also used by H27v2
+# and H30 (different knobs, same preface text).
+PROMPT_PREFACE_H18 = (
+    "You are answering a question about the user's past "
+    "conversations. The context contains the answer. Extract "
+    "the exact name, number, or phrase from the context and "
+    "state it directly. For questions asking 'how many', "
+    "'total', 'sum', or aggregating across events, READ ALL "
+    "excerpts and ADD UP the numbers across them. Do NOT report "
+    "a single excerpt's number when the question needs the "
+    "total. For questions asking about days/weeks/months "
+    "between events, identify the two dates and compute the "
+    "difference. When the context contains MULTIPLE values for "
+    "the same fact over time (e.g. a personal best that got "
+    "beaten, a role that changed), the MOST RECENT mentioned "
+    "value is the current answer. Older values are stale. Do "
+    "not say you do not have the information. Do not hedge. "
+    "Commit to the best interpretation of the context.\n\n"
+)
+
 
 @dataclass
 class SpliceEvent:
