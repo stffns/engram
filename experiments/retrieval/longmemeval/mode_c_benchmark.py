@@ -164,6 +164,17 @@ def main() -> int:
         ),
     )
     parser.add_argument(
+        "--bypass-score-threshold",
+        action="store_true",
+        help=(
+            "H25b: skip the score gate and always splice top-K "
+            "fresh chunks. Motivated by charity-total debug where "
+            "the chunk containing '$2,000' scored 0.0159, just "
+            "below the 0.0161 absolute threshold, and was dropped "
+            "in favor of numerically-empty advice chunks."
+        ),
+    )
+    parser.add_argument(
         "--tag",
         default=None,
         help=(
@@ -322,6 +333,7 @@ def main() -> int:
                     relative_threshold_factor=args.relative_threshold_factor,
                     retrieval_window_tokens=args.retrieval_window_tokens,
                     score_threshold_override=args.score_threshold_override,
+                    bypass_score_threshold=args.bypass_score_threshold,
                     prompt_preface=args.prompt_preface,
                     enable_thinking=(False if args.disable_thinking else None),
                     splice_envelope=(

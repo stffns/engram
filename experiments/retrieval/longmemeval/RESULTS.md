@@ -1152,3 +1152,72 @@ regressing. For low-signal changes (like H23's -2 net), the
 smoke-only gate is insufficient -- a partial N like N=15 or
 N=20 before full N=30 would have caught this cheaper than the
 full 25-min run.
+
+### H25b bypass score threshold (2026-04-22 last) -- rejected
+
+Debug trace on the d851d5ba charity fail (GT $3,750, H18 answer
+$1,000) revealed that a chunk containing ``"I helped raise over
+$2,000..."`` scored 0.0159 and was dropped by the 0.0161
+absolute threshold, missing by 0.0002. H25b: bypass the
+threshold entirely and splice top-3 fresh chunks per firing
+regardless of score.
+
+Smoke on 6 qids (4 multi-session fails + 2 winners Imagine,
+Emily):
+
+| qid | H18 | H25b |
+|---|---|---|
+| d851d5ba charity | contradicts | contradicts (no change) |
+| gpt4_e05b82a6 rollercoasters | contradicts | contradicts |
+| a08a253f fitness | contradicts | contradicts |
+| 6d550036 projects | contradicts | contradicts |
+| 4fd1909e Imagine | supports | **neutral** (REGRESSED) |
+| 1faac195 Emily | supports | supports |
+| **total** | **3/6** | **1/6** |
+
+With bypass the retrieval pool brings in noise chunks at very
+low scores (0.0050, 0.0144 observed on Imagine) that dilute
+the KV cache in winner cases. 0 fails rescued, 1 winner
+regressed = strictly worse.
+
+Analysis of why charity stayed contradicts: firing 3 under
+H25b DID splice the `$2,000`-containing chunk that was
+previously dropped. But GT $3,750 requires summing three
+separate events (~$1,000 + ~$2,000 + ~$750). If the third
+event's chunk isn't in the retrieval pool at all, no
+thresholding change rescues it. The problem is **information
+not in retrieval**, not **information dropped by threshold**.
+
+H25b rejected.
+
+### Final takeaway: H18 is the realistic ceiling
+
+The remaining 9 fails at 70% are structural:
+
+- 4 multi-session aggregation fails: chunks with specific
+  numbers often not in top-10 retrieval at all. No threshold
+  tweak rescues them.
+- 2 knowledge-update fails: chunks lack absolute timestamps,
+  so recency is ambiguous.
+- 2 empty-answer fails: Builder thinking-stuck, not
+  budget-related.
+- 1 thinking-leak fail: stop-behavior bug.
+
+None are fixable with preface or retrieval threshold tweaks.
+Next-level levers require:
+
+- **Claim-level Judge post-hoc** (Mode A pattern applied to
+  Mode C): after generation, pass (question, answer, retrieved
+  chunks) to Gemini for verification. Can aggregate numbers
+  explicitly and correct undercount. Costs one extra API call
+  per question.
+- **Corpus-level chunking changes**: concatenate related
+  conversational turns so aggregations sit in one chunk
+  instead of being spread.
+- **Re-retrieval with number-density boost**: for "how many /
+  total" questions, re-retrieve with a query that prioritizes
+  chunks containing numerics/entities.
+
+All three are PR-level work, not session-level knob tweaks.
+
+**Production winner for this session: H1+H3+H12+H18 at 70-73%.**

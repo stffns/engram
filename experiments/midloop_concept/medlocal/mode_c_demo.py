@@ -310,6 +310,7 @@ def run_mode_c(
     relative_threshold_factor: float | None = None,
     retrieval_window_tokens: int | None = None,
     score_threshold_override: float | None = None,
+    bypass_score_threshold: bool = False,
     prompt_preface: str | None = None,
     enable_thinking: bool | None = None,
     splice_envelope: str | None = None,
@@ -453,21 +454,36 @@ def run_mode_c(
                     e for e in excerpts
                     if e.get("source_id", "memory") not in spliced_sources
                 ]
-                if fresh and relative_threshold_factor is not None:
-                    top_score = fresh[0].get("score")
-                    if isinstance(top_score, (int, float)):
-                        effective_threshold = top_score * relative_threshold_factor
+                # H25b (2026-04-22): ``bypass_score_threshold=True``
+                # skips the score gate entirely and takes top-K
+                # fresh chunks regardless of score. Rationale: on
+                # aggregation questions (charity total, rollercoaster
+                # count, fitness days) the debug trace revealed
+                # chunks containing the actual numbers often score
+                # 0.0002-0.0005 below the 0.0161 threshold and get
+                # dropped in favor of conversationally-relevant but
+                # numerically-empty chunks. Bypass lets the top-3
+                # fresh ranks through, trusting that vstash's own
+                # ordering is the best signal we have.
+                if bypass_score_threshold:
+                    qualifying = fresh[:MULTI_SPLICE_MAX_CHUNKS]
+                    effective_threshold = 0.0  # for logging below
+                else:
+                    if fresh and relative_threshold_factor is not None:
+                        top_score = fresh[0].get("score")
+                        if isinstance(top_score, (int, float)):
+                            effective_threshold = top_score * relative_threshold_factor
+                        else:
+                            effective_threshold = MULTI_SPLICE_SCORE_THRESHOLD
+                    elif score_threshold_override is not None:
+                        effective_threshold = score_threshold_override
                     else:
                         effective_threshold = MULTI_SPLICE_SCORE_THRESHOLD
-                elif score_threshold_override is not None:
-                    effective_threshold = score_threshold_override
-                else:
-                    effective_threshold = MULTI_SPLICE_SCORE_THRESHOLD
-                qualifying = [
-                    e for e in fresh
-                    if isinstance(e.get("score"), (int, float))
-                    and e["score"] >= effective_threshold
-                ][:MULTI_SPLICE_MAX_CHUNKS]
+                    qualifying = [
+                        e for e in fresh
+                        if isinstance(e.get("score"), (int, float))
+                        and e["score"] >= effective_threshold
+                    ][:MULTI_SPLICE_MAX_CHUNKS]
 
                 if not qualifying:
                     print(
