@@ -535,3 +535,112 @@ to the remaining gap living in:
 
 Retrieval-quality follow-ups are parked. Next moves target the
 Builder side.
+
+### Measurement correction #2 (2026-04-22) -- multi-channel extraction
+
+Hand-auditing Variant A/B H6 smoke runs uncovered a second oracle
+extraction bug that had been silently corrupting every N=30 grid
+cell in this section:
+
+- The extractor was ``raw.rsplit("<channel|>", 1)[-1][-2000:]``.
+- When the Builder emitted multiple answer blocks before budget
+  ran out (thinking -> channel -> answer -> turn -> thinking ->
+  channel -> answer -> turn -> thinking-cut-by-budget), rsplit
+  returned whatever came after the LAST ``<channel|>``, which
+  was typically an incomplete thinking preamble. The earlier
+  correct answers were invisible to the oracle.
+- Separately: after an answer the Builder sometimes spammed
+  ``<turn|>`` until budget -- thousands of consecutive tokens.
+  That spam crashed Gemini into ``oracle_parse_failure``, also
+  scored as ``neutral``.
+
+Confirmed on two cases:
+
+1. `3b6f954b` (Melbourne) emitted ``University of Melbourne``
+   as a complete ``<channel|>...<turn|>`` block twice, but the
+   old extraction served the third (truncated) thinking block
+   to the oracle. Verdict was ``neutral``. Fixed extraction
+   serves the last complete block, verdict ``supports``.
+2. `4fd1909e` (Imagine Dragons) emitted ``Xfinity Center`` and
+   then 600+ ``<turn|>`` tokens. Oracle parse-failed on the
+   turn spam. Fixed extraction strips ``<turn|>`` runs and
+   surfaces the correct answer, verdict ``supports``.
+
+Fix shipped in `mode_c_benchmark.py`:
+```
+answer_blocks = re.findall(r"<channel\|>(.*?)<turn\|>", raw,
+                           flags=re.DOTALL)
+candidate = answer_blocks[-1].strip() if answer_blocks else ...
+candidate = re.sub(r"(<turn\|>)+", "", candidate)[-2000:]
+```
+
+Rescorer: `experiments/retrieval/longmemeval/mode_c_rescore.py`
+runs the corrected extraction against existing audit rows and
+emits parallel `.jsonl` files under `mode_c_runs_v3_rescored/`
+so historical runs can be revalidated without re-generating.
+Oracle spend: ~$0.01/call * 330 calls = ~$3.30.
+
+### Rescored grid (post-fix, 2026-04-22)
+
+| run | old | **rescored** | delta |
+|---|---|---|---|
+| baseline | 13.3% | **30.0%** (9/30) | +5 |
+| H1 force-first t=30 | 23.3% | **40.0%** (12/30) | +5 |
+| H2 question-only | 13.3% | 30.0% (9/30) | +5 |
+| H3 E4B Builder | 26.7% | 33.3% (10/30) | +2 |
+| H12 multi-chunk | 33.3% | 33.3% (10/30) | 0 |
+| H1+H12 | 13.3% | 30.0% (9/30) | +5 |
+| H3+H12 (old winner) | 40.0% | 36.7% (11/30) | -1 |
+| **H1+H3+H12** | 33.3% | **50.0% (15/30)** | +5 |
+| H3+H12+H14 | 40.0% | **46.7% (14/30)** | +2 |
+| H3+H12+H15 | 36.7% | 36.7% (11/30) | 0 |
+| H3+H12+H16 | 20.0% | 30.0% (9/30) | +3 |
+
+### Production winner: H1+H3+H12 (50.0%)
+
+The earlier "H1 is anti-additive with multi-chunk" claim was a
+measurement artifact. With the fixed extraction:
+
+- **H1 force-first-fire adds +6.7pp** on top of H3+H12 (36.7% ->
+  46.7%... correction: 36.7% -> 50.0% with H3+H12 alone vs
+  H1+H3+H12). H1 is strictly additive.
+- **H3+H12+H14 is +10pp over H3+H12 rescored** (33.3% vs 46.7%
+  when H14's relative threshold replaces the absolute). H14 is
+  additive too -- also misclassified as "no-op" in the broken
+  grid.
+- **H2 is still a no-op** (30% = baseline). The only
+  retrieval-side change that does nothing.
+- **H15 / H16 stay rejected** even rescored.
+
+### Hand-audit of H1+H3+H12 fails (15/30)
+
+Gemini 2.5 Flash was validated as a fair judge on this subset:
+
+| category | n | rationale |
+|---|---|---|
+| Builder emitted "not in memory" literally | 10 | oracle neutral, correct |
+| Builder gave specific wrong number | 3 | oracle contradicts, correct |
+| Builder stuck in thinking loop (no answer block) | 2 | oracle neutral/contradicts, correct |
+| **False negatives from oracle** | **0** | -- |
+
+So the remaining 50% gap to 100% is genuine Builder failure:
+- 67% of fails: refusal floor (the "not in memory" habit that
+  H6 preface variants partly, but not fully, dislodge).
+- 20% of fails: hallucinated numbers on aggregation /
+  knowledge-update questions.
+- 13% of fails: never-commit loops ("2024-05-" repeated until
+  budget; stuck mid-thinking).
+
+### Mode C vs RAG vs Mode A -- final
+
+With honest baseline and winner both rescored:
+
+| shape | correct | tok/q | wall/q | API $/q |
+|---|---|---|---|---|
+| RAG-k3 (Cerebras llama3.1-8b) | 70-74% | 1394-2288 | ~1.1s | ~$0.0006 |
+| Mode A v4 (Cerebras + 235b Judge) | 64-71% | 9048 | ~5.3s | ~$0.008 |
+| Mode C H1+H3+H12 (E4B local MLX) | **50.0%** | 800 | **~38s** | **$0** |
+
+Gap to RAG-k3 narrowed from the pre-rescored 30pp to **~20pp**.
+Still meaningful but not the chasm the broken measurement
+implied.

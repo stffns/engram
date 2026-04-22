@@ -141,10 +141,13 @@ class ModeCResult:
     terminated_reason: str = ""
 
 
-def _apply_chat(tokenizer, user_text: str) -> str:
+def _apply_chat(tokenizer, user_text: str, preface: str | None = None) -> str:
     # Prefix the confident-mode instruction so gemma does not
     # drop into its refusal preamble on personal-info questions.
-    prefaced = PROMPT_PREFACE + user_text
+    # ``preface`` overrides the module-level PROMPT_PREFACE when
+    # supplied -- used by the CLI to swap in variants without
+    # editing source (H6 variants A/B).
+    prefaced = (preface if preface is not None else PROMPT_PREFACE) + user_text
     messages = [{"role": "user", "content": prefaced}]
     try:
         return tokenizer.apply_chat_template(
@@ -253,6 +256,7 @@ def run_mode_c(
     relative_threshold_factor: float | None = None,
     retrieval_window_tokens: int | None = None,
     score_threshold_override: float | None = None,
+    prompt_preface: str | None = None,
 ) -> ModeCResult:
     """Run one Mode C generation. Pass ``model`` + ``tokenizer``
     (from ``load_model``) to skip the per-call model load; omit
@@ -289,7 +293,7 @@ def run_mode_c(
 
     result = ModeCResult(question=question)
     try:
-        chatted = _apply_chat(tokenizer, question)
+        chatted = _apply_chat(tokenizer, question, preface=prompt_preface)
         prompt_ids = _encode(tokenizer, chatted, add_special=False)
         cache = make_prompt_cache(model)
 

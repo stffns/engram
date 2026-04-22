@@ -65,6 +65,17 @@ def _load_questions(subset: str, n: int, seed: int) -> list[Conversation]:
     return rnd.sample(conversations, min(n, len(conversations)))
 
 
+def _load_questions_by_qid(subset: str, qids: list[str]) -> list[Conversation]:
+    """Load a specific list of qids in the order given. Used by smoke
+    tests that want to verify a fix moves target-fail qids without
+    breaking a known-winner qid -- far cheaper than N=30."""
+    index = {c.question_id: c for c in load_longmemeval(subset=subset)}
+    missing = [q for q in qids if q not in index]
+    if missing:
+        raise ValueError(f"qid(s) not in {subset}: {missing}")
+    return [index[q] for q in qids]
+
+
 def _correct(v: str) -> bool:
     return v in ("supports", "partial")
 
@@ -146,6 +157,27 @@ def main() -> int:
             "directory"
         ),
     )
+    parser.add_argument(
+        "--qids",
+        default=None,
+        help=(
+            "comma-separated list of question_ids to run instead of "
+            "the seed-sampled N. Smoke mode: verify a fix moves "
+            "target-failing qids without breaking a known-good qid, "
+            "before paying for an N=30 grid cell. Overrides --n and "
+            "--seed."
+        ),
+    )
+    parser.add_argument(
+        "--prompt-preface",
+        default=None,
+        help=(
+            "H6 variant prefix injected before the user question. "
+            "Overrides the default PROMPT_PREFACE (which includes "
+            "the 'not in memory' escape hatch the Builder takes as "
+            "a refusal license). Omit to use the default."
+        ),
+    )
     args = parser.parse_args()
 
     if not args.model.exists():
@@ -154,14 +186,25 @@ def main() -> int:
 
     args.out.mkdir(parents=True, exist_ok=True)
     tag = f"_{args.tag}" if args.tag else ""
-    out_path = args.out / f"mode_c_n{args.n}_seed{args.seed}{tag}.jsonl"
+    if args.qids:
+        # Smoke mode: pinned qids, seed is irrelevant; count reflects
+        # the pinned list size, not the benchmark default N.
+        pinned_n = len([q.strip() for q in args.qids.split(",") if q.strip()])
+        out_path = args.out / f"mode_c_smoke_n{pinned_n}{tag}.jsonl"
+    else:
+        out_path = args.out / f"mode_c_n{args.n}_seed{args.seed}{tag}.jsonl"
 
     print(f"[config] subset={args.subset} n={args.n} seed={args.seed}")
     print(f"[config] out={out_path}")
     print(f"[config] model={args.model}")
 
-    sampled = _load_questions(args.subset, args.n, args.seed)
-    print(f"[dataset] sampled {len(sampled)} conversations")
+    if args.qids:
+        qid_list = [q.strip() for q in args.qids.split(",") if q.strip()]
+        sampled = _load_questions_by_qid(args.subset, qid_list)
+        print(f"[dataset] smoke mode: {len(sampled)} qid(s) pinned")
+    else:
+        sampled = _load_questions(args.subset, args.n, args.seed)
+        print(f"[dataset] sampled {len(sampled)} conversations")
 
     # Load the mlx model ONCE up front and reuse across all N
     # questions -- each load is ~2-3s and doing N loads would
@@ -217,6 +260,7 @@ def main() -> int:
                     relative_threshold_factor=args.relative_threshold_factor,
                     retrieval_window_tokens=args.retrieval_window_tokens,
                     score_threshold_override=args.score_threshold_override,
+                    prompt_preface=args.prompt_preface,
                 )
                 mc_wall = time.perf_counter() - t_mc
                 print(
@@ -226,19 +270,58 @@ def main() -> int:
                     f"termination={mc_result.terminated_reason}"
                 )
 
-                # Mode C answer_text can be 3000-4000 chars:
-                # 300-400 tokens of ``<|channel>thought``
-                # preamble + splice payloads + the actual answer
-                # body at the end. The oracle prompt truncates
-                # ``candidate`` to the first 2000 chars, which
-                # would silently discard the real answer. Strip
-                # the preamble (last ``<channel|>`` marker
-                # separates thought from response body) and
-                # tail-truncate so the oracle sees the answer.
+                # Mode C answer_text can be 3000-4000 chars and
+                # the model frequently emits MULTIPLE answer blocks
+                # before the budget runs out:
+                #
+                #   <|channel>thought ... <channel|>ANSWER<turn|>
+                #   <|channel>thought ... <channel|>ANSWER<turn|>
+                #   <|channel>thought ... (CUT OFF by budget)
+                #
+                # The previous extraction used
+                # ``rsplit("<channel|>", 1)[-1]`` which returned
+                # whatever came after the LAST ``<channel|>`` --
+                # when the last block was an incomplete thinking
+                # preamble truncated by the budget, the oracle saw
+                # only garbage even though correct answer blocks
+                # existed earlier in the output. This was confirmed
+                # on qid=3b6f954b (Melbourne) Variant A run:
+                # the model emitted "University of Melbourne" twice
+                # as completed answer blocks but the oracle was
+                # fed a cut-off thinking block and verdicted
+                # ``neutral``.
+                #
+                # Also: after an answer block the model sometimes
+                # spams ``<turn|>`` repeatedly until budget runs
+                # out. That spam crashes the oracle into
+                # ``oracle_parse_failure`` even when the answer
+                # itself is correct (confirmed on 4fd1909e /
+                # Imagine Dragons Variant B run).
+                #
+                # Fix: find every complete ``<channel|>...<turn|>``
+                # block in the output and return the LAST one
+                # (latest committed answer). Strip trailing
+                # ``<turn|>`` repetitions so the oracle doesn't
+                # choke on transcript-end spam.
+                import re as _re
                 raw = mc_result.answer_text
-                answer_for_oracle = (
-                    raw.rsplit("<channel|>", 1)[-1]
-                    if "<channel|>" in raw else raw
+                answer_blocks = _re.findall(
+                    r"<channel\|>(.*?)<turn\|>", raw, flags=_re.DOTALL
+                )
+                if answer_blocks:
+                    answer_for_oracle = answer_blocks[-1].strip()
+                else:
+                    # Fallback: no complete block, use prior logic.
+                    answer_for_oracle = (
+                        raw.rsplit("<channel|>", 1)[-1]
+                        if "<channel|>" in raw else raw
+                    )
+                # Defensive: some outputs interleave multiple
+                # ``<turn|>`` tokens inside the answer body;
+                # collapse consecutive runs so the oracle candidate
+                # is legible.
+                answer_for_oracle = _re.sub(
+                    r"(<turn\|>)+", "", answer_for_oracle
                 )
                 answer_for_oracle = answer_for_oracle[-2000:]
                 o = oracle_score(
