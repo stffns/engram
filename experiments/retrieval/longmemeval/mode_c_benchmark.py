@@ -56,6 +56,7 @@ from experiments.retrieval.longmemeval.dataset import (
 )
 from experiments.retrieval.longmemeval.mode_a_eval import (
     _ingest,
+    _ingest_turn_pairs,
     _oracle_client,
     oracle_score,
 )
@@ -250,6 +251,47 @@ def main() -> int:
             "never reaches the answer body."
         ),
     )
+    parser.add_argument(
+        "--stop-at-first-answer-block",
+        action="store_true",
+        help=(
+            "Stop generation as soon as a complete "
+            "<channel|>...<turn|> block has been emitted. "
+            "Prevents gemma from burning budget on redundant "
+            "refined blocks and prevents abliterated gemma "
+            "from hijacking its own turn after the first "
+            "answer. Does not rescue thinking-leak cases "
+            "(no block ever completes there), but makes the "
+            "channel-completion case terminate cleanly."
+        ),
+    )
+    parser.add_argument(
+        "--chunk-pairs",
+        action="store_true",
+        help=(
+            "Chunking experiment A: ingest user+assistant "
+            "turn pairs as single chunks instead of individual "
+            "turns. Rationale: aggregation questions fail when "
+            "numeric facts and their conversational context live "
+            "in adjacent turns that end up in separate chunks; "
+            "pair-chunking keeps them together. Halves the "
+            "number of chunks, roughly doubles chunk size."
+        ),
+    )
+    parser.add_argument(
+        "--rerank-by-number-density",
+        action="store_true",
+        help=(
+            "Chunking experiment C: for aggregation questions "
+            "('how many/total/sum', days/weeks delta), rerank "
+            "the retrieval pool by numeric-pattern density "
+            "BEFORE the score-threshold filter. Pushes chunks "
+            "with $X / N times / N days to the front of the "
+            "pool. Targets the 4 multi-session undercount "
+            "fails where the numerically-dense chunks score "
+            "just below threshold."
+        ),
+    )
     args = parser.parse_args()
 
     if not args.model.exists():
@@ -312,7 +354,10 @@ def main() -> int:
 
             try:
                 t_ingest = time.perf_counter()
-                _ingest(mem, conv)
+                if args.chunk_pairs:
+                    _ingest_turn_pairs(mem, conv)
+                else:
+                    _ingest(mem, conv)
                 ingest_s = time.perf_counter() - t_ingest
                 print(f"[ingest] {ingest_s:.1f}s")
             finally:
@@ -342,6 +387,8 @@ def main() -> int:
                     ),
                     strip_turn_prefixes=args.strip_turn_prefixes,
                     max_total_tokens=args.max_total_tokens,
+                    stop_at_first_answer_block=args.stop_at_first_answer_block,
+                    rerank_by_number_density=args.rerank_by_number_density,
                 )
                 mc_wall = time.perf_counter() - t_mc
                 print(

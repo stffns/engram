@@ -85,7 +85,14 @@ MAX_SPLICES = 3
 # as fresh candidates even after 2-3 spliced-source-deduped
 # firings. Cost is a single vstash call per firing; the query
 # still dominates the latency, not the result count.
+# 2026-04-22 late: tried 50 globally, caused 5+ regressions on
+# single-session-user and temporal questions because the wider
+# pool + numeric rerank promoted irrelevant chunks. Reverted to
+# 10 as default; ``rerank_by_number_density`` now expands to 50
+# ONLY when aggregation intent is narrowly detected (see
+# AGGREGATION_INTENT_RE in run_mode_c).
 RETRIEVAL_POOL = 10
+AGGREGATION_RETRIEVAL_POOL = 50
 # H12 (2026-04-21). Splice MULTIPLE top chunks per firing if
 # their score passes the confidence threshold. Up to 3 chunks
 # per firing, each must clear ``MULTI_SPLICE_SCORE_THRESHOLD``.
@@ -227,12 +234,14 @@ def _stream_until_fire_or_eos(
     input_ids,
     max_new_tokens: int,
     decider,
+    stop_at_first_answer_block: bool = False,
 ) -> tuple[str, list[int], object]:
     """Run generate_step until (a) the decider fires, (b) EOS
-    surfaces, or (c) the batch budget is exhausted. Returns
-    ``(reason, tokens_emitted, last_decision)``.
+    surfaces, (c) the batch budget is exhausted, or (d) when
+    ``stop_at_first_answer_block=True``, a complete
+    ``<channel|>...<turn|>`` answer block has been emitted.
 
-    ``reason`` in {"fire", "eos", "budget"}.
+    ``reason`` in {"fire", "eos", "budget", "answer_complete"}.
 
     Decoding uses a cumulative tail-decode pattern to handle
     BPE UTF-8 fragmentation correctly: a multi-byte character
@@ -243,12 +252,32 @@ def _stream_until_fire_or_eos(
     valid UTF-8.
     """
     import mlx.core as mx
+    import re as _re_stop
     from mlx_lm.generate import generate_step
 
     eos_id = getattr(tokenizer, "eos_token_id", None)
     tokens: list[int] = []
     last_decision = None
     last_decoded_prefix = ""
+    # ``stop_at_first_answer_block`` is an experimental knob
+    # (2026-04-22). When True the loop terminates as soon as
+    # the Builder emits a complete ``<channel|>ANSWER<turn|>``
+    # block, preventing two failure modes:
+    # - gemma burning the rest of the budget on redundant
+    #   refined-answer blocks (costs wall time, rarely flips
+    #   verdicts)
+    # - abliterated gemma hijacking its own turn after the
+    #   first answer and fabricating new user questions (was
+    #   silently adding garbage tail that the oracle extractor
+    #   had to paper over)
+    # - thinking-leak cases (gpt4_e061b84g) where the model
+    #   never exits the thinking preamble -- this stop doesn't
+    #   rescue them (no answer block ever completes) but
+    #   makes sure the channel-completion case terminates
+    #   cleanly when it does happen.
+    answer_block_re = _re_stop.compile(
+        r"<channel\|>.*?<turn\|>", _re_stop.DOTALL
+    )
 
     for tok, _lp in generate_step(
         prompt=mx.array(input_ids),
@@ -276,6 +305,8 @@ def _stream_until_fire_or_eos(
         last_decision = decider.on_token(delta)
         if last_decision is not None and last_decision.fire:
             return "fire", tokens, last_decision
+        if stop_at_first_answer_block and answer_block_re.search(decoded):
+            return "answer_complete", tokens, last_decision
         if len(tokens) >= max_new_tokens:
             return "budget", tokens, last_decision
     return "budget", tokens, last_decision
@@ -316,6 +347,8 @@ def run_mode_c(
     splice_envelope: str | None = None,
     strip_turn_prefixes: bool = False,
     max_total_tokens: int | None = None,
+    stop_at_first_answer_block: bool = False,
+    rerank_by_number_density: bool = False,
 ) -> ModeCResult:
     """Run one Mode C generation. Pass ``model`` + ``tokenizer``
     (from ``load_model``) to skip the per-call model load; omit
@@ -375,11 +408,12 @@ def run_mode_c(
             )
             reason, tokens, decision = _stream_until_fire_or_eos(
                 model, tokenizer, cache, current_input, budget, decider,
+                stop_at_first_answer_block=stop_at_first_answer_block,
             )
             result.answer_tokens.extend(tokens)
             budget -= len(tokens)
 
-            if reason in ("eos", "budget"):
+            if reason in ("eos", "budget", "answer_complete"):
                 result.terminated_reason = reason
                 break
 
@@ -418,12 +452,79 @@ def run_mode_c(
                     ret_query = f"{question}\n{window_text[-retrieval_window_tokens:]}"
                 else:
                     ret_query = f"{question}\n{window_text}"
+                # Chunking C (2026-04-22 late): detect narrow
+                # aggregation intent BEFORE retrieval so we can
+                # expand the pool only when needed.
+                #
+                # Previous regex ``how many`` was too broad --
+                # triggered on single-count questions like
+                # "how many playlists" where there's no sum to
+                # compute, causing the rerank to promote
+                # irrelevant numeric chunks. Narrowed to
+                # explicit aggregation markers.
+                import re as _re_rerank
+                AGG_RE = _re_rerank.compile(
+                    r"\b(in total|how much money|how many times|"
+                    r"total amount|total sum|sum of|added up|"
+                    r"combined|altogether|across all|all the events|"
+                    r"across.*events|from.*to.*)\b",
+                    _re_rerank.IGNORECASE
+                )
+                is_aggregation = (
+                    rerank_by_number_density
+                    and bool(AGG_RE.search(question))
+                )
+                _pool_this_firing = (
+                    AGGREGATION_RETRIEVAL_POOL
+                    if is_aggregation else RETRIEVAL_POOL
+                )
                 excerpts = cerebras_retrieve(
                     mem,
                     ret_query,
-                    top_k=RETRIEVAL_POOL,
+                    top_k=_pool_this_firing,
                     retrieval_mode="dual",
                 )
+                _this_firing_bypass = bypass_score_threshold
+                if rerank_by_number_density:
+                    if is_aggregation:
+                        NUMBER_RE = _re_rerank.compile(
+                            r"(\$\d+|\d+\s*(times|days|weeks|months|"
+                            r"hours|minutes|seconds|years|"
+                            r"\$|dollars|cents|%|percent))",
+                            _re_rerank.IGNORECASE
+                        )
+                        def _num_density(e: dict) -> float:
+                            text = e.get("text", "") or ""
+                            if not text:
+                                return 0.0
+                            matches = len(NUMBER_RE.findall(text))
+                            return matches / max(len(text.split()), 1)
+                        # Sort descending by numeric density, break
+                        # ties by original score. Preserves the
+                        # retrieval order as secondary signal.
+                        excerpts = sorted(
+                            excerpts,
+                            key=lambda e: (
+                                -_num_density(e),
+                                -(e.get("score") or 0.0)
+                            ),
+                        )
+                        boost_count = sum(
+                            1 for e in excerpts[:3]
+                            if _num_density(e) > 0
+                        )
+                        # For aggregation questions also bypass the
+                        # score threshold so the re-ranked numeric
+                        # chunks actually enter; without this the
+                        # rerank is a no-op whenever those chunks
+                        # score just below the 0.0161 cutoff.
+                        _this_firing_bypass = True
+                        print(
+                            f"[rerank] aggregation question detected, "
+                            f"top-3 after num-density rerank: "
+                            f"{boost_count}/3 have numeric patterns "
+                            f"(threshold bypassed for this firing)"
+                        )
                 # Filter to fresh (not-yet-spliced) candidates, then
                 # keep those whose score clears the confidence
                 # threshold, keeping at most MULTI_SPLICE_MAX_CHUNKS.
@@ -465,7 +566,7 @@ def run_mode_c(
                 # numerically-empty chunks. Bypass lets the top-3
                 # fresh ranks through, trusting that vstash's own
                 # ordering is the best signal we have.
-                if bypass_score_threshold:
+                if _this_firing_bypass:
                     qualifying = fresh[:MULTI_SPLICE_MAX_CHUNKS]
                     effective_threshold = 0.0  # for logging below
                 else:

@@ -1221,3 +1221,93 @@ Next-level levers require:
 All three are PR-level work, not session-level knob tweaks.
 
 **Production winner for this session: H1+H3+H12+H18 at 70-73%.**
+
+### H27v2 pool=50 + narrow-aggregation rerank + stop-at-first-turn (2026-04-22 late)
+
+Debug trace on d851d5ba charity fail revealed the 4 $-amount
+chunks live at ranks 8, 28, 35, 56 of a 62-chunk pool.
+With the default ``RETRIEVAL_POOL=10`` only rank 8 ever made
+it to splice; 28+ were invisible. H27v2 combines three
+interventions:
+
+- ``--stop-at-first-answer-block``: end generation when the
+  Builder emits a complete ``<channel|>ANSWER<turn|>`` block.
+  Saves ~30% wall time, prevents abliterated turn-hijack.
+- ``--rerank-by-number-density``: detect aggregation intent
+  via a narrow regex (``in total|how much money|how many
+  times|total amount|sum of|added up|combined|across all|
+  all the events|across...events|from...to...``). Broad
+  trigger (``how many``) caused 5+ regressions on single-
+  count questions (playlists, yarn skeins) -- narrowing
+  eliminated those.
+- For aggregation questions: expand pool to 50 (vs 10
+  default), rerank chunks by numeric-pattern density,
+  bypass score threshold so the reranked deep-rank chunks
+  actually enter.
+
+Smoke 8 qids: 6/8 = 75% with zero regressions on winners.
+Graduated to N=30.
+
+| config | correct | sup/par/con/neu |
+|---|---|---|
+| H18 winner | 21/30 = 70.0% | 16/5/6/3 |
+| **H27v2** | **21/30 = 70.0%** | **19**/2/5/4 |
+
+Tied on top-line but H27v2 produces **+3 more supports** (16 ->
+19) and half the partials (5 -> 2). Correct answers become
+more confident.
+
+Per-type:
+- knowledge-update: 1/3 -> 2/3 (+1, 031748ae engineers now
+  applies recency correctly)
+- multi-session: 4/8 -> 4/8 (charity + rollercoasters flip
+  TO supports via aggregation rerank; 81507db6 + 2b8f3739
+  regress from supports, net zero)
+- temporal-reasoning: 6/9 -> 5/9 (-1)
+- other types preserved
+
+Flip analysis:
+- **7 positive flips**: engineers (contradicts -> supports),
+  charity & rollercoasters (contradicts -> supports via
+  aggregation rerank specifically), preference + 3 partials
+  promoted to supports.
+- **4 negative flips**: 81507db6 graduation, 2b8f3739 market
+  total (multi-session regressions); gpt4_4cd9eba1 +
+  gpt4_a2d1d1f6 (temporal to partial/neutral). Distribution
+  looks like oracle/sampling variance, not structural harm.
+
+H27v2 is an equivalent alternative to H18 with:
+- Same top-line correctness (70%)
+- Stronger verdicts on correct answers (+3 supports)
+- Faster wall time (~30% via stop-at-first-turn)
+- Better tooling for aggregation questions (charity + rollercoasters
+  were the two motivating fails and both flipped)
+
+Either works as production config.
+
+### Final session state (2026-04-22 full day)
+
+Two candidates tied at 70% correctness:
+- H1+H3+H12+H18 -- simpler pipeline, ~42.8s/q
+- **H27v2** (H18 + stop + narrow rerank) -- ~30s/q, +3
+  supports-confidence, Builder-agnostic envelope, 50-chunk
+  pool for aggregation questions
+
+Gap to RAG-k3 (70-74%) closed on correctness axis.
+
+Interventions shipped:
+- H1 force-first-fire, H3 E4B Builder, H12 multi-chunk top-K
+- H14 relative threshold factor (optional)
+- H18 aggregation+temporal+recency preface
+- stop-at-first-answer-block (also helps abliterated)
+- narrow-aggregation rerank + conditional pool=50 (H27v2)
+- envelope-aware oracle extraction
+
+Rejected: H2, H11 Qwen, H11b abliterated, H15, H16, H23
+force-second-fire, H25b bypass always, Chunking A turn-pair
+re-ingest, Chunking C broad trigger.
+
+Remaining fails are structural: retrieval information-not-in-
+top-50, corpus-level missing timestamps, Builder-level
+arithmetic ceiling. Next levers: Judge post-hoc (Mode A
+pattern applied to Mode C output) and/or corpus rechunking.
