@@ -1083,3 +1083,72 @@ gemma-4-E4B-it-MLX-4bit.
 - **N=100 graduation**: all current numbers are N=30 seed=42.
   A graduated N=100 pass with the H18 config would confirm the
   70-73% result outside oracle noise.
+
+### H23 force-second-fire + gate (2026-04-22 late) -- rejected
+
+After H18 closed the gap, analyzed the 9 remaining fails by
+category and targeted two buckets:
+
+- 2 "empty answer" cases (model stuck in thinking, no commit)
+- 2 "recency confusion" cases (knowledge-update picked old value)
+
+Implemented H23 in three levers:
+
+- `force_second_fire_at_token` (default 400): trigger a second
+  decider firing after the first fire if no natural cadence
+  fire happened. Pulls next-fresh chunks (ranks 4-6 via
+  `spliced_sources` dedup).
+- `max_total_tokens` override (default 800 -> tested 1200):
+  rescue cases where the Builder exhausts budget in thinking
+  preamble before emitting an answer.
+- Preface addendum: explicit recency rule
+  ("most recent value is current, older are stale").
+- **Gate on second fire**: skip if a complete
+  `<channel|>...<turn|>` block has already appeared in the
+  generated stream. Prevents injecting more chunks into an
+  already-committed answer.
+
+Smoke 4 qids (4 fail targets): 1/4 (H21+H22 only, no force-
+second-fire); 2/4 (full H23). Looked promising. Also smoked
+5 qids (2 winners + 3 empty-fails): 3/5, winners preserved.
+
+Graduated to N=30. First attempt without gate showed
+regressions -- cancelled. Second attempt with gate:
+
+| config | correct | sup/par/con/neu | tok/q | wall/q | splc/q |
+|---|---|---|---|---|---|
+| H18 winner | **21/30 = 70.0%** | 16/5/6/3 | 800 | 42.8s | 4.13 |
+| H23 gated | 19/30 = 63.3% | 17/2/7/4 | 1200 | 51.9s | 4.67 |
+
+Per-type:
+
+| type | H18 | H23 gated |
+|---|---|---|
+| knowledge-update | 1/3 | **2/3** (+1, recency worked on 031748ae) |
+| multi-session | 4/8 | 3/8 (-1) |
+| preference | **1/1** | 0/1 (-1) |
+| single-session-user | 8/8 | 8/8 (preserved by gate) |
+| temporal-reasoning | 6/9 | 5/9 (-1) |
+
+Trade: +1 in knowledge-update, -3 spread across multi-session /
+preference / temporal. The force_second_fire adds chunks that
+confuse the Builder in ambiguous cases where it would otherwise
+commit a correct partial or supports. Partials (5 -> 2)
+converted to contradicts (6 -> 7), and neutrals (3 -> 4).
+The gate preserved every single-session-user (8/8) but could
+not catch every mid-commitment state in the other types.
+
+Cost: +400 tok/q, +9s wall/q, for -2 correctness. Net
+negative.
+
+**H23 rejected.** Production winner stays H1+H3+H12+H18 at
+70.0% (or 73.3% on rescore -- oracle variance).
+
+Lesson: the smoke-then-graduate protocol worked as a guard
+against *obvious* regressions but not against *distributed*
+regressions. A 4-qid smoke showing 2/4 improvement missed
+that other 26 questions would each have a small chance of
+regressing. For low-signal changes (like H23's -2 net), the
+smoke-only gate is insufficient -- a partial N like N=15 or
+N=20 before full N=30 would have caught this cheaper than the
+full 25-min run.

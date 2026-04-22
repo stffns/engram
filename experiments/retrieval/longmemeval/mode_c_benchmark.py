@@ -110,6 +110,19 @@ def main() -> int:
         ),
     )
     parser.add_argument(
+        "--force-second-fire",
+        type=int,
+        default=None,
+        help=(
+            "H23: force a second decider firing at this token "
+            "index after the first-fire. Rescues empty/no-commit "
+            "outputs where top-3 chunks from firing 1 were "
+            "insufficient. Firing 2 splices next-fresh candidates "
+            "(ranks 4-6 from the retrieval pool via "
+            "spliced_sources dedup)."
+        ),
+    )
+    parser.add_argument(
         "--question-only-retrieval",
         action="store_true",
         help=(
@@ -215,6 +228,17 @@ def main() -> int:
             "dialogue."
         ),
     )
+    parser.add_argument(
+        "--max-total-tokens",
+        type=int,
+        default=None,
+        help=(
+            "H22: override MAX_TOTAL_TOKENS per generation. "
+            "Default 800. Bump to 1200-1500 for questions where "
+            "the Builder gets stuck in thinking preamble and "
+            "never reaches the answer body."
+        ),
+    )
     args = parser.parse_args()
 
     if not args.model.exists():
@@ -293,6 +317,7 @@ def main() -> int:
                     model=model,
                     tokenizer=tokenizer,
                     force_first_fire_at_token=args.force_first_fire,
+                    force_second_fire_at_token=args.force_second_fire,
                     question_only_retrieval=args.question_only_retrieval,
                     relative_threshold_factor=args.relative_threshold_factor,
                     retrieval_window_tokens=args.retrieval_window_tokens,
@@ -304,6 +329,7 @@ def main() -> int:
                         else SPLICE_ENVELOPE_V1
                     ),
                     strip_turn_prefixes=args.strip_turn_prefixes,
+                    max_total_tokens=args.max_total_tokens,
                 )
                 mc_wall = time.perf_counter() - t_mc
                 print(

@@ -68,7 +68,8 @@ MAX_TOTAL_TOKENS = 800  # gemma-4-E2B-it burns 300-400 tokens on the
                          # <|channel>thought preamble before entering
                          # its final answer; 800 gives budget for the
                          # preamble + answer body where claim-shaped
-                         # tokens surface.
+                         # tokens surface. Overridable via run_mode_c
+                         # ``max_total_tokens`` kwarg for H22 tests.
 CADENCE = 20
 WINDOW_SIZE = 40
 COOLDOWN = 40
@@ -76,7 +77,15 @@ MAX_SPLICES = 3
 # Retrieval pool size. We ask for more than one hit so the
 # ``fresh`` filter (dedup against already-spliced sources) still
 # has candidates to draw from on subsequent fires.
-RETRIEVAL_POOL = 5
+#
+# 2026-04-22 H23: bumped from 5 to 10. With force_second_fire at
+# t=400 plus the normal decider cadence, later firings exhaust
+# the top-5 pool (firing 1 takes ranks 1-3, firing 2 takes 4-6,
+# etc.). A 10-deep pool ensures ranks 4-10 are still available
+# as fresh candidates even after 2-3 spliced-source-deduped
+# firings. Cost is a single vstash call per firing; the query
+# still dominates the latency, not the result count.
+RETRIEVAL_POOL = 10
 # H12 (2026-04-21). Splice MULTIPLE top chunks per firing if
 # their score passes the confidence threshold. Up to 3 chunks
 # per firing, each must clear ``MULTI_SPLICE_SCORE_THRESHOLD``.
@@ -296,6 +305,7 @@ def run_mode_c(
     model=None,
     tokenizer=None,
     force_first_fire_at_token: int | None = None,
+    force_second_fire_at_token: int | None = None,
     question_only_retrieval: bool = False,
     relative_threshold_factor: float | None = None,
     retrieval_window_tokens: int | None = None,
@@ -304,6 +314,7 @@ def run_mode_c(
     enable_thinking: bool | None = None,
     splice_envelope: str | None = None,
     strip_turn_prefixes: bool = False,
+    max_total_tokens: int | None = None,
 ) -> ModeCResult:
     """Run one Mode C generation. Pass ``model`` + ``tokenizer``
     (from ``load_model``) to skip the per-call model load; omit
@@ -336,6 +347,7 @@ def run_mode_c(
         cooldown=COOLDOWN,
         max_firings_per_generation=MAX_SPLICES,
         force_first_fire_at_token=force_first_fire_at_token,
+        force_second_fire_at_token=force_second_fire_at_token,
     )
 
     result = ModeCResult(question=question)
@@ -349,7 +361,7 @@ def run_mode_c(
         cache = make_prompt_cache(model)
 
         current_input = prompt_ids
-        budget = MAX_TOTAL_TOKENS
+        budget = max_total_tokens if max_total_tokens is not None else MAX_TOTAL_TOKENS
         # Sources already spliced in this generation -- skip them
         # on subsequent fires so a single near-miss doesn't
         # consume the entire splice budget with the same chunk.

@@ -103,6 +103,14 @@ class StreamingDecider:
     # a committed answer. ``None`` disables (honours cadence-only
     # firing, the pre-H1 default).
     force_first_fire_at_token: int | None = None
+    # H23 2026-04-22: force a SECOND firing at a fixed token
+    # position after the first-fire. Motivated by N=30 fails
+    # where top-3 chunks from firing 1 are insufficient
+    # (aggregation needs more, or the right chunk sits at
+    # rank 4-10 of the retrieval pool). Firing 2 splices the
+    # next fresh candidates (spliced_sources dedup skips
+    # already-used ranks). ``None`` disables.
+    force_second_fire_at_token: int | None = None
     # internal state. ``_last_fire_at`` is None until the first
     # firing so cooldown does not suppress the first candidate --
     # an earlier implementation initialised this to 0 and reported
@@ -112,12 +120,21 @@ class StreamingDecider:
     _token_count: int = 0
     _last_fire_at: int | None = None
     _firings: int = 0
+    # Full accumulated text since the first firing. Used to
+    # detect whether the Builder has already emitted a complete
+    # ``<channel|>...<turn|>`` answer block -- if so the
+    # ``force_second_fire`` gate is skipped (no point injecting
+    # more context into an already-committed answer; doing so
+    # can flip a correct supports into a contradicts as the
+    # extra chunks dilute the model's focus).
+    _full_stream: list[str] = field(default_factory=list)
 
     def reset(self) -> None:
         self._buffer.clear()
         self._token_count = 0
         self._last_fire_at = None
         self._firings = 0
+        self._full_stream.clear()
 
     def on_token(self, token_text: str, *, task_description: str = "") -> FiringDecision | None:
         """Consume one token of generated text. Returns a firing
@@ -130,6 +147,7 @@ class StreamingDecider:
         """
         self._token_count += 1
         self._buffer.append(token_text)
+        self._full_stream.append(token_text)
         if len(self._buffer) > self.window_size:
             # Drop from the head so the tail reflects the most
             # recent ``window_size`` tokens.
@@ -155,6 +173,50 @@ class StreamingDecider:
                 claims=(),
                 signals={"forced": 1.0},
             )
+
+        # H23 forced-second-fire -- but ONLY if the Builder has
+        # not already committed an answer. After the first fire
+        # the model may produce a clean
+        # ``<channel|>ANSWER<turn|>`` block quickly; injecting
+        # more chunks in that case dilutes the focus and can
+        # flip a correct supports into a contradicts
+        # (2026-04-22 N=30 H23 in-flight showed regressions
+        # vs H18 precisely when force_second_fire landed on
+        # questions the Builder had already answered). Gate:
+        # only fire if no complete answer block has appeared
+        # yet in the accumulated stream.
+        #
+        # Detection uses the raw ChatML-style marker
+        # ``<channel|>...<turn|>`` which gemma and abliterated
+        # gemma both emit. For a Builder that does not use
+        # these markers (e.g. Qwen's ChatML with ``<|im_end|>``)
+        # this heuristic will always see no block and fire
+        # anyway -- safe fallback, same behavior as pre-gate.
+        if (
+            self.force_second_fire_at_token is not None
+            and self._firings == 1
+            and self._token_count >= self.force_second_fire_at_token
+        ):
+            full_text = "".join(self._full_stream)
+            import re as _re_commit
+            if _re_commit.search(
+                r"<channel\|>.*?<turn\|>", full_text, flags=_re_commit.DOTALL
+            ):
+                # Already committed -- skip the forced second fire.
+                # Let the normal cadence path handle any future
+                # firings; typically none are needed.
+                pass
+            else:
+                self._firings += 1
+                self._last_fire_at = self._token_count
+                return FiringDecision(
+                    token_index=self._token_count,
+                    fire=True,
+                    reason="forced_second_fire",
+                    window_text="".join(self._buffer),
+                    claims=(),
+                    signals={"forced": 2.0},
+                )
 
         # Only emit a decision on cadence-aligned boundaries --
         # avoids calling the underlying detector every token
