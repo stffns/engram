@@ -1,0 +1,19 @@
+# Minimal grid to measure RAG-k3 baseline across seeds and
+# calibrate the Mode C comparison. The 2026-04-22 Mode C seed
+# robustness check revealed seed=42 was a favorable outlier
+# (H18 = 70%/53%/50% across seeds 42/43/44). The headline
+# "Mode C matches RAG-k3 at 70%" depended on RAG-k3 being
+# measured at seed=42 also. We need RAG-k3 on seed=43 + seed=44
+# at N=30 to check whether it's seed-stable or equally variable.
+#
+# Cost: 30 questions * Cerebras + Gemini per seed ~= $0.15 per
+# seed. Two seeds = ~$0.30.
+#
+#   python -m experiments.retrieval.longmemeval.mode_a_eval \
+#     --grid experiments/retrieval/longmemeval/grids/rag_k3_seed_robustness.yml \
+#     --subset longmemeval_s --n 30 --seed 43 \
+#     --out experiments/retrieval/longmemeval/mode_a_eval_grids
+
+conditions:
+  - {name: rag_t00_k3, kind: rag, temperature: 0.0, top_k: 3,
+     retrieval_mode: dual, system_prompt: rag_baseline, cite_footer: true}

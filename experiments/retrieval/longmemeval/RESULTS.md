@@ -1314,3 +1314,66 @@ Remaining fails are structural: retrieval information-not-in-
 top-50, corpus-level missing timestamps, Builder-level
 arithmetic ceiling. Next levers: Judge post-hoc (Mode A
 pattern applied to Mode C output) and/or corpus rechunking.
+
+### Seed robustness check (2026-04-22 EOD) -- the 70% was an artifact
+
+Prompted by the observation that every prior Mode C and RAG-k3
+number in this file was measured on seed=42 only. Three-seed
+H18 replication + matched RAG-k3 reruns at N=30:
+
+| seed | Mode C H18 | RAG-k3 (t=0.0, k=3) | gap (RAG-MC) |
+|---|---|---|---|
+| 42 | 21/30 (70.0%) | 22/30 (73.3%) | +3.3pp |
+| 43 | 16/30 (53.3%) | 15/30 (50.0%) | **-3.3pp (Mode C wins)** |
+| 44 | 15/30 (50.0%) | 19/30 (63.3%) | +13.3pp |
+| **mean** | **17.3/30 (57.8%)** | **18.7/30 (62.2%)** | **+4.4pp** |
+
+- Mode C stdev 3.21 correct, range [15, 21]
+- RAG-k3 stdev 3.51 correct, range [15, 22]
+- Mean gap +4.4pp within ~1.5 stdevs -- not statistically
+  significant at N=30 x 3 seeds.
+
+**What this means for earlier claims in this file:**
+
+1. The headline "Mode C H18 matches RAG-k3 at 70%" in the H18
+   section above was **seed=42 specific**. Both systems score
+   ~70% on that sample because it contained 8 single-session-
+   user questions (a category where both H18 and RAG get ~100%).
+   A different sample of 30 from the same LongMemEval_s pool
+   gives a different number.
+2. Honest positioning going forward is the 3-seed mean with
+   range: **Mode C H18 = 57.8% +- 10pp**, **RAG-k3 = 62.2% +-
+   12pp**. The gap exists but is inside noise.
+3. Per-seed asymmetry is informative: seed=44 is where Mode C
+   collapses (50% vs RAG 63%, +13pp gap). That asymmetry is
+   the specific signal worth investigating -- likely retrieval-
+   side since Mode C's 5 structural fails (a08a253f, 6d550036,
+   6a1eabeb, 4dfccbf7, gpt4_e061b84g) are mostly retrieval-
+   adjacent.
+
+**Preface provenance fix (same session):**
+PROMPT_PREFACE_H6B and PROMPT_PREFACE_H18 are now committed
+constants in `mode_c_demo.py` (commit ca1257a). Prior runs
+passed these inline via `--prompt-preface` without saving the
+string to source. An in-session reconstruction from the
+RESULTS.md prose produced only 17/30 on seed=42 (vs historic
+21/30), confirming the reconstructed string was a different
+preface. The recovered constants reproduce 21/30 exactly.
+Going forward: every preface in an anchor run must be a named
+constant routed via `--preface-name`. Inline prefaces are
+banned for anchor runs.
+
+**Going-forward rules surfaced by this session:**
+
+- Single-seed correctness numbers are provisional. 3-seed
+  minimum before claiming any ceiling.
+- Prefaces used in anchor runs MUST be committed as named
+  constants. Inline `--prompt-preface` is for smoke only.
+- Benchmark corpus manipulation (session summaries, injected
+  timestamps, synthetic facts) is off-limits: it bakes
+  benchmark-specific assumptions into merken and invalidates
+  the generalization claim. Allowed retrieval-side interventions:
+  query-time transforms (HyDE, query expansion), retrieval
+  config (top_k, vec_weight, fts_weight, mmr_lambda,
+  recency_boost), Judge post-hoc, source hygiene (filtering
+  `sharegpt_*` haystack pollution).
