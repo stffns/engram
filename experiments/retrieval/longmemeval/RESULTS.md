@@ -1590,3 +1590,117 @@ errors. Judge does not try to change how the Builder reasons;
 it corrects after the fact. Based on today's evidence, it is
 the architecturally correct next experiment.
 
+
+---
+
+## Step 3 pipeline N=30 seed=44: REJECTED -- -18.5pp vs baseline (2026-04-24)
+
+The merken full-pipeline arm 1 (AlwaysWrite ingest + per-session
+`generate_briefs` + layer-scoped dual retrieval with brief prefix)
+**regresses** on LongMemEval seed=44 N=30.
+
+- Pipeline+RAG    : 14/27 = **51.9%** (3/30 errored on int-type ground-truth; fix in runner for replication)
+- Baseline RAG-k3 : 19/27 = **70.4%** on the same 27 common qids
+  (headline 19/30 = 63.3% reported previously)
+- Delta           : **-18.5pp** on the common set, 0 gains / 5 losses.
+
+Reference:
+- Pipeline run: `pipeline_runs/pipeline_rag_seed44_n30_n30_20260423T074602Z.jsonl`
+- Baseline run: `mode_a_eval_grids/grid-rag_k3_seed_robustness_n30_seed44.jsonl`
+- Plan          : `notes/step3-pipeline-plan.md`
+- Smoke runs    : `pipeline_runs/pipeline_rag_seed44_n1_smoke*`
+
+### Retrieval health
+
+Every question retrieved the max brief budget (pool=9, hits=3, no
+collapse). 22/27 retrieved at least one brief from the ground-truth
+answer-session. So this is NOT a brief-retrieval collapse.
+
+| answer-session brief retrieved? | correct | wrong |
+|---|---|---|
+| yes (any top-3 hit is from answer_*) | 13 | 9  |
+| no                                    | 1  | 4  |
+
+Even with perfect brief retrieval (4 qids had 3/3 hits from the
+answer session), accuracy on those was 3/7, all 4 losses.
+
+### Failure mode: compression loss on specific-fact questions
+
+Five flips, all losses vs baseline:
+
+| qid | type | baseline | pipeline | mechanism |
+|---|---|---|---|---|
+| `86f00804` | single-session-user | supports | contradicts | Book title dropped from brief; briefs talk about OTHER books the user read/considered. All 3 brief_hits were from the right session -- retrieval was perfect, synthesis lost the specific title. |
+| `4f54b7c9` | multi-session (aggregation, GT=5 items) | supports | contradicts | Briefs enumerated only 4 of 5 inherited items. Compression dropped one item (diamond necklace from grandmother). |
+| `f685340e_abs` | knowledge-update (GT="not enough info") | supports | contradicts | "every other week" compressed to "weekly" during brief synthesis. Precision loss. |
+| `726462e0` | single-session-user (GT=10% discount) | supports | neutral | Answer session's brief was NOT in top-3. Retrieval returned 3 briefs from unrelated sessions. Builder hedged. |
+| `gpt4_1a1dc16d` | temporal-reasoning (which-first ordering) | supports | contradicts | Brief labeled "Horror Movie Marathon Planning" mentions Rachel meeting but drops the date. Builder concluded on the wrong ordering. |
+
+The pattern: **brief_v1 compresses specifics out of existence**. Per-
+session briefs produce decent topic/state summaries (the 099778bb
+aggregation of "women hold 20 leadership positions / team comprises
+100 leadership positions" worked), but lose the fidelity needed for
+"what was X" questions that dominate LongMemEval.
+
+### Why this is the opposite of the expected result
+
+Step 2 PASS on qid=099778bb (aggregation: 20 women / 100 total =
+20%) led us to expect multi-session and temporal-reasoning questions
+would become near-trivial. In practice the aggregation-synthesis win
+is the exception: that question needed only the SHAPE of the fact,
+not the numerical precision. Most LongMemEval questions ("what book,
+what discount, how many items, which event first") need the
+numerical / nominal specifics, and briefs lose those.
+
+Baseline advantage: raw chunks preserve the original conversational
+wording including the specific book title, discount percentage, item
+count, event dates. Dual-search retrieval surfaces the right chunk
+~70% of the time, and the Builder quotes the value verbatim.
+
+### Gate verdict and pivot
+
+Per `notes/step3-pipeline-plan.md`:
+> "negative -> pipeline HURTS. Diagnose (likely retrieval collapse on semantic-layer briefs). Pivot."
+
+Retrieval is NOT collapsing. The brief_v1 shape is the wrong
+substrate for LongMemEval's specific-fact question profile.
+
+**Next steps, ordered by signal-per-effort:**
+
+1. **Abandon brief_v1 as LongMemEval substrate.** Keep it in
+   production for "topic + temporal state" workloads (its validated
+   domain per `experiments/consolidation/RESULTS.md`). Do NOT ship a
+   brief_v1-based arm against the LongMemEval headline.
+2. **H-F from the plan: structured claim extraction** (typed claims
+   preserved per-item) is the architecturally correct pivot if
+   merken wants a LongMemEval-specific substrate. Separate project.
+3. **Judge post-hoc (task #21 queued from the prior session plan)**
+   is the remaining context-agnostic lever. It reads the Builder's
+   answer against retrieved chunks and rewrites; does not touch
+   brief synthesis. Worth running before any substrate re-design.
+4. **Writer retrain via Cerebras-labels loop (Jay 2026-04-24 pivot)**
+   remains valid as an independent project -- the 86% median OOD
+   filter recall on seed=44 is a known ceiling. Not blocked by this
+   null.
+
+### Invariants this run did NOT violate
+
+- No corpus manipulation: production brief_v1 prompt used byte-for-
+  byte; per-session wrapper is a LongMemEval-shape adapter.
+- Temperature pinned to 0.0 for Builder and brief synthesis.
+- Episodic retrieval matches baseline dual regime (layer-scoped).
+- cite_footer appended for answer-shape parity.
+- Same oracle (Gemini 2.5 Flash), same BUILDER (llama3.1-8b via Cerebras).
+
+### Honest caveats
+
+- N=30 single-seed carries ~±2pp Gemini oracle variance. -18.5pp is
+  well outside that noise floor, but the specific gain/loss pattern
+  on any one qid is variance-prone.
+- 3/30 questions errored on int-type ground_truth (fixed in the
+  runner for replication). Baseline handled them but all 3 got
+  `contradicts` there too, so they are not the source of the delta.
+- This result only tests one seed. Seeds 42 and 43 would confirm
+  the regression, but given the mechanism (compression loss on
+  specific-fact questions, a property of the prompt not the seed),
+  replication is not expected to move the headline.

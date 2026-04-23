@@ -1,0 +1,34 @@
+{
+  "qid": "099778bb",
+  "question_type": "multi-session",
+  "question": "What percentage of leadership positions do women hold in the my company?",
+  "answer": "20%",
+  "answer_session_ids": [
+    "answer_80d6d664_2",
+    "answer_80d6d664_1"
+  ],
+  "seed": 44,
+  "sample_index": 0,
+  "cerebras_model": "qwen-3-235b-a22b-instruct-2507",
+  "temperature": 0.0,
+  "n_events": 466,
+  "est_prompt_tokens": 128833,
+  "wall_seconds": 6.268472249619663,
+  "n_briefs": 3,
+  "briefs": [
+    "## Decision: Kubernetes Service Types\n**As of:** 2026-04-24\n- [v1]: ClusterIP services provided internal cluster networking with stable IPs and DNS names for pod communication.\n- [v2]: NodePort, LoadBalancer, and ExternalName services were introduced to extend connectivity options for external access and integration.\n- **Current state:** Kubernetes supports four primary service types: ClusterIP (internal), NodePort (node-exposed), LoadBalancer (cloud-managed), and ExternalName (DNS alias), enabling flexible networking patterns.",
+    "## ENTITY: Merriam School of Music Advertising Campaign\n**As of:** 2026-04-24\n- **Identity:** A comprehensive advertising campaign for a music education institution.\n- **Key facts:** Targets music learners of all ages; uses slogans like \"Discover the Music in You\" and \"These hands will make beautiful music and change the world\"; leverages online ads, social media, and community events.\n- **Last update:** Campaign strategy finalized with multi-channel promotion and referral incentives.",
+    "## FREE: Abstract Expressionism Exploration\n**As of:** 2026-04-24\nThe exploration of Abstract Expressionism began with pioneers like Jackson Pollock and Mark Rothko, then expanded to Color Field Painting with artists such as Helen Frankenthaler and Morris Louis, and further evolved into Post-Painterly Abstraction with figures like Ellsworth Kelly and Frank Stella. The current state involves a deep appreciation of the movement's evolution and its influence on subsequent art styles."
+  ],
+  "needle_words": [
+    "women",
+    "leadership",
+    "20",
+    "diversity"
+  ],
+  "needle_brief_indices": [
+    0,
+    1,
+    2
+  ]
+}
