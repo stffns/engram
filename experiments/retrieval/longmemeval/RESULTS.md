@@ -1453,3 +1453,49 @@ applicable to every future LongMemEval run, (b) the pure-vec
 pool is defensively sound and costs ~100ms, (c) the
 `--retrieval-pool` flag is useful infrastructure for future
 experiments. The null result is the load-bearing finding.
+
+## H31 splice-awareness smoke -- rejected (2026-04-23)
+
+Followed the retrieval v2 null result with the cheapest
+remaining queue item: H31 = PREFACE_H18 + SPLICE_AWARENESS_V1
+block that tells the Builder mid-stream tokens wrapped in
+`<<<MEMORY_EXCERPT>>>...<<<END_MEMORY_EXCERPT>>>` are
+authoritative retrieved facts. Smoke on 4 pinned qids that H18
+gets right on seed=42 (caf03d32, a1eacc2a, 2b8f3739,
+gpt4_4edbafa2). Gate: +1 flip with 0 regressions -> promote to
+N=30.
+
+Result:
+
+| qid | type | H18 seed=42 | H31 smoke |
+|---|---|---|---|
+| caf03d32 | single-session-preference | supports | supports |
+| a1eacc2a | knowledge-update | supports | supports |
+| 2b8f3739 | multi-session (aggregation) | supports | **contradicts** |
+| gpt4_4edbafa2 | temporal-reasoning | supports | supports |
+
+1 regression, 0 flips. Gate failed. H31 **rejected**.
+
+Root cause of the 2b8f3739 regression: aggregation question
+(total $495 across 3 sales). H18 returned the correct total.
+H31 committed to $345 from 2 sales ($225 + $120), missing the
+third chunk. The SPLICE_AWARENESS_V1 preface strengthened the
+Builder's authority-weighting of the excerpts actually present
+in the splice, which made it MORE confident in an incomplete
+aggregation rather than looking for missing chunks. Same
+envelope, opposite behavior from the intended one.
+
+Lesson: prefaces that strengthen excerpt-authority behave as
+multipliers on whatever the retrieval pool happened to surface.
+On retrieval misses (aggregation, multi-session), that multiplier
+works against correctness.
+
+Two interventions rejected in one day (retrieval v2 +1 flip on
+seed=44, H31 -1 on smoke). The evidence converges on the
+Builder being the bottleneck: widening retrieval does not help
+because the target chunks are already in the pool; tightening
+Builder-side excerpt authority does not help either. The
+remaining queue item that directly attacks reasoning is task #21
+(unconditional Judge post-hoc, local gemma), which re-reads the
+Mode C answer against the retrieved chunks and can catch wrong
+aggregations / temporal arithmetic after the fact.
