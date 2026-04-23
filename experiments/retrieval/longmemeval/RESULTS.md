@@ -1499,3 +1499,94 @@ remaining queue item that directly attacks reasoning is task #21
 (unconditional Judge post-hoc, local gemma), which re-reads the
 Mode C answer against the retrieved chunks and can catch wrong
 aggregations / temporal arithmetic after the fact.
+
+## Scratchpad pre-inject k=2 smoke -- rejected (2026-04-23)
+
+Third intervention of the session, probing a different axis: what
+if the Builder commits to a direction before mid-stream splicing
+fires? Pre-inject top-K chunks on the question alone BEFORE the
+Builder starts, formatted as a `[Source: X]` scratchpad block in
+the user message, mid-stream splicing still on. New flag
+`--pre-inject-k` on `mode_c_benchmark.py`. Default 0 preserves
+original Mode C.
+
+Code review via `code-reviewer` subagent before the run: zero
+blockers.
+
+Smoke on the same 4 pinned qids (all 4 pass under H18 on seed=42):
+
+| qid | type | H18 seed=42 | pre-inject k=2 |
+|---|---|---|---|
+| caf03d32 | single-session-preference | supports | **neutral** |
+| a1eacc2a | knowledge-update | supports | supports |
+| 2b8f3739 | multi-session (aggregation) | supports | **contradicts** |
+| gpt4_4edbafa2 | temporal-reasoning | supports | supports |
+
+**2 regressions, 0 flips. Pre-inject k=2 rejected -- worse than
+H31.**
+
+### Diagnostic on the two regressions
+
+**caf03d32 (preference fail):** The pre-injected chunks came from
+`caf03d32::answer_2fc6aabb::0` and `::6` (topically adjacent
+sessions). The Builder entered a meta-cognitive evaluation spiral
+over the scratchpad -- analyzing whether the excerpts contained
+the specific advice the user wanted, concluding they did not,
+then colliding with the preface's "do not say you don't know"
+clause and recursing into "Constraint Override" analysis. Output
+was a stream of self-reflection, not an answer. Oracle verdict:
+neutral.
+
+H18 baseline on the same qid (no pre-inject) answered correctly
+because mid-stream splicing triggers AT claim-time: by then the
+Builder already has an internal direction from its own draft,
+and the spliced chunk either reinforces or stays inert. Pre-
+inject changes the dynamic: chunks arrive BEFORE any internal
+direction, so the Builder treats them as the sole context and
+evaluates their sufficiency directly. That evaluation loop is
+the failure mode.
+
+**2b8f3739 (aggregation fail, GT $495):** Pre-inject surfaced 2
+of 3 sales chunks. Builder enumerated them explicitly in its
+answer ("Sale 1: $225, Sale 2: $120, Total = $345") and
+committed. H18 baseline answered correctly -- mid-stream
+splicing brought in the third sale chunk later in the stream
+when the Builder's draft had generated a query that matched it
+more specifically. Pre-inject lock-in happens upfront; mid-
+stream splicing has a second chance.
+
+### Pattern across the three rejections today
+
+1. **Retrieval v2** (+1 flip on N=30): widening the pool,
+   adding pure-vec, filtering sharegpt_ pollution did not move
+   the multi-session / temporal-reasoning fails. Target chunks
+   were in the pool but the Builder did not integrate them
+   mid-stream.
+2. **H31 splice-awareness** (-1 on smoke): preface-level
+   authority-multiplier on mid-stream excerpts made the Builder
+   commit more confidently to an incomplete aggregation.
+3. **Pre-inject k=2** (-2 on smoke): upfront context lock-in
+   triggered meta-cognitive evaluation on preference questions
+   and early-commit on incomplete aggregation.
+
+All three attempted to feed the Builder more / better / earlier
+context. None worked. The failure mode is consistent: the
+Builder (gemma-4-E4B local) is the bottleneck, and interventions
+that alter what context it sees tend to surface one of two
+pathologies -- meta-cognitive over-analysis of the scratchpad
+or premature commitment to a subset of the available evidence.
+
+Mid-stream splicing's subtle virtue is that it preserves the
+Builder's own reasoning thread before the chunk arrives, and
+arrives AT claim-time when the Builder has already committed to
+wanting specific evidence. Pre-inject or authority-strengthening
+both disrupt that dynamic.
+
+The only remaining queue item that does NOT try to influence
+the Builder's context is **task #21 Judge post-hoc**. Judge
+lets the Builder run, then a second local-gemma pass re-reads
+the answer against retrieved chunks and flags / rewrites
+errors. Judge does not try to change how the Builder reasons;
+it corrects after the fact. Based on today's evidence, it is
+the architecturally correct next experiment.
+

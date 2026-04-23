@@ -409,6 +409,26 @@ def main() -> int:
             "(5+ regressions); keep this as an opt-in flag."
         ),
     )
+    parser.add_argument(
+        "--pre-inject-k",
+        type=int,
+        default=0,
+        help=(
+            "Scratchpad pre-inject experiment (2026-04-23). When "
+            "> 0, run_mode_c retrieves the top-K chunks on the "
+            "question alone BEFORE the Builder starts and prepends "
+            "them to the user message as a [Source: X] block. "
+            "Mid-stream splicing stays enabled. Hypothesis: "
+            "seed=44's still-failing multi-session and temporal "
+            "fails (see retrieval v2 null result above) are driven "
+            "by the Builder committing to a direction before the "
+            "decider fires; priming with 1-2 highly-relevant "
+            "chunks upfront may close the gap without reverting to "
+            "full RAG. Default 0 preserves Mode C's original "
+            "behavior (no prompt context, retrieval mid-stream "
+            "only)."
+        ),
+    )
     args = parser.parse_args()
 
     if args.preface_name is not None and args.prompt_preface is not None:
@@ -522,6 +542,7 @@ def main() -> int:
                     stop_at_first_answer_block=args.stop_at_first_answer_block,
                     rerank_by_number_density=args.rerank_by_number_density,
                     retrieval_pool=args.retrieval_pool,
+                    pre_inject_k=args.pre_inject_k,
                 )
                 mc_wall = time.perf_counter() - t_mc
                 print(

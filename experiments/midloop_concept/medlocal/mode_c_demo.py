@@ -396,6 +396,7 @@ def run_mode_c(
     stop_at_first_answer_block: bool = False,
     rerank_by_number_density: bool = False,
     retrieval_pool: int | None = None,
+    pre_inject_k: int = 0,
 ) -> ModeCResult:
     """Run one Mode C generation. Pass ``model`` + ``tokenizer``
     (from ``load_model``) to skip the per-call model load; omit
@@ -432,9 +433,50 @@ def run_mode_c(
     )
 
     result = ModeCResult(question=question)
+    # Pre-inject: fetch top-K chunks on the question alone BEFORE
+    # the Builder starts, format as a scratchpad block, prepend to
+    # the user message. Mid-stream splicing stays on; the goal is
+    # to give the Builder authoritative context from turn 0 so it
+    # does not commit to a direction that later ignores the
+    # spliced chunks. Rationale: 2026-04-23 retrieval v2 and H31
+    # both failed to move seed=44, evidence said target chunks
+    # were in the pool but the Builder did not integrate them
+    # mid-stream. Pre-inject tests whether upfront presentation
+    # closes the gap. k=0 (default) preserves Mode C's original
+    # behavior: empty prompt modulo preface, retrieval fires
+    # mid-stream only.
+    preinjected_chunks: list[dict] = []
+    user_text = question
+    if pre_inject_k and pre_inject_k > 0:
+        try:
+            preinjected_chunks = cerebras_retrieve(
+                mem, question, top_k=pre_inject_k,
+                retrieval_mode="hybrid",
+            )[:pre_inject_k]
+        except Exception as exc:  # noqa: BLE001
+            print(f"    pre-inject retrieval error: {exc}")
+            preinjected_chunks = []
+        if preinjected_chunks:
+            block_parts = [
+                f"[Source: {e.get('source_id', 'memory')}]\n"
+                f"{(e.get('text', '') or '')[:800]}"
+                for e in preinjected_chunks
+            ]
+            scratchpad = "\n\n".join(block_parts)
+            user_text = (
+                "Relevant excerpts from memory (use these as a "
+                "scratchpad; additional context may arrive during "
+                "your response):\n\n"
+                f"{scratchpad}\n\n"
+                f"Question: {question}"
+            )
+            preinjected_ids = [
+                e.get("source_id", "?") for e in preinjected_chunks
+            ]
+            print(f"[pre-inject k={pre_inject_k}] sources={preinjected_ids}")
     try:
         chatted = _apply_chat(
-            tokenizer, question,
+            tokenizer, user_text,
             preface=prompt_preface,
             enable_thinking=enable_thinking,
         )
