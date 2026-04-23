@@ -1377,3 +1377,79 @@ banned for anchor runs.
   config (top_k, vec_weight, fts_weight, mmr_lambda,
   recency_boost), Judge post-hoc, source hygiene (filtering
   `sharegpt_*` haystack pollution).
+
+## Retrieval v2 on seed=44 -- null result (2026-04-23)
+
+Attack on the seed=44 13pp gap per `notes/mode-c-next-session.md`
+task #14. Three changes in one edit:
+
+1. **4th pure-vec pool** in `cerebras_midloop.retrieve()` dual
+   mode: `mem.search(query, top_k=top_k, retrieval_mode="vec_only")`
+   interleaved alongside hybrid + fts(q+draft) + fts(q-only).
+2. **`sharegpt_` filter** in the dedup loop: drop any chunk whose
+   ingested title session-id starts with `sharegpt_` (LongMemEval
+   haystack pollution, not the user's own conversations).
+3. **`--retrieval-pool` override** in `mode_c_benchmark.py` that
+   bypasses the aggregation-aware `RETRIEVAL_POOL` /
+   `AGGREGATION_RETRIEVAL_POOL` switch when the caller sets it
+   explicitly. Used here with `--retrieval-pool 50`.
+
+Code review via `code-reviewer` subagent before the run: zero
+blockers, default path preserved for callers that do not pass
+`--retrieval-pool`, `sharegpt_` filter is a no-op for non-
+benchmark titles.
+
+### Result: +1 flip, within noise
+
+```
+v1 (seed=44, retrieval v1): 15/30 (50.0%)
+v2 (seed=44, retrieval v2): 16/30 (53.3%)
+delta:                      +1 correct (+3.3pp)
+flips_ok:                   1  (57f827a0: neutral -> partial)
+flips_bad:                  0
+stayed_fail:                14
+stayed_ok:                  15
+```
+
+One lift: `57f827a0` (single-session-preference) went neutral to
+partial. No flips on the 7 multi-session or the 6 temporal-
+reasoning fails that together account for 13 of the 15 baseline
+fails. `gpt4_1e4a8aec` (temporal) moved neutral -> contradicts,
+i.e. the retrieval upgrade did not introduce a correct answer
+but did push the model into a more specific (still wrong)
+reply. `c4a1ceb8` (multi-session) moved contradicts -> neutral,
+less-bad but still a fail.
+
+**Gate decision:** plan called for promoting to 3-seed rerun
+only if seed=44 reached >= 58%. 53.3% is below that threshold;
+RAG-k3 seed=44 remains at 63.3%, gap stays at 10pp vs the 5pp
+target. Retrieval v2 is **abandoned as a seed=44 intervention**.
+Next up per queue: task #21 (unconditional Judge post-hoc,
+local gemma).
+
+### Why the upgrade did not move the numbers
+
+Inspection of the 14 still-failing qids suggests the bottleneck
+is not retrieval recall on seed=44:
+
+- **Multi-session fails (7/14)** -- the target facts span
+  multiple sessions in the haystack. The Builder surfaces one
+  session's content but fails to combine facts across sessions.
+  A wider pool / vec-only / sharegpt_ filter cannot close that
+  gap because the retrieved chunks were already in the pool --
+  the failure is in reasoning over retrieved content.
+- **Temporal-reasoning fails (6/14)** -- dates and durations
+  require arithmetic the Builder does not do reliably under
+  stop-at-turn. H31 splice-awareness or a Judge pass is the
+  more targeted intervention here.
+- **57f827a0 lifted neutral -> partial** because the pure-vec
+  pool brought in a semantically-adjacent preference chunk
+  that the FTS pools had ranked below threshold. This is the
+  one case where the vocabulary-mismatch hypothesis held.
+
+The code changes are retained (committed) because (a) the
+`sharegpt_` filter is a general source-hygiene improvement
+applicable to every future LongMemEval run, (b) the pure-vec
+pool is defensively sound and costs ~100ms, (c) the
+`--retrieval-pool` flag is useful infrastructure for future
+experiments. The null result is the load-bearing finding.

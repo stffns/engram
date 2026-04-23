@@ -390,6 +390,25 @@ def main() -> int:
             "just below threshold."
         ),
     )
+    parser.add_argument(
+        "--retrieval-pool",
+        type=int,
+        default=None,
+        help=(
+            "Override the per-firing retrieval pool size used by "
+            "run_mode_c (passed as top_k to cerebras_retrieve). "
+            "When unset (default), run_mode_c keeps its built-in "
+            "policy: RETRIEVAL_POOL=10 for regular firings, "
+            "AGGREGATION_RETRIEVAL_POOL=50 for aggregation intent. "
+            "When set, the value is used for EVERY firing. Used "
+            "by the seed=44 retrieval-upgrade experiment "
+            "2026-04-23 (--retrieval-pool 50) paired with the new "
+            "pure-vec pool and sharegpt_ filter in "
+            "cerebras_retrieve. Note: widening the default "
+            "globally was rejected in the 2026-04-22 knob grid "
+            "(5+ regressions); keep this as an opt-in flag."
+        ),
+    )
     args = parser.parse_args()
 
     if args.preface_name is not None and args.prompt_preface is not None:
@@ -502,6 +521,7 @@ def main() -> int:
                     max_total_tokens=args.max_total_tokens,
                     stop_at_first_answer_block=args.stop_at_first_answer_block,
                     rerank_by_number_density=args.rerank_by_number_density,
+                    retrieval_pool=args.retrieval_pool,
                 )
                 mc_wall = time.perf_counter() - t_mc
                 print(

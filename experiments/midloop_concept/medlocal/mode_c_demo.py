@@ -395,6 +395,7 @@ def run_mode_c(
     max_total_tokens: int | None = None,
     stop_at_first_answer_block: bool = False,
     rerank_by_number_density: bool = False,
+    retrieval_pool: int | None = None,
 ) -> ModeCResult:
     """Run one Mode C generation. Pass ``model`` + ``tokenizer``
     (from ``load_model``) to skip the per-call model load; omit
@@ -536,10 +537,25 @@ def run_mode_c(
                     rerank_by_number_density
                     and bool(AGG_RE.search(question))
                 )
-                _pool_this_firing = (
-                    AGGREGATION_RETRIEVAL_POOL
-                    if is_aggregation else RETRIEVAL_POOL
-                )
+                if retrieval_pool is not None:
+                    # Caller override: single pool size for ALL
+                    # firings regardless of aggregation intent.
+                    # Used by seed=44 retrieval-upgrade experiment
+                    # 2026-04-23 to test whether a uniformly wider
+                    # pool (combined with the new pure-vec branch
+                    # and sharegpt_ filter in cerebras_retrieve)
+                    # closes the Mode C seed=44 collapse to <= 5pp
+                    # of RAG-k3. Globally widening the default was
+                    # rejected in the 2026-04-22 knob grid (5+
+                    # regressions on single-session-user / temporal
+                    # questions); this flag keeps that default
+                    # behavior intact unless explicitly set.
+                    _pool_this_firing = retrieval_pool
+                else:
+                    _pool_this_firing = (
+                        AGGREGATION_RETRIEVAL_POOL
+                        if is_aggregation else RETRIEVAL_POOL
+                    )
                 excerpts = cerebras_retrieve(
                     mem,
                     ret_query,
