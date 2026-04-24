@@ -77,3 +77,9 @@ experiments/nanogpt/v8c_frozen_encoder/
 # globally, but this dir also accumulates .log / .summary.json files
 # that are per-experiment artifacts -- regeneratable via the runners).
 experiments/retrieval/longmemeval/pipeline_runs/
+
+# Phase 2 training data: small (~2MB) and needed in-repo so Colab can
+# git-clone and access it without manual upload. Overrides the global
+# *.jsonl ignore for this specific folder.
+!experiments/phase2_training/data/
+!experiments/phase2_training/data/*.jsonl
