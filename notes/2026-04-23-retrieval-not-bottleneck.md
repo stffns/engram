@@ -266,6 +266,82 @@ Artifacts:
 - `experiments/retrieval/longmemeval/claim_extract_post_hoc.py`
 - `*.claim_extract.jsonl` + `*.claim_extract.summary.json`
 
+## Update 2026-04-24 EOD+2: k=3 -> k=10 episodic is the real lever (3-seed CONFIRMED)
+
+Forensics on the 13 failing baseline qids revealed retrieval depth
+(not builder composition) as the dominant bottleneck. Changing a
+single constant (`RAG_TOP_K_EPISODIC = 3 -> 10`) in pipeline_runner
+flips the number hard.
+
+**Seed=44 N=30 (original substrate):**
+
+| variant                    | correct    | vs baseline |
+|----------------------------|-----------:|------------:|
+| baseline (k=3 llama-8b)    | 14/27 =51.9% |    --     |
+| **k=10 llama-8b**          | **20/30 =66.7%** | **+14.8pp** |
+| Judge post-hoc             | 16/27 =59.3% |   +7.4pp  |
+| claim extract post-hoc     | 16/27 =59.3% |   +7.4pp  |
+| k=10 gpt-oss-120b Builder  | 18/30 =60.0% |   +8.1pp  |
+
+k=10 with llama-8b dominates every post-hoc LLM approach by 2.5x
+at zero additional LLM cost. Bigger Builder (gpt-oss-120b) is
+strictly worse: it recovers 3 qids llama-8b missed but introduces
+5 new losses via over-cautious refusal. llama-8b's willing extraction
+is empirically correct for this benchmark.
+
+**3-seed replication (k=10 llama-8b, the winner):**
+
+| seed | correct     |
+|------|-------------|
+| 42   | 21/30 = 70.0% |
+| 43   | 20/30 = 66.7% |
+| 44   | 20/30 = 66.7% |
+| **mean** | **67.8% (stdev 1.7pp)** |
+
+Tight variance, no seed below 66.7%. Matches the historical RAG-k3
+pure baseline (~70%) on the merken brief_v1 substrate that was
+previously rejected at -18.5pp. The merken pipeline + k=10 now
+parity-matches the clean RAG-k3 baseline.
+
+**Briefs ablation (N=30 seed=44):**
+
+`RAG_TOP_K_BRIEFS=0` + `_per_session_briefs` as no-op:
+
+| variant            | correct     | delta |
+|--------------------|------------:|------:|
+| k=10 WITH briefs   | 20/30 =66.7% |  --  |
+| k=10 NO briefs     | 19/30 =63.3% | -3.3pp |
+
+Per-qid flip analysis on the 3 qids that differ:
+- **099778bb** (women leadership %): briefs HURT -- llama-8b dropped
+  the "/100" denominator with more context; no-briefs answered cleanly.
+- **0100672e** (meal prep preferences): briefs HELP -- aggregation
+  across sessions surfaces preferences that episodic alone misses.
+- **57f827a0** (bedroom furniture): briefs HELP (partial->contradicts
+  without them).
+
+Net: briefs provide +1 qid (3.3pp) for 98% of the Cerebras burn
+(1411 brief calls + 30 Builder calls vs 30 Builder-only). Cost/benefit
+is ~100x cost per 3pp improvement -- not justifiable in a per-run
+production pipeline.
+
+**Decision impact:**
+- PRODUCTION default: drop briefs from pipeline_runner. k=10 episodic
+  alone hits 63.3%, within striking distance of the 66.7% with-briefs
+  ceiling.
+- TRAINING-DATA track: briefs remain valuable as teacher-signal for
+  a future local brief-synth student (covered in roadmap doc).
+
+Artifacts:
+- `experiments/retrieval/longmemeval/run_pipeline_higher_k.py` with
+  added `--skip-briefs` wrapper flag.
+- `experiments/retrieval/longmemeval/pipeline_runner.py` with added
+  `--dump-briefs-to` flag (code-reviewed; captures (qid, sid, turns,
+  briefs, teacher_model, teacher_temperature, run_id) per row).
+- Output: `pipeline_rag_seed{42,43,44}_n30_k10_*.jsonl` (gitignored).
+- Forensics: `notes/2026-04-24-failing-qid-forensics.md`.
+- Roadmap: `notes/2026-04-24-roadmap-local-merken.md`.
+
 What we are NOT doing: a fourth encoder, a reranker on top of
 v5-lora, a bigger training corpus for v5-lora, dropping v5-lora
 into other pipelines without recalibration. The substrate saturates

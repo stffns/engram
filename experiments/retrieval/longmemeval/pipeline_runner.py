@@ -29,6 +29,7 @@ import json
 import random
 import sys
 import tempfile
+import threading
 import time
 import traceback
 from concurrent.futures import ThreadPoolExecutor
@@ -71,6 +72,17 @@ RAG_TOP_K_EPISODIC = 3
 RAG_TOP_K_BRIEFS = 3
 RAG_MAX_BRIEF_CHARS = 2000   # cap per brief in the prompt
 RAG_MAX_EXCERPT_CHARS = 800  # cap per episodic excerpt in the prompt
+
+# Training-data capture: when set, every synthesized brief is appended
+# to the given JSONL file so that expensive Cerebras runs double as
+# teacher-signal collection for a future local brief-synth model.
+# The handle is opened once in main() and kept open; a lock protects
+# multi-thread writes (today the writer is single-threaded but leaving
+# the lock here hardens against future refactors).
+BRIEF_DUMP_PATH: "Path | None" = None
+BRIEF_DUMP_HANDLE = None  # set in main() if --dump-briefs-to is used
+BRIEF_DUMP_RUN_ID: str | None = None
+_BRIEF_DUMP_LOCK = threading.Lock()
 
 BUILDER_SYSTEM = (
     "Answer the user question using the provided context. "
@@ -190,18 +202,39 @@ def _per_session_briefs(
     sessions = list(conv.haystack_sessions.items())
     per_session_meta: list[dict] = []
 
-    def _one(sid: str, turns) -> tuple[str, list[str], float]:
+    def _one(sid: str, turns) -> tuple[str, list[str], float, list[tuple[str, str]]]:
+        # Also return events so the caller can emit training-data rows
+        # containing the input text the teacher actually saw.
         events = [(f"{sid}:{i}", f"[{t.role}] {t.content}") for i, t in enumerate(turns)]
         t0 = time.perf_counter()
         briefs = generate_briefs(events, _cerebras_brief_synth, today=today)
-        return sid, briefs, time.perf_counter() - t0
+        return sid, briefs, time.perf_counter() - t0, events
 
     n_calls = 0
     n_briefs = 0
     with ThreadPoolExecutor(max_workers=BRIEF_WORKERS) as ex:
         futures = [ex.submit(_one, sid, turns) for sid, turns in sessions]
         for fut in futures:
-            sid, briefs, dt = fut.result()
+            # Preserve whatever partial work completed if a single
+            # session raises (Cerebras 5xx past retry, etc.); a
+            # $10 all-qids run must not discard an entire qid's
+            # earlier sessions just because the 40th session fails.
+            try:
+                sid, briefs, dt, events = fut.result()
+            except Exception as exc:  # noqa: BLE001 -- deliberate
+                if BRIEF_DUMP_HANDLE is not None:
+                    err_row = {
+                        "run_id": BRIEF_DUMP_RUN_ID,
+                        "qid": conv.question_id,
+                        "sid": None,
+                        "today": today,
+                        "error": f"{type(exc).__name__}: {exc}",
+                    }
+                    line = json.dumps(err_row, ensure_ascii=False) + "\n"
+                    with _BRIEF_DUMP_LOCK:
+                        BRIEF_DUMP_HANDLE.write(line)
+                        BRIEF_DUMP_HANDLE.flush()
+                raise
             n_calls += 1
             for bi, brief in enumerate(briefs):
                 mem.remember(
@@ -218,6 +251,23 @@ def _per_session_briefs(
                 "dt_s": dt,
                 "is_answer": sid in conv.answer_session_ids,
             })
+            if BRIEF_DUMP_HANDLE is not None:
+                row = {
+                    "run_id": BRIEF_DUMP_RUN_ID,
+                    "qid": conv.question_id,
+                    "sid": sid,
+                    "is_answer_session": sid in conv.answer_session_ids,
+                    "today": today,
+                    "input_events": [{"id": eid, "text": etxt} for eid, etxt in events],
+                    "briefs": briefs,
+                    "teacher_model": BRIEF_MODEL,
+                    "teacher_temperature": BRIEF_TEMPERATURE,
+                    "teacher_max_completion_tokens": BRIEF_MAX_COMPLETION_TOKENS,
+                }
+                line = json.dumps(row, ensure_ascii=False) + "\n"
+                with _BRIEF_DUMP_LOCK:
+                    BRIEF_DUMP_HANDLE.write(line)
+                    BRIEF_DUMP_HANDLE.flush()
     return n_calls, n_briefs, per_session_meta
 
 
@@ -516,7 +566,36 @@ def main() -> int:
             "baseline RAG-k3."
         ),
     )
+    parser.add_argument(
+        "--dump-briefs-to",
+        type=Path,
+        default=None,
+        help=(
+            "Append every synthesized brief to this JSONL alongside "
+            "the session-turn input the teacher saw. Enables the run "
+            "to double as training-data collection for a local "
+            "brief-synth replacement (see notes)."
+        ),
+    )
     args = parser.parse_args()
+
+    if args.dump_briefs_to is not None:
+        args.dump_briefs_to.parent.mkdir(parents=True, exist_ok=True)
+        # Append-only across runs; also stamp provenance (run_id) so
+        # dedup by (run_id, qid, sid) is trivial and resume-safe.
+        import uuid
+        global BRIEF_DUMP_PATH, BRIEF_DUMP_HANDLE, BRIEF_DUMP_RUN_ID
+        BRIEF_DUMP_PATH = args.dump_briefs_to
+        BRIEF_DUMP_RUN_ID = uuid.uuid4().hex[:12]
+        # Single open handle for the life of main() -- avoids
+        # O(sessions) open/close thrash and leaves one writer per
+        # process (the in-process lock is the sole serializer).
+        BRIEF_DUMP_HANDLE = open(BRIEF_DUMP_PATH, "a", buffering=1)
+        print(
+            f"[dump-briefs] appending to {BRIEF_DUMP_PATH} "
+            f"run_id={BRIEF_DUMP_RUN_ID}",
+            flush=True,
+        )
 
     convs = load_longmemeval(args.subset)
     if args.only_qids:
@@ -621,6 +700,10 @@ def main() -> int:
     )
     print(f"total wall    : {total_wall:.1f}s", flush=True)
     print(f"[out] {out_path}", flush=True)
+    if BRIEF_DUMP_HANDLE is not None:
+        BRIEF_DUMP_HANDLE.flush()
+        BRIEF_DUMP_HANDLE.close()
+        print(f"[dump-briefs] closed {BRIEF_DUMP_PATH}", flush=True)
     return 0
 
 
