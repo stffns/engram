@@ -44,7 +44,7 @@ def main() -> int:
     ap.add_argument("--data", required=True, type=Path,
                     help="Training jsonl from build_training_data.py")
     ap.add_argument("--base-model",
-                    default="mistralai/Ministral-3-3B-Instruct-2512")
+                    default="HuggingFaceTB/SmolLM3-3B")
     ap.add_argument("--output-dir", required=True, type=Path)
     ap.add_argument("--rank", type=int, default=16)
     ap.add_argument("--alpha", type=int, default=32)
