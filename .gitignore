@@ -83,3 +83,11 @@ experiments/retrieval/longmemeval/pipeline_runs/
 # *.jsonl ignore for this specific folder.
 !experiments/phase2_training/data/
 !experiments/phase2_training/data/*.jsonl
+
+# Phase 2 trained artifacts (LoRA adapter + MLX-quantized fused model).
+# Regeneratable from the Colab notebook + fuse_to_mlx.py.
+experiments/phase2_training/adapter/
+experiments/phase2_training/adapter_pa/
+experiments/phase2_training/smollm3_ft_mlx_q4/
+experiments/phase2_training/smollm3_pa_mlx_q4/
+experiments/phase2_training/*_merged_hf/
