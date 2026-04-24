@@ -60,12 +60,8 @@ def main() -> int:
     import torch
     from datasets import Dataset
     from peft import LoraConfig, get_peft_model
-    from transformers import (
-        AutoModelForCausalLM,
-        AutoTokenizer,
-        TrainingArguments,
-    )
-    from trl import SFTTrainer, DataCollatorForCompletionOnlyLM
+    from transformers import AutoModelForCausalLM, AutoTokenizer
+    from trl import SFTTrainer, SFTConfig
 
     print(f"[train] loading tokenizer: {args.base_model}", flush=True)
     tokenizer = AutoTokenizer.from_pretrained(args.base_model, use_fast=True)
@@ -116,18 +112,12 @@ def main() -> int:
 
     ds = Dataset.from_list(rows).map(_format, remove_columns=list(rows[0].keys()))
 
-    # Completion-only: loss ONLY on the assistant turn.
-    # Instruction template placeholder depends on model's chat template
-    # -- Ministral uses `[INST]...[/INST]` format. The response template
-    # is what appears BEFORE the assistant text.
-    response_template = "[/INST]"
-    collator = DataCollatorForCompletionOnlyLM(
-        response_template=response_template,
-        tokenizer=tokenizer,
-    )
-
+    # Modern trl SFTConfig (trl >= 0.15). Full-text loss (no
+    # completion-only masking); for 414 rows this is fine and avoids
+    # the DataCollatorForCompletionOnlyLM dependency which was removed
+    # in newer trl versions.
     args.output_dir.mkdir(parents=True, exist_ok=True)
-    training_args = TrainingArguments(
+    sft_config = SFTConfig(
         output_dir=str(args.output_dir),
         num_train_epochs=args.epochs,
         per_device_train_batch_size=args.batch_size,
@@ -141,14 +131,15 @@ def main() -> int:
         optim="adamw_torch",
         report_to="none",
         remove_unused_columns=False,
+        max_length=args.max_seq_len,
+        dataset_text_field="text",
+        packing=False,
     )
     trainer = SFTTrainer(
         model=model,
-        args=training_args,
+        args=sft_config,
         train_dataset=ds,
-        data_collator=collator,
-        max_seq_length=args.max_seq_len,
-        tokenizer=tokenizer,
+        processing_class=tokenizer,
     )
 
     print(f"[train] starting training at {time.strftime('%H:%M:%S')}", flush=True)
