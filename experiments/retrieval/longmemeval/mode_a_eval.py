@@ -262,6 +262,54 @@ def _ingest(mem: vstash.Memory, conv: Conversation) -> int:
     return n
 
 
+def _ingest_turn_pairs(mem: vstash.Memory, conv: Conversation) -> int:
+    """Alternative ingestion: group consecutive user+assistant
+    turns into a single chunk. Each chunk contains one back-and-
+    forth exchange. Rationale (2026-04-22 chunking experiment A):
+    aggregation questions fail partly because numeric facts and
+    their context live in adjacent turns that end up in separate
+    chunks; retrieval then surfaces one without the other. A
+    conversational-pair chunk keeps the numeric fact and its
+    conversational context together.
+
+    Title format: ``qid::sid::pair_<start_i>_<end_i>`` so the
+    retrieval scorer can still trace back to the source session.
+    Isolated final turns (odd total) are ingested as singletons.
+    """
+    n = 0
+    for sid, turns in conv.haystack_sessions.items():
+        i = 0
+        while i < len(turns):
+            # Pair a user turn with the following assistant turn
+            # if available; otherwise ship the current turn alone.
+            t = turns[i]
+            if (
+                i + 1 < len(turns)
+                and t.role == "user"
+                and turns[i + 1].role == "assistant"
+            ):
+                pair_text = (
+                    _format_turn_from_runner(t)
+                    + "\n\n"
+                    + _format_turn_from_runner(turns[i + 1])
+                )
+                mem.remember(
+                    pair_text,
+                    title=f"{conv.question_id}::{sid}::pair_{i}_{i+1}",
+                    collection="default",
+                )
+                i += 2
+            else:
+                mem.remember(
+                    _format_turn_from_runner(t),
+                    title=f"{conv.question_id}::{sid}::{i}",
+                    collection="default",
+                )
+                i += 1
+            n += 1
+    return n
+
+
 # --------------------------------------------------------------------- conditions
 
 

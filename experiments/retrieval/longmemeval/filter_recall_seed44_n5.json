@@ -1,0 +1,235 @@
+{
+  "seed": 44,
+  "n_sample": 30,
+  "n_measure": 5,
+  "per_question": [
+    {
+      "idx": 0,
+      "qid": "099778bb",
+      "question_type": "multi-session",
+      "question": "What percentage of leadership positions do women hold in the my company?",
+      "answer": "20%",
+      "needles": [
+        "20%",
+        "20%%",
+        "20",
+        "20 percent"
+      ],
+      "n_answer_turns": 24,
+      "n_kept": 17,
+      "n_dropped": 7,
+      "answer_session_recall": 0.7083333333333334,
+      "n_needle_turns": 1,
+      "n_needle_kept": 1,
+      "needle_recall": 1.0,
+      "needle_turns": [
+        {
+          "sid": "answer_80d6d664_2",
+          "idx": 2,
+          "role": "user",
+          "write": true,
+          "reason": "P(D)=0.792 P(N)=0.204",
+          "content_preview": "Wow, that's a lot of resources. I'll definitely check them out. I'm particularly interested in the diversity and inclusion reports. Do you think they'd have dat"
+        }
+      ]
+    },
+    {
+      "idx": 1,
+      "qid": "gpt4_ec93e27f",
+      "question_type": "temporal-reasoning",
+      "question": "Which mode of transport did I use most recently, a bus or a train?",
+      "answer": "train",
+      "needles": [
+        "train"
+      ],
+      "n_answer_turns": 22,
+      "n_kept": 22,
+      "n_dropped": 0,
+      "answer_session_recall": 1.0,
+      "n_needle_turns": 14,
+      "n_needle_kept": 14,
+      "needle_recall": 1.0,
+      "needle_turns": [
+        {
+          "sid": "answer_e3aa84c4_2",
+          "idx": 2,
+          "role": "user",
+          "write": true,
+          "reason": "P(D)=0.788 P(N)=0.209",
+          "content_preview": "I'm planning to take the train to Narita airport for my Japan trip. Do you know the best way to get to Narita from Tokyo city center?"
+        },
+        {
+          "sid": "answer_e3aa84c4_2",
+          "idx": 3,
+          "role": "assistant",
+          "write": true,
+          "reason": "P(D)=0.950 P(N)=0.042",
+          "content_preview": "Getting to Narita Airport from Tokyo city center is relatively easy and convenient. Here are your best options:  **1. Narita Express (N'EX) Train**  * **Fastest"
+        },
+        {
+          "sid": "answer_e3aa84c4_2",
+          "idx": 4,
+          "role": "user",
+          "write": true,
+          "reason": "P(D)=0.914 P(N)=0.082",
+          "content_preview": "I've taken a lot of buses lately for shorter distances, and I've noticed it's a more eco-friendly option. Speaking of which, can you tell me more about the carb"
+        },
+        {
+          "sid": "answer_e3aa84c4_2",
+          "idx": 5,
+          "role": "assistant",
+          "write": true,
+          "reason": "P(D)=0.961 P(N)=0.037",
+          "content_preview": "Japan is known for its extensive rail network, and trains are a popular mode of transportation for both locals and tourists. The carbon footprint of trains in J"
+        },
+        {
+          "sid": "answer_e3aa84c4_2",
+          "idx": 6,
+          "role": "user",
+          "write": true,
+          "reason": "P(D)=0.867 P(N)=0.130",
+          "content_preview": "I'm glad to know that Japan's train network is relatively eco-friendly. I've been trying to reduce my carbon footprint, and it's good to know that my upcoming t"
+        },
+        {
+          "sid": "answer_e3aa84c4_2",
+          "idx": 7,
+          "role": "assistant",
+          "write": true,
+          "reason": "P(D)=0.843 P(N)=0.149",
+          "content_preview": "What a great question! Japan has some of the most scenic train routes in the world, offering breathtaking views of its stunning natural beauty. Here are some of"
+        },
+        {
+          "sid": "answer_e3aa84c4_2",
+          "idx": 8,
+          "role": "user",
+          "write": true,
+          "reason": "P(D)=0.873 P(N)=0.123",
+          "content_preview": "That's amazing! I had no idea Japan had so many scenic train routes. I'll definitely make sure to add some of these to my itinerary. By the way, since I'll be t"
+        },
+        {
+          "sid": "answer_e3aa84c4_2",
+          "idx": 9,
+          "role": "assistant",
+          "write": true,
+          "reason": "P(D)=0.903 P(N)=0.090",
+          "content_preview": "You're really planning ahead! Yes, you can check in for your flight and drop off your luggage at the train station before heading to Narita Airport. This servic"
+        },
+        {
+          "sid": "answer_e3aa84c4_1",
+          "idx": 0,
+          "role": "user",
+          "write": true,
+          "reason": "P(D)=0.950 P(N)=0.048",
+          "content_preview": "I'm planning a trip to the mountains on April 15th and I'm considering taking a detour to visit my family in the countryside again. Can you help me find the bes"
+        },
+        {
+          "sid": "answer_e3aa84c4_1",
+          "idx": 3,
+          "role": "assistant",
+          "write": true,
+          "reason": "P(D)=0.942 P(N)=0.055",
+          "content_preview": "That sounds like a great plan!  Since you didn't mention specific cities or locations, I'll provide some general guidance to help you plan your road trip.  1. *"
+        },
+        {
+          "sid": "answer_e3aa84c4_1",
+          "idx": 4,
+          "role": "user",
+          "write": true,
+          "reason": "P(D)=0.964 P(N)=0.034",
+          "content_preview": "I have been tracking my travel expenses and modes of transport, and I've noticed that I've reduced my carbon emissions by around 20% in the past quarter. I've b"
+        },
+        {
+          "sid": "answer_e3aa84c4_1",
+          "idx": 5,
+          "role": "assistant",
+          "write": true,
+          "reason": "P(D)=0.831 P(N)=0.162",
+          "content_preview": "That's a great achievement! Reducing your carbon emissions by 20% in just a quarter is a significant step towards a more sustainable lifestyle. It's fantastic t"
+        },
+        {
+          "sid": "answer_e3aa84c4_1",
+          "idx": 10,
+          "role": "user",
+          "write": true,
+          "reason": "P(D)=0.970 P(N)=0.028",
+          "content_preview": "I've actually been taking a lot of trains lately, especially for shorter distances. In fact, I took a train ride to visit my family in the countryside just rece"
+        },
+        {
+          "sid": "answer_e3aa84c4_1",
+          "idx": 11,
+          "role": "assistant",
+          "write": true,
+          "reason": "P(D)=0.959 P(N)=0.036",
+          "content_preview": "I think there's been a misunderstanding! Earlier, you mentioned taking flights, but now you're talking about taking trains. I'm happy to chat with you about you"
+        }
+      ]
+    },
+    {
+      "idx": 2,
+      "qid": "eac54adc",
+      "question_type": "temporal-reasoning",
+      "question": "How many days ago did I launch my website when I signed a contract with my first client?",
+      "answer": "19 days ago. 20 days (including the last day) is also acceptable.",
+      "needles": [
+        "19 days ago. 20 days (including the last day) is also acceptable."
+      ],
+      "n_answer_turns": 24,
+      "n_kept": 22,
+      "n_dropped": 2,
+      "answer_session_recall": 0.9166666666666666,
+      "n_needle_turns": 0,
+      "n_needle_kept": 0,
+      "needle_recall": null,
+      "needle_turns": []
+    },
+    {
+      "idx": 3,
+      "qid": "8c18457d",
+      "question_type": "temporal-reasoning",
+      "question": "How many days had passed between the day I bought a gift for my brother's graduation ceremony and the day I bought a birthday gift for my best friend?",
+      "answer": "7 days. 8 days (including the last day) is also acceptable.",
+      "needles": [
+        "7 days. 8 days (including the last day) is also acceptable."
+      ],
+      "n_answer_turns": 20,
+      "n_kept": 18,
+      "n_dropped": 2,
+      "answer_session_recall": 0.9,
+      "n_needle_turns": 0,
+      "n_needle_kept": 0,
+      "needle_recall": null,
+      "needle_turns": []
+    },
+    {
+      "idx": 4,
+      "qid": "f685340e_abs",
+      "question_type": "knowledge-update",
+      "question": "How often do I play table tennis with my friends at the local park?",
+      "answer": "The information provided is not enough. You mentioned playing tennis but not table tennis.",
+      "needles": [
+        "The information provided is not enough. You mentioned playing tennis but not table tennis."
+      ],
+      "n_answer_turns": 24,
+      "n_kept": 19,
+      "n_dropped": 5,
+      "answer_session_recall": 0.7916666666666666,
+      "n_needle_turns": 0,
+      "n_needle_kept": 0,
+      "needle_recall": null,
+      "needle_turns": []
+    }
+  ],
+  "aggregate": {
+    "answer_session_recall_mean": 0.8633333333333333,
+    "answer_session_recall_median": 0.9,
+    "answer_session_recall_min": 0.7083333333333334,
+    "answer_session_recall_max": 1.0,
+    "needle_recall_per_q_mean": 1.0,
+    "needle_recall_pooled": 1.0,
+    "n_needle_kept": 15,
+    "n_needle_total": 15,
+    "n_q_pass_95": 1,
+    "n_q_caveat_75_94": 3,
+    "n_q_stop_below_75": 1
+  }
+}

@@ -460,6 +460,91 @@ The contribution of this paper is therefore dual. On the negative side, we provi
 
 ---
 
+## Addendum: LongMemEval evaluation (2026-04-24)
+
+This addendum was added after initial drafting to document an
+out-of-scope benchmark result for completeness.
+
+Section 12 (Future work) identified LongMemEval as an obvious
+candidate for external validation of the brief mechanism on natural
+conversational data. This addendum reports the result of that
+evaluation on the LongMemEval-s subset, with the caveat that
+LongMemEval is primarily a specific-recall benchmark rather than a
+trajectory-reasoning one. Findings should be read in that context.
+
+**Setup.** The `experiments/retrieval/longmemeval/pipeline_runner.py`
+harness implements the brief_v1 mechanism end-to-end: per-session
+brief synthesis via a Cerebras-hosted qwen-3-235b, brief retrieval
+from the `method:brief_v1` semantic layer (top-k = 3), episodic
+retrieval of raw turns (initial top-k = 3), concatenation into a
+Builder prompt, answer generation via Cerebras-hosted llama-3.1-8b,
+and oracle grading via Gemini 2.5 Flash with a four-way verdict
+(supports / partial / contradicts / neutral). N = 30 questions per
+seed; three seeds (42, 43, 44) evaluated on the held-out split.
+
+**Initial result.** Under the original pipeline configuration, the
+full brief_v1 pipeline scored 14/27 = 51.9% correct on seed=44
+against a RAG-k3 baseline at 19/27 = 70.4% on the same common
+qids -- a regression of 18.5pp. Mechanistic investigation across 13
+failing qids identified that the dominant failure pattern was
+neither retrieval quality nor builder composition, but retrieval
+depth: the answer-carrying turn was in the answer session but
+outside the top-k = 3 episodic hits. Raising `RAG_TOP_K_EPISODIC`
+from 3 to 10 recovered the regression and lifted performance to
+**67.8% three-seed mean (stdev 1.7pp)**, parity-matching the
+historical RAG-k3 pure baseline on the same benchmark.
+
+**Briefs ablation at k = 10.** With the retrieval-depth change in
+place, an ablation disabling brief synthesis and retrieval gave
+19/30 = 63.3%, a delta of -3.3pp vs the brief-enabled run at
+20/30 = 66.7%. Per-qid inspection of the three differing questions:
+one case where briefs hurt a precision-at-volume answer (the 8B
+Builder dropped a denominator under longer context with briefs in
+the prompt), and two cases where briefs helped by aggregating
+cross-session facts. Net benefit of briefs: +1 question out of 30
+for 98% of the LLM compute (1411 brief calls vs 30 Builder calls per
+run). The cost-benefit ratio was judged insufficient to justify
+briefs as a default in this pipeline.
+
+**Reconciliation with the paper's central claims.** The LongMemEval
+finding does not overturn the paper's main result. The paper argues
+that briefs substantially improve task accuracy where the retrieval
+channel structurally fails -- on trajectory-reasoning queries over
+topics that have undergone multiple updates. The benchmarks in
+Sections 5 and 9 were constructed to isolate that specific failure
+mode. LongMemEval is a different benchmark type: it primarily tests
+specific recall over conversational chunks, and at k = 10 the
+answer chunk is already in the Builder's prompt for most questions.
+On a benchmark where retrieval does not structurally fail, brief
+synthesis is expected to add marginal value rather than large
+gains -- and that is what the experiment shows.
+
+The finding clarifies a deployment consideration the paper should
+make explicit: the brief mechanism is most useful on tasks whose
+failure modes are trajectory reasoning or cross-session aggregation.
+On tasks dominated by specific recall, retrieval-depth tuning is a
+cheaper and more effective intervention. Deployments should select
+between the two based on the expected query distribution rather
+than default to briefs universally.
+
+A second clarification: the original submission (Section 12)
+proposed evaluation on LongMemEval as future work to "test
+generalization of the synthetic-scenario findings to the kinds of
+conversational data agent systems encounter in practice." The
+LongMemEval evaluation reported here confirms one dimension of that
+generalization -- the brief mechanism does not break on natural
+data -- while also surfacing the substrate-dependence caveat above.
+Additional evaluation on LoCoMo's multi-session subset (an explicit
+trajectory-reasoning benchmark) remains future work.
+
+Full supplementary artifacts for the LongMemEval evaluation,
+including per-qid forensics, ablation runs, and a roadmap toward
+replacing the external teacher models with a local distillation
+target, are available in the repository under `notes/2026-04-24-*.md`
+and `experiments/retrieval/longmemeval/`.
+
+---
+
 ## Artifact availability
 
 The merken implementation, including the `brief_v1` mechanism, the audit infrastructure, and the four primitives described in Section 4, is available as open-source software at https://github.com/stffns/merken. The experimental scripts used to generate the results in Sections 5, 6, and 9 are included in the repository under the `experiments/` directory. The retrieval substrate vstash is available at https://github.com/stffns/vstash and on PyPI.

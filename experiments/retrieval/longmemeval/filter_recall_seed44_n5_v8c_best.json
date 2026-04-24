@@ -1,0 +1,77 @@
+{
+  "tag": "v8c_best",
+  "head": "experiments/nanogpt/v8c_frozen_encoder/head.pt",
+  "meta": "experiments/nanogpt/v8c_frozen_encoder/meta.json",
+  "threshold": 0.5,
+  "seed": 44,
+  "n_measure": 5,
+  "per_question": [
+    {
+      "idx": 0,
+      "qid": "099778bb",
+      "question_type": "multi-session",
+      "n_answer_turns": 24,
+      "n_kept": 1,
+      "n_dropped": 23,
+      "answer_session_recall": 0.041666666666666664,
+      "n_needle_turns": 1,
+      "n_needle_kept": 0,
+      "needle_recall": 0.0
+    },
+    {
+      "idx": 1,
+      "qid": "gpt4_ec93e27f",
+      "question_type": "temporal-reasoning",
+      "n_answer_turns": 22,
+      "n_kept": 2,
+      "n_dropped": 20,
+      "answer_session_recall": 0.09090909090909091,
+      "n_needle_turns": 14,
+      "n_needle_kept": 2,
+      "needle_recall": 0.14285714285714285
+    },
+    {
+      "idx": 2,
+      "qid": "eac54adc",
+      "question_type": "temporal-reasoning",
+      "n_answer_turns": 24,
+      "n_kept": 0,
+      "n_dropped": 24,
+      "answer_session_recall": 0.0,
+      "n_needle_turns": 0,
+      "n_needle_kept": 0,
+      "needle_recall": null
+    },
+    {
+      "idx": 3,
+      "qid": "8c18457d",
+      "question_type": "temporal-reasoning",
+      "n_answer_turns": 20,
+      "n_kept": 0,
+      "n_dropped": 20,
+      "answer_session_recall": 0.0,
+      "n_needle_turns": 0,
+      "n_needle_kept": 0,
+      "needle_recall": null
+    },
+    {
+      "idx": 4,
+      "qid": "f685340e_abs",
+      "question_type": "knowledge-update",
+      "n_answer_turns": 24,
+      "n_kept": 0,
+      "n_dropped": 24,
+      "answer_session_recall": 0.0,
+      "n_needle_turns": 0,
+      "n_needle_kept": 0,
+      "needle_recall": null
+    }
+  ],
+  "aggregate": {
+    "mean": 0.026515151515151516,
+    "median": 0.0,
+    "min": 0.0,
+    "max": 0.09090909090909091
+  },
+  "verdict": "STOP_RETRAIN_OR_ABANDON"
+}

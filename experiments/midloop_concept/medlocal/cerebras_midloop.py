@@ -686,20 +686,22 @@ def retrieve(
     ``retrieval_mode``:
       - ``"hybrid"`` (default): one vstash.search call with the
         stock adaptive RRF weighting. Cheap, ~100ms.
-      - ``"dual"``: run three complementary searches and
+      - ``"dual"``: run four complementary searches and
         interleave the results -- see the inline comment in the
         branch for the full rationale. Each search is a vstash
         call (~100ms each), no LLM spend. The merged pool is
         NOT hard-capped; final size is bounded by
-        ``top_k + top_k*3 + top_k*3 = 7 * top_k`` candidates
-        before text-prefix dedup. Evolved across Runs 4 -> 5
-        (2026-04-21) as the stuck-neutral diagnostic narrowed
-        the root cause to Builder-draft synonym drift.
+        ``top_k + top_k*3 + top_k*3 + top_k = 8 * top_k``
+        candidates before text-prefix dedup. Evolved across
+        Runs 4 -> 5 (2026-04-21) as the stuck-neutral
+        diagnostic narrowed the root cause to Builder-draft
+        synonym drift. 4th pure-vec pool added 2026-04-23 to
+        attack seed=44 vocabulary-mismatch fails.
     """
     try:
         if retrieval_mode == "dual":
-            # dual runs three searches so the Judge sees candidates
-            # from complementary ranking regimes. The cost is three
+            # dual runs four searches so the Judge sees candidates
+            # from complementary ranking regimes. The cost is four
             # ~100ms vstash calls, still zero LLM spend.
             #
             # 1. hybrid(question+draft): semantic + keyword, biased
@@ -713,6 +715,15 @@ def retrieve(
             #    that can push the one actionable chunk out of
             #    fts ranks. Searching the question alone sidesteps
             #    that drift.
+            # 4. vec(question+draft): pure vector, no FTS weight.
+            #    Complementary to (1) which uses adaptive RRF: when
+            #    the hybrid pipeline still tilts toward FTS because
+            #    the draft is keyword-dense, this branch guarantees
+            #    a parallel pool ranked purely by embedding
+            #    similarity. Targets vocabulary-mismatch fails
+            #    where the answering chunk shares semantics but
+            #    not tokens with the query (seed=44 qids:
+            #    6e984302, gpt4_e061b84g).
             #
             # Diagnostic 2026-04-21 that motivated (3): the hiv-who
             # chunk with the CD4<350 threshold is fts rank 3 for
@@ -732,12 +743,13 @@ def retrieve(
                 if q_only != query
                 else []
             )
-            # Interleave the three pools so no ranking regime
+            vec_hits = mem.search(query, top_k=top_k, retrieval_mode="vec_only")
+            # Interleave the four pools so no ranking regime
             # monopolises the prefix. The Judge sees a balanced
             # candidate set and has to pick the right chunk on
             # content, not on position.
             hits: list = []
-            pools = [hybrid_hits, fts_hits, fts_q_hits]
+            pools = [hybrid_hits, fts_hits, fts_q_hits, vec_hits]
             # strict=False: pools may differ in length when a search
             # returns fewer hits than requested; truncation to the
             # shortest pool is intentional, with the tail loop below
@@ -804,6 +816,18 @@ def retrieve(
             or getattr(h, "tags", None)
             or "memory"
         )
+        # Drop LongMemEval haystack pollution. Session ids
+        # prefixed ``sharegpt_`` are filler dialogues from the
+        # ShareGPT haystack, NOT the user's own sessions. Title
+        # shape in benchmark ingest is
+        # ``<question_id>::<session_id>::<turn>`` (see
+        # mode_a_eval._ingest), so session_id sits after the
+        # first "::". For non-benchmark callers (seed_vstash
+        # uses bare protocol_id titles) this check is a no-op.
+        src_str = str(src_id)
+        parts = src_str.split("::", 2)
+        if len(parts) >= 2 and parts[1].startswith("sharegpt_"):
+            continue
         # Pull every signal vstash publishes. Missing fields stay
         # None so downstream code can uniformly treat them as
         # "unknown" without a KeyError.

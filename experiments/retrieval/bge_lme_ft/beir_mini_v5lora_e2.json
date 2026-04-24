@@ -1,0 +1,24 @@
+{
+  "encoder": "v5-lora:experiments/retrieval/bge_lme_ft/adapters/v5-lora-e2",
+  "device": "mps",
+  "by_dataset": {
+    "scifact": {
+      "n_queries": 300,
+      "n_corpus": 5183,
+      "ndcg_at_10": 0.694062789189493,
+      "recall_at_5": 0.7462777777777777,
+      "corpus_encode_s": 46.52073045773432,
+      "query_encode_s": 0.4357934589497745
+    },
+    "nfcorpus": {
+      "n_queries": 323,
+      "n_corpus": 3633,
+      "ndcg_at_10": 0.33797937732584693,
+      "recall_at_5": 0.12693873947989717,
+      "corpus_encode_s": 18.689077708870173,
+      "query_encode_s": 0.5784215833991766
+    }
+  },
+  "mean_ndcg_at_10": 0.5160210832576699,
+  "mean_recall_at_5": 0.43660825862883745
+}

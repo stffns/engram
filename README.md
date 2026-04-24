@@ -338,6 +338,38 @@ and tested, four deployment surfaces are working (SDK, CLI, MCP server,
 Claude Code hooks), and the loop-quality safety net covers five
 scenarios. LongMemEval Phase A is complete (R@5 = 0.964 on n=500).
 
+### Latest finding (2026-04-24): k=10 retrieval depth is the lever
+
+A day of forensics on the 13 failing qids of the merken brief_v1
+pipeline on LongMemEval (seed=44 N=30) revealed that retrieval depth
+(not builder composition, not encoder quality, not post-hoc reasoning)
+is the dominant lever. Changing a single constant
+(`RAG_TOP_K_EPISODIC = 3 -> 10` in `pipeline_runner.py`) lifts the
+correct-rate from 14/27 = 51.9% to 20/30 = 66.7%. Three-seed
+replication (seeds 42/43/44) holds at **67.8% mean, stdev 1.7pp**,
+parity-matching the historical RAG-k3 pure baseline.
+
+Subsumed by k=10 (same-day experiments, all net +2 or lower):
+
+- Judge post-hoc over RAG output: +2.
+- Structured claim extraction with question-shape routing: +2.
+- Swapping Builder from `llama3.1-8b` to `gpt-oss-120b` at k=10: -2
+  (bigger model refuses more; 8B's willing extraction wins here).
+- bge LoRA contrastive fine-tune (v5-lora): Gate 2 R@1 +10pp but
+  Gate 3 RAG-k3 flat; Mode C regressed -13.3pp (threshold ABI
+  mismatch).
+
+Briefs ablation on the same substrate: `--skip-briefs` gives
+19/30 = 63.3% (delta -3.3pp). Briefs add marginal retrieval value
+for 98% of the Cerebras burn -- not default-worthy in the pipeline
+but retained as an opt-in data-collection vector via the new
+`--dump-briefs-to` flag.
+
+See [`notes/2026-04-24-failing-qid-forensics.md`](notes/2026-04-24-failing-qid-forensics.md)
+for the per-qid breakdown and failure taxonomy, and
+[`notes/2026-04-24-roadmap-local-merken.md`](notes/2026-04-24-roadmap-local-merken.md)
+for the 5-phase plan toward a 100% local memory loop.
+
 ### What's deliberately not here
 
 - **Knowledge graph.** CONSTITUTION §5 keeps this optional and gated.
@@ -351,6 +383,14 @@ scenarios. LongMemEval Phase A is complete (R@5 = 0.964 on n=500).
 
 ### What's coming
 
+- **Local memory loop.** Roadmap in
+  [`notes/2026-04-24-roadmap-local-merken.md`](notes/2026-04-24-roadmap-local-merken.md).
+  End-state: merken runs with no external LLM dependency for the four
+  decision primitives. Target architecture is a 7B-class base (Llama-3
+  8B or Qwen-2.5 7B) fine-tuned with LoRA, distilled from Cerebras
+  teachers, training on GCP A100 80GB. The 67.8% 3-seed baseline
+  (k=10 llama-8b Cerebras) is the number the local replacement must
+  match.
 - Claude Code hooks hardening: error handling, threshold tuning,
   integration tests for the hook scripts.
 - Additional `loop_quality/` scenarios from real work: perf migration
