@@ -64,3 +64,16 @@ data/
 # by mode_c_demo.py and mode_c_benchmark.py).
 experiments/midloop_concept/medlocal/mode_c_demo_last.json
 experiments/midloop_concept/medlocal/phase0*_report.json
+
+# bge LoRA fine-tune artifacts (adapter weights regeneratable from
+# build_contrastive_pairs.py + train_lora.py).
+experiments/retrieval/bge_lme_ft/adapters/
+
+# nanoGPT training outputs (weights + logs, regeneratable from training scripts).
+experiments/nanogpt/*.log
+experiments/nanogpt/v8c_frozen_encoder/
+
+# pipeline_runner and mode_c_benchmark per-run outputs (jsonl ignored
+# globally, but this dir also accumulates .log / .summary.json files
+# that are per-experiment artifacts -- regeneratable via the runners).
+experiments/retrieval/longmemeval/pipeline_runs/
