@@ -146,7 +146,7 @@ def main() -> int:
     ap.add_argument("--subset", default="longmemeval_s")
     ap.add_argument("--seed", type=int, default=44)
     ap.add_argument("--n", type=int, default=30)
-    ap.add_argument("--top-k", type=int, default=10)
+    ap.add_argument("--top-k", type=int, default=8)
     ap.add_argument("--backend", default=os.environ.get("VSTASH_BACKEND", "cerebras"))
     ap.add_argument("--model", default=os.environ.get("VSTASH_MODEL", "llama3.1-8b"))
     ap.add_argument("--tag", default="vstash_ask")
