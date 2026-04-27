@@ -7,7 +7,82 @@ project's benchmark-driven development model.
 
 ## [Unreleased]
 
+### Empirical findings (2026-04-27)
+
+- **gpt-oss-120b is the dominant Builder lever for LoCoMo and LME (3-seed both benchmarks).**
+  Swapping `cerebras/llama3.1-8b` -> `cerebras/gpt-oss-120b` on the
+  canonical Phase 2 stacks lifts:
+    - LoCoMo 3-seed mean: 56.3% +- 3.4pp -> **70.7% +- 1.6pp**
+      (+14.4pp correct, +16pp trust). Stdev tightens.
+    - LoCoMo 3-seed temporal: 43.3% -> **80.0%** (+36.7pp). The
+      clavado shape that resisted granularity, hybrid weights, rerank,
+      and prompt experiments unsticks under Builder choice.
+    - LME 3-seed mean (Cerebras-graded both sides): 61.1% +- 3.8pp
+      -> **67.8% +- 5.1pp** (+6.7pp correct, +4.4pp trust).
+    - LME 3-seed temporal: 44.4% -> 57.1% (+12.7pp).
+  Cross-benchmark transfer real but uneven -- LoCoMo benefits ~2x
+  more than LME. The morning single-seed LME headlines (+27.3pp
+  temporal, -66.7pp knowledge-update) overstated per-shape effects
+  by 2x-6x; 3-seed correction lands at +12.7pp / -11pp respectively.
+  Knowledge-update small-N regression is real but smaller than alarm.
+  Conclusion: the "shape-targeted LoRA on temporal" Phase 2 move is
+  dominated by Builder choice; if gpt-oss-120b becomes the production
+  Builder, LoRA work should target its remaining failure modes
+  (knowledge-update calibration, multi-session reasoning).
+  Full write-ups in
+  `experiments/retrieval/locomo/RESULTS_phase2.md` and
+  `experiments/retrieval/longmemeval/RESULTS.md`.
+
+- **Three contaminated 2026-04-25 runs corrected via Cerebras rejudge.**
+  Audit found that Gemini 2.5 Flash hit its monthly quota cap during
+  the 2026-04-25 cycle and our runners stored the resulting 429
+  responses as `verdict: "neutral"` with rationale starting "oracle_error".
+  Counting verdicts then treated those silent oracle outages as real
+  refusals. Three runs fed cited findings:
+    - LME hybrid_eq (30/30 errors): claim "destroys LME 0/30" was
+      false; Cerebras rejudge gives 17/30 = 56.7%, identical to
+      default-weights baseline (no-op, not destruction).
+    - LoCoMo fts-heavier (120/201 = 60% errors): claim "destroys
+      to 23.4%" was false; Cerebras rejudge gives 60.5%, +1.5pp
+      vs canonical baseline (small positive, not regression).
+    - LME gpt-oss-120b morning run (30/30 errors): caught in flight,
+      Cerebras rejudge gives 19/30 = 63.3%.
+  The "hybrid weights is dataset-specific" finding (one of three
+  cited dataset-specific knobs in `project_locomo_phase2_next_session.md`)
+  collapses: hybrid weights is a small positive lever on LoCoMo and
+  a no-op on LME, not a contradiction. Granularity and reranker
+  remain truly dataset-specific.
+
+### Added (defensive)
+
+- `experiments/retrieval/oracle_health.py`: `OracleHealthGuard`
+  helper -- pre-flight ping, runtime first-window guard (>2/10
+  errors aborts the run), 5%-total guard, summary suppression that
+  blanks out correct% / trust_score / per-shape breakdowns when any
+  oracle error is recorded. All four production runners
+  (`runner_rerank.py` LoCoMo + LME, `runner_phase2.py`,
+  `run_vstash_ask.py`) wired through. Code-reviewed and smoke-tested
+  (happy path + invalid-API-key path both verified). Future runs
+  with quota issues will abort cleanly instead of producing silent
+  contamination.
+- `experiments/retrieval/longmemeval/run_vstash_ask.py`: `--oracle
+  cerebras|gemini` CLI flag (default gemini). Mirrors the
+  `runner_rerank.py` convention. Required for running LME with
+  Cerebras oracle without rejudge while Gemini quota is exhausted.
+
 ### Added
+- `experiments/retrieval/locomo/runner_rerank.py`: `--backend` /
+  `--model` CLI args (defaults preserve `cerebras/llama3.1-8b` so
+  prior runs are reproducible). Replaces a hardcoded
+  `_override_inference_config(mem, "cerebras", "llama3.1-8b")` that
+  previously made Builder swaps require editing the file. Mirrors
+  the runner_phase2.py / run_vstash_ask.py convention.
+- `experiments/retrieval/locomo/runner_rerank.py`: defensive
+  `answer is None -> err = "no_content"` guard for reasoning models
+  whose `message.content` can be empty when reasoning consumes the
+  full max_completion_tokens budget. Treated as a refusal (neutral)
+  instead of crashing the run. Tripped 0 times on 602 questions in
+  the gpt-oss-120b 3-seed run.
 - `pipeline_runner.py --dump-briefs-to <path>`: append every synthesized
   brief alongside the session-turn input the teacher saw, with
   provenance (`run_id`, `teacher_model`, `teacher_temperature`,
@@ -47,6 +122,75 @@ project's benchmark-driven development model.
   `experiments/nanogpt/*.log`, `experiments/nanogpt/v8c_frozen_encoder/`,
   and `experiments/retrieval/longmemeval/pipeline_runs/` (all
   regeneratable from the tracked sources).
+
+### Empirical findings (2026-04-24 EOD+1)
+
+- **vstash.ask default prompt is Pareto-optimal for trust-first RAG.**
+  Same Cerebras llama-8b + top-k = 10 as pipeline_runner, scored
+  17/30 = 56.7% correct with trust_score +50.0% on seed=44 N=30 --
+  the highest trust_score measured across every configuration tested
+  this cycle. Pipeline_runner with briefs scored 66.7%/+46.7%
+  (different Pareto point, same substrate). See
+  `notes/2026-04-24-vstash-ask-prompt-experiment.md`.
+
+- **Prohibitive prompt rules backfire at 8B Builder scale.** A
+  hybrid variant layering "respond EXACTLY" + "do not substitute"
+  clauses onto extraction rules dropped correct_rate to 33.3%
+  and trust to +23.3% with 7 supports regressing to neutral.
+  Stripping decorative rules from the default produced identical
+  verdicts. Prompt lever ceiling reached at 8B; past this point,
+  gains require either a larger Builder or targeted fine-tuning
+  on the specific reasoning shapes.
+
+- **Retrieval saturation re-confirmed via `miss_analysis`.** vstash's
+  built-in miss_analysis tool shows 13/13 of the default-failing
+  qids have the answer-session chunk within top-10. Zero retrieval-
+  config wins remain on LongMemEval-s at this k.
+
+- **Four stuck-reasoning-shape taxonomy for future training.** The
+  qids that neither prompt nor retrieval could unlock group into
+  four behaviorally distinct classes: implicit inference across two
+  claims (`a96c20ee`), relative-date comparison on fuzzy temporal
+  expressions (`gpt4_213fd887`), identity resolution across pronoun
+  shifts (`gpt4_0a05b494`), and strict-category counting
+  (`ef66a6e5`). These are training targets, not prompt targets.
+
+### Added
+
+- `experiments/retrieval/longmemeval/run_vstash_ask.py` -- benchmark
+  wrapper around `vstash.Memory.ask()` with `--prompt-variant
+  default|hybrid` flag and runtime inference-backend override.
+- `experiments/retrieval/longmemeval/vstash_miss_diagnostic.py` --
+  per-qid retrieval depth diagnostic using `vstash.Memory.search`
+  to check answer-session chunk rank at top_k = 30.
+- `experiments/phase2_training/fuse_to_mlx.py` -- merges a PEFT
+  LoRA adapter into its base HF model and converts to MLX 4-bit
+  via `mlx_lm.convert` for local inference on M-series.
+- `experiments/phase2_training/data/train_positives_only.jsonl` --
+  299-row subset of the 414-row teacher dataset, dropping the 115
+  hedge-substituted contradicts rows that caused the first SmolLM3
+  LoRA to collapse into 80% neutrals.
+- `notes/2026-04-24-vstash-ask-prompt-experiment.md` -- full
+  write-up of the prompt-lever experiment.
+- `experiments/phase2_training/` directory (LoRA training pipeline,
+  Colab-ready, Apache 2.0 base models only).
+
+### Changed
+
+- `papers/dual-channel-memory.md` addendum gets a "The prompt-layer
+  ceiling (trust vs correctness)" subsection with the empirical
+  numbers and the normative observation that substrate-default
+  prompts are deliberately-chosen Pareto points.
+- `experiments/phase2_training/train_ministral_colab.ipynb` base
+  model swapped to `HuggingFaceTB/SmolLM3-3B` (Apache 2.0,
+  text-only, standard transformers `AutoModelForCausalLM`) after
+  Ministral 3 3B/8B/14B were all confirmed multimodal
+  (`Mistral3ForConditionalGeneration`) and blocked LoRA training
+  via the standard path.
+- `.gitignore` excludes trained LoRA adapters, merged HF dirs,
+  and MLX-quantized fused model outputs under
+  `experiments/phase2_training/` (all regeneratable from the
+  Colab notebook + fuse script).
 
 ### Empirical findings (2026-04-24)
 

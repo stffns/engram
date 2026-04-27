@@ -28,6 +28,10 @@ htmlcov/
 *.swp
 .DS_Store
 
+# Local agent / tool state -- not part of the project source tree
+.claude/
+AGENTS.md
+
 # vstash / merken local data
 *.db
 *.db-journal
@@ -77,3 +81,22 @@ experiments/nanogpt/v8c_frozen_encoder/
 # globally, but this dir also accumulates .log / .summary.json files
 # that are per-experiment artifacts -- regeneratable via the runners).
 experiments/retrieval/longmemeval/pipeline_runs/
+
+# LoCoMo Phase 2 per-run outputs (same shape as longmemeval/pipeline_runs).
+# Regeneratable via runner_phase2.py / runner_rerank.py / runner_minimal.py.
+experiments/retrieval/locomo/phase2_runs/
+experiments/retrieval/locomo/miss_analysis_v1.jsonl
+
+# Phase 2 training data: small (~2MB) and needed in-repo so Colab can
+# git-clone and access it without manual upload. Overrides the global
+# *.jsonl ignore for this specific folder.
+!experiments/phase2_training/data/
+!experiments/phase2_training/data/*.jsonl
+
+# Phase 2 trained artifacts (LoRA adapter + MLX-quantized fused model).
+# Regeneratable from the Colab notebook + fuse_to_mlx.py.
+experiments/phase2_training/adapter/
+experiments/phase2_training/adapter_pa/
+experiments/phase2_training/smollm3_ft_mlx_q4/
+experiments/phase2_training/smollm3_pa_mlx_q4/
+experiments/phase2_training/*_merged_hf/

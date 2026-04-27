@@ -543,6 +543,56 @@ replacing the external teacher models with a local distillation
 target, are available in the repository under `notes/2026-04-24-*.md`
 and `experiments/retrieval/longmemeval/`.
 
+### The prompt-layer ceiling (trust vs correctness)
+
+A follow-up experiment used vstash's built-in `Memory.ask()` endpoint
+-- retrieval + generation in one call with a minimal default prompt
+-- as a reference point against the `pipeline_runner` harness that
+produced Section 9's numbers. Same Cerebras llama-8b backend, same
+top-k = 10, same oracle.
+
+The comparison surfaces a substantively different trade-off:
+vstash.ask's default prompt scored 17/30 = 56.7% correct with a
+trust_score (correct minus contradicted) of +50.0%, the highest
+trust_score measured across every configuration tested.
+`pipeline_runner` with briefs scored 66.7% correct and +46.7% trust;
+`pipeline_runner` without briefs scored 63.3% correct and +40.0%
+trust. The two paths are not linearly ranked; each optimizes a
+different end of the trust/correctness curve.
+
+Further attempts to push vstash.ask higher on correct_rate by
+layering extraction rules into the prompt backfired. A hybrid prompt
+adding quote-verbatim and combine-facts rules under an explicit
+"respond EXACTLY: 'not enough information in memory'" clause dropped
+correct_rate to 33.3% and trust_score to +23.3%. Seven of the
+baseline's 17 supports regressed to neutral under the additional
+prohibitive clauses. Stripping decorative rules (citation,
+correction, code) from the vstash default -- retaining only the
+core "answer from context; say so if missing" instructions --
+produced the same verdicts as the default on the sampled qids.
+
+Retrieval is not the limiting factor on the remaining failures. A
+per-qid diagnostic using vstash's `miss_analysis` on all 13 neutral
+and contradicted qids from the baseline showed the answer-session
+chunk within top-10 in 13/13 cases. The stuck failures are
+reasoning-shape tasks an 8B Builder cannot close via prompt alone:
+implicit inference across two claims, relative-date comparisons on
+fuzzy temporal expressions, identity resolution across pronoun
+shifts, and strict-category counting.
+
+Two observations follow. First, the default prompt shipped with an
+RAG substrate is a deliberately chosen point on the trade-off curve;
+in this implementation, that point is trust-first, and it is
+empirically near-optimal for its chosen objective. Second,
+prohibitive prompt rules at 8B scale dominate additive ones,
+pushing the model toward over-hedging when both are layered; prompt
+engineering at this scale should prefer additive instruction ("when
+possible, quote specific values") over prohibitive instruction
+("do not substitute a related fact"). Pushing past the prompt
+ceiling therefore requires either a larger Builder or targeted
+fine-tuning on the specific reasoning shapes, not further prompt
+refinement.
+
 ---
 
 ## Artifact availability
