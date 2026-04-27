@@ -78,6 +78,11 @@ experiments/nanogpt/v8c_frozen_encoder/
 # that are per-experiment artifacts -- regeneratable via the runners).
 experiments/retrieval/longmemeval/pipeline_runs/
 
+# LoCoMo Phase 2 per-run outputs (same shape as longmemeval/pipeline_runs).
+# Regeneratable via runner_phase2.py / runner_rerank.py / runner_minimal.py.
+experiments/retrieval/locomo/phase2_runs/
+experiments/retrieval/locomo/miss_analysis_v1.jsonl
+
 # Phase 2 training data: small (~2MB) and needed in-repo so Colab can
 # git-clone and access it without manual upload. Overrides the global
 # *.jsonl ignore for this specific folder.

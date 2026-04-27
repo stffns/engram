@@ -68,16 +68,39 @@ Rules (in priority order):
 6. Keep answers under 150 words."""
 
 
-def _ingest(mem: vstash.Memory, conv, collection: str) -> int:
+def _ingest(
+    mem: vstash.Memory, conv, collection: str,
+    *, granularity: str = "per-turn",
+) -> int:
+    """Ingest the conversation's haystack into vstash.
+
+    `per-turn`    : one remember per turn (legacy default; pre-fragments
+                    the dialogue and bypasses vstash's chunker).
+    `per-session` : one remember per session (joined turns); vstash
+                    chunks the block. Discovered 2026-04-25 to be
+                    ~+13pp on LoCoMo correct rate.
+    """
     n = 0
-    for sid, turns in conv.haystack_sessions.items():
-        for i, turn in enumerate(turns):
+    if granularity == "per-turn":
+        for sid, turns in conv.haystack_sessions.items():
+            for i, turn in enumerate(turns):
+                mem.remember(
+                    _format_turn(turn),
+                    title=f"{conv.question_id}::{sid}::{i}",
+                    collection=collection,
+                )
+                n += 1
+    elif granularity == "per-session":
+        for sid, turns in conv.haystack_sessions.items():
+            text = "\n".join(_format_turn(t) for t in turns)
             mem.remember(
-                _format_turn(turn),
-                title=f"{conv.question_id}::{sid}::{i}",
+                text,
+                title=f"{conv.question_id}::{sid}",
                 collection=collection,
             )
             n += 1
+    else:
+        raise ValueError(f"unknown granularity: {granularity}")
     return n
 
 
@@ -96,7 +119,13 @@ def _override_inference_config(mem: vstash.Memory, backend: str, model: str):
     object.__setattr__(mem, "_cfg", new_cfg)
 
 
-def run_one(conv, oracle_client, top_k: int, backend: str, model: str) -> dict:
+def run_one(
+    conv, oracle_client, top_k: int, backend: str, model: str,
+    *, granularity: str = "per-turn",
+    vec_weight: float | None = None,
+    fts_weight: float | None = None,
+    retrieval_mode: str | None = None,
+) -> dict:
     t_q = time.perf_counter()
     with tempfile.TemporaryDirectory(prefix="vstash_ask_") as td:
         db_path = Path(td) / "mem.db"
@@ -105,12 +134,19 @@ def run_one(conv, oracle_client, top_k: int, backend: str, model: str) -> dict:
         collection = "default"
 
         t0 = time.perf_counter()
-        n_ing = _ingest(mem, conv, collection)
+        n_ing = _ingest(mem, conv, collection, granularity=granularity)
         ingest_s = time.perf_counter() - t0
 
         t0 = time.perf_counter()
+        ask_kwargs = {"top_k": top_k, "collection": collection}
+        if vec_weight is not None:
+            ask_kwargs["vec_weight"] = vec_weight
+        if fts_weight is not None:
+            ask_kwargs["fts_weight"] = fts_weight
+        if retrieval_mode is not None:
+            ask_kwargs["retrieval_mode"] = retrieval_mode
         try:
-            answer = mem.ask(conv.question, top_k=top_k, collection=collection)
+            answer = mem.ask(conv.question, **ask_kwargs)
         except Exception as exc:  # noqa: BLE001
             traceback.print_exc()
             return {
@@ -158,6 +194,29 @@ def main() -> int:
                     help="'default' uses vstash's built-in SYSTEM_PROMPT (trust-first). "
                          "'hybrid' combines vstash's honest-hedge rule with "
                          "pipeline_runner's extraction rules.")
+    ap.add_argument(
+        "--granularity",
+        choices=["per-turn", "per-session"],
+        default="per-turn",
+        help="per-turn (legacy default, pre-fragments dialogue and "
+             "bypasses vstash's chunker) or per-session (one remember "
+             "per session, lets vstash chunk; +13pp on LoCoMo per "
+             "2026-04-25 finding).",
+    )
+    ap.add_argument(
+        "--vec-weight", type=float, default=None,
+        help="vstash hybrid retrieval vec weight. Default ~0.86. "
+             "vec=0.5 fts=0.5 unlocked +10pp temporal on LoCoMo (2026-04-25).",
+    )
+    ap.add_argument(
+        "--fts-weight", type=float, default=None,
+        help="vstash hybrid retrieval fts weight. Default ~0.14.",
+    )
+    ap.add_argument(
+        "--retrieval-mode",
+        choices=["hybrid", "vec_only", "fts_only"],
+        default=None,
+    )
     args = ap.parse_args()
 
     if args.prompt_variant == "hybrid":
@@ -196,7 +255,13 @@ def main() -> int:
     with out_path.open("w") as f:
         for i, conv in enumerate(sampled):
             print(f"\n[{i+1}/{len(sampled)}] qid={conv.question_id}", flush=True)
-            row = run_one(conv, oracle, args.top_k, args.backend, args.model)
+            row = run_one(
+                conv, oracle, args.top_k, args.backend, args.model,
+                granularity=args.granularity,
+                vec_weight=args.vec_weight,
+                fts_weight=args.fts_weight,
+                retrieval_mode=args.retrieval_mode,
+            )
             f.write(json.dumps(row, ensure_ascii=False) + "\n")
             f.flush()
             v = (row.get("oracle") or {}).get("verdict")
