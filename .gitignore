@@ -28,6 +28,10 @@ htmlcov/
 *.swp
 .DS_Store
 
+# Local agent / tool state -- not part of the project source tree
+.claude/
+AGENTS.md
+
 # vstash / merken local data
 *.db
 *.db-journal
