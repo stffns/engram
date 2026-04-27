@@ -117,9 +117,23 @@ def main() -> int:
     if args.oracle == "cerebras":
         oracle = _CerebrasOracle()
         print("[oracle] using Cerebras llama3.1-8b", flush=True)
+        _score_fn = lambda q, gt, ans: oracle.score(q, gt, ans)
     else:
         oracle = _oracle_client()
         print("[oracle] using Gemini", flush=True)
+        _score_fn = lambda q, gt, ans: oracle_score(oracle, q, gt, ans)
+
+    from experiments.retrieval.oracle_health import (
+        OracleHealthError,
+        OracleHealthGuard,
+    )
+    health = OracleHealthGuard()
+    try:
+        health.preflight(_score_fn)
+        print(f"[oracle] pre-flight OK", flush=True)
+    except OracleHealthError as exc:
+        print(f"[oracle] PRE-FLIGHT FAILED: {exc}", flush=True)
+        return 2
 
     verdicts: Counter[str] = Counter()
     by_qt: dict[str, Counter[str]] = {}
@@ -203,6 +217,11 @@ def main() -> int:
                 else:
                     o = {"verdict": "neutral", "rationale": err}
 
+                try:
+                    health.record(o)
+                except OracleHealthError as exc:
+                    print(f"\n[oracle] HEALTH ABORT: {exc}", flush=True)
+                    return 2
                 v = o.get("verdict") or "error"
                 verdicts[v] += 1
                 qt = conv.question_type or "unknown"
@@ -236,18 +255,32 @@ def main() -> int:
     print(f"  wall total   : {wall_total:.1f}s ({wall_total/60:.1f} min)",
           flush=True)
     print(f"  verdicts     : {dict(verdicts)}", flush=True)
-    print(f"  correct      : {correct}/{total} = "
-          f"{correct/max(1,total)*100:.1f}%", flush=True)
-    print(f"  trust_score  : "
-          f"{(correct - verdicts['contradicts'])/max(1,total)*100:+.1f}%",
-          flush=True)
-    print("\n  per question_type:", flush=True)
-    for qt in sorted(by_qt):
-        cnt = by_qt[qt]
-        n = sum(cnt.values())
-        c = cnt["supports"] + cnt["partial"]
-        print(f"    {qt:<28} {c}/{n} = {c/max(1,n)*100:5.1f}%  v={dict(cnt)}",
+    if not health.summary_safe:
+        print(f"\n  {health.warning()}\n", flush=True)
+        print(
+            f"  correct      : SUPPRESSED ({health.errors}/{health.total} oracle errors)",
+            flush=True,
+        )
+        print(f"  trust_score  : SUPPRESSED", flush=True)
+    else:
+        print(f"  correct      : {correct}/{total} = "
+              f"{correct/max(1,total)*100:.1f}%", flush=True)
+        print(f"  trust_score  : "
+              f"{(correct - verdicts['contradicts'])/max(1,total)*100:+.1f}%",
               flush=True)
+    if not health.summary_safe:
+        print(
+            "\n  per question_type : SUPPRESSED -- rejudge before reading per-shape numbers",
+            flush=True,
+        )
+    else:
+        print("\n  per question_type:", flush=True)
+        for qt in sorted(by_qt):
+            cnt = by_qt[qt]
+            n = sum(cnt.values())
+            c = cnt["supports"] + cnt["partial"]
+            print(f"    {qt:<28} {c}/{n} = {c/max(1,n)*100:5.1f}%  v={dict(cnt)}",
+                  flush=True)
     print(f"[out] {out_path}", flush=True)
     return 0
 

@@ -53,6 +53,10 @@ from experiments.retrieval.longmemeval.mode_a_eval import (  # noqa: E402
     _parse_oracle_json,
     oracle_score,
 )
+from experiments.retrieval.oracle_health import (  # noqa: E402
+    OracleHealthError,
+    OracleHealthGuard,
+)
 
 
 # Cerebras-based oracle fallback. Same prompt + parsing as the Gemini
@@ -190,6 +194,14 @@ def main() -> int:
         help="Pass-through to vstash.search hybrid weights.",
     )
     ap.add_argument("--fts-weight", type=float, default=None)
+    ap.add_argument(
+        "--backend", default=os.environ.get("VSTASH_BACKEND", "cerebras"),
+        help="Builder inference backend (default: cerebras).",
+    )
+    ap.add_argument(
+        "--model", default=os.environ.get("VSTASH_MODEL", "llama3.1-8b"),
+        help="Builder model id (default: llama3.1-8b).",
+    )
     ap.add_argument("--tag", default="rerank")
     ap.add_argument(
         "--out", type=Path,
@@ -249,14 +261,25 @@ def main() -> int:
     )
     print(f"[out] {out_path}", flush=True)
 
+    print(f"[builder] backend={args.backend} model={args.model}", flush=True)
     reranker = _build_reranker(args.rerank_model)
     if args.oracle == "cerebras":
         oracle = _CerebrasOracle()
         print(f"[oracle] using Cerebras llama3.1-8b (Gemini quota fallback)",
               flush=True)
+        _score_fn = lambda q, gt, ans: oracle.score(q, gt, ans)
     else:
         oracle = _oracle_client()
         print(f"[oracle] using Gemini (mode_a_eval default)", flush=True)
+        _score_fn = lambda q, gt, ans: oracle_score(oracle, q, gt, ans)
+
+    health = OracleHealthGuard()
+    try:
+        health.preflight(_score_fn)
+        print(f"[oracle] pre-flight OK", flush=True)
+    except OracleHealthError as exc:
+        print(f"[oracle] PRE-FLIGHT FAILED: {exc}", flush=True)
+        return 2
 
     verdicts: Counter[str] = Counter()
     by_cat_v: dict[str, Counter[str]] = {}
@@ -278,7 +301,7 @@ def main() -> int:
             with tempfile.TemporaryDirectory(prefix="locomo_rer_") as td:
                 db = str(Path(td) / "mem.db")
                 mem = vstash.Memory(db=db)
-                _override_inference_config(mem, "cerebras", "llama3.1-8b")
+                _override_inference_config(mem, args.backend, args.model)
                 t0 = time.perf_counter()
                 n_ing = _ingest_per_session(mem, conv, "default")
                 ingest_s = time.perf_counter() - t0
@@ -339,6 +362,12 @@ def main() -> int:
                         except Exception as exc:  # noqa: BLE001
                             traceback.print_exc()
                             answer, err = "", f"{type(exc).__name__}: {exc}"
+                        # Reasoning models (e.g. gpt-oss-120b) sometimes
+                        # exhaust the 2048-token budget on hidden reasoning
+                        # before producing visible content, leaving message.content=None.
+                        # Treat as a refusal (neutral) instead of crashing the run.
+                        if err is None and answer is None:
+                            answer, err = "", "no_content"
 
                         # 4) oracle
                         if err is None:
@@ -359,6 +388,11 @@ def main() -> int:
                         else:
                             o = {"verdict": "neutral", "rationale": err}
 
+                        try:
+                            health.record(o)
+                        except OracleHealthError as exc:
+                            print(f"\n[oracle] HEALTH ABORT: {exc}", flush=True)
+                            return 2
                         v = o.get("verdict") or "error"
                         if v == "error" or err is not None:
                             errors += 1
@@ -400,28 +434,42 @@ def main() -> int:
     print(f"  wall total   : {wall_total:.1f}s ({wall_total/60:.1f} min)",
           flush=True)
     print(f"  verdicts     : {dict(verdicts)}", flush=True)
-    print(
-        f"  correct      : {correct}/{total} = "
-        f"{correct/max(1,total)*100:.1f}%",
-        flush=True,
-    )
-    print(
-        f"  trust_score  : "
-        f"{(correct - verdicts['contradicts'])/max(1,total)*100:+.1f}%",
-        flush=True,
-    )
-    if errors:
-        print(f"  errors       : {errors}/{total}", flush=True)
-    print("\n  per category:", flush=True)
-    for cat_name in sorted(by_cat_v):
-        cnt = by_cat_v[cat_name]
-        n = sum(cnt.values())
-        c = cnt["supports"] + cnt["partial"]
+    if not health.summary_safe:
+        print(f"\n  {health.warning()}\n", flush=True)
         print(
-            f"    {cat_name:<14} {c}/{n} = {c/max(1,n)*100:5.1f}%  "
-            f"verdicts={dict(cnt)}",
+            f"  correct      : SUPPRESSED ({health.errors}/{health.total} oracle errors)",
             flush=True,
         )
+        print(f"  trust_score  : SUPPRESSED", flush=True)
+    else:
+        print(
+            f"  correct      : {correct}/{total} = "
+            f"{correct/max(1,total)*100:.1f}%",
+            flush=True,
+        )
+        print(
+            f"  trust_score  : "
+            f"{(correct - verdicts['contradicts'])/max(1,total)*100:+.1f}%",
+            flush=True,
+        )
+    if errors:
+        print(f"  errors       : {errors}/{total}", flush=True)
+    if not health.summary_safe:
+        print(
+            "\n  per category : SUPPRESSED -- rejudge before reading per-shape numbers",
+            flush=True,
+        )
+    else:
+        print("\n  per category:", flush=True)
+        for cat_name in sorted(by_cat_v):
+            cnt = by_cat_v[cat_name]
+            n = sum(cnt.values())
+            c = cnt["supports"] + cnt["partial"]
+            print(
+                f"    {cat_name:<14} {c}/{n} = {c/max(1,n)*100:5.1f}%  "
+                f"verdicts={dict(cnt)}",
+                flush=True,
+            )
     print(f"[out] {out_path}", flush=True)
     return 0
 

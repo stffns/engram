@@ -556,6 +556,18 @@ def main() -> int:
 
     oracle = _oracle_client()
 
+    from experiments.retrieval.oracle_health import (
+        OracleHealthError,
+        OracleHealthGuard,
+    )
+    health = OracleHealthGuard()
+    try:
+        health.preflight(lambda q, gt, ans: oracle_score(oracle, q, gt, ans))
+        print(f"[oracle] pre-flight OK", flush=True)
+    except OracleHealthError as exc:
+        print(f"[oracle] PRE-FLIGHT FAILED: {exc}", flush=True)
+        return 2
+
     # Aggregate counters. `error` is a fifth verdict bucket emitted by
     # run_qa() when mem.ask raises; the row is still written so the run
     # does not abort on a single API hiccup. errors count toward the
@@ -637,6 +649,11 @@ def main() -> int:
                             v = (row.get("oracle") or {}).get("verdict") or "error"
                             if v == "error":
                                 errors += 1
+                            try:
+                                health.record(row.get("oracle"))
+                            except OracleHealthError as exc:
+                                print(f"\n[oracle] HEALTH ABORT: {exc}", flush=True)
+                                return 2
                         verdicts[v] += 1
                         total += 1
                         if v in ("supports", "partial"):
@@ -657,20 +674,28 @@ def main() -> int:
     print(f"\n=== SUMMARY ===", flush=True)
     print(f"  wall total   : {wall_total:.1f}s ({wall_total/60:.1f} min)", flush=True)
     print(f"  verdicts     : {dict(verdicts)}", flush=True)
-    print(
-        f"  correct      : {correct}/{total} = "
-        f"{correct/max(1,total)*100:.1f}%",
-        flush=True,
-    )
-    # trust_score = (correct - contradicts) / total. Errors land in
-    # the denominator but neither the numerator nor the contradicts
-    # subtraction -- they shrink the rate without flipping its sign,
-    # which is the right shape for "no answer due to outage".
-    print(
-        f"  trust_score  : "
-        f"{(correct - verdicts['contradicts'])/max(1,total)*100:+.1f}%",
-        flush=True,
-    )
+    if not health.summary_safe:
+        print(f"\n  {health.warning()}\n", flush=True)
+        print(
+            f"  correct      : SUPPRESSED ({health.errors}/{health.total} oracle errors)",
+            flush=True,
+        )
+        print(f"  trust_score  : SUPPRESSED", flush=True)
+    else:
+        print(
+            f"  correct      : {correct}/{total} = "
+            f"{correct/max(1,total)*100:.1f}%",
+            flush=True,
+        )
+        # trust_score = (correct - contradicts) / total. Errors land in
+        # the denominator but neither the numerator nor the contradicts
+        # subtraction -- they shrink the rate without flipping its sign,
+        # which is the right shape for "no answer due to outage".
+        print(
+            f"  trust_score  : "
+            f"{(correct - verdicts['contradicts'])/max(1,total)*100:+.1f}%",
+            flush=True,
+        )
     if errors:
         print(
             f"  errors       : {errors}/{total} "
@@ -678,16 +703,22 @@ def main() -> int:
             f"not as contradicts",
             flush=True,
         )
-    print("\n  per category:", flush=True)
-    for cat_name in sorted(by_cat):
-        cnt = by_cat[cat_name]
-        n = sum(cnt.values())
-        c = cnt["supports"] + cnt["partial"]
+    if not health.summary_safe:
         print(
-            f"    {cat_name:<14} {c}/{n} = {c/max(1,n)*100:5.1f}%  "
-            f"verdicts={dict(cnt)}",
+            "\n  per category : SUPPRESSED -- rejudge before reading per-shape numbers",
             flush=True,
         )
+    else:
+        print("\n  per category:", flush=True)
+        for cat_name in sorted(by_cat):
+            cnt = by_cat[cat_name]
+            n = sum(cnt.values())
+            c = cnt["supports"] + cnt["partial"]
+            print(
+                f"    {cat_name:<14} {c}/{n} = {c/max(1,n)*100:5.1f}%  "
+                f"verdicts={dict(cnt)}",
+                flush=True,
+            )
     print(f"[out] {out_path}", flush=True)
     return 0
 

@@ -395,6 +395,107 @@ launch:
 Per `~/.claude/CLAUDE.md`: any script feeding metrics into a RESULTS
 doc gets a code-review pass before launch.
 
+## Builder scale-up: gpt-oss-120b vs llama3.1-8b (3-seed, 2026-04-27)
+
+Phase 2 plan move #1. Swap the Builder model on the canonical best
+LoCoMo stack (per-session ingest, vec=0.5/fts=0.5 hybrid, mxbai-rerank-base
+k=30->8, --n-per-cat 40, Cerebras llama3.1-8b oracle held fixed) and
+re-run the same 3 seeds.
+
+Patch: `experiments/retrieval/locomo/runner_rerank.py` previously
+hardcoded the Builder via `_override_inference_config(mem, "cerebras",
+"llama3.1-8b")`. Patched to thread `--backend`/`--model` CLI args
+through to `_override_inference_config`, mirroring `runner_phase2.py`.
+Code-review pass: clean (oracle stays on llama3.1-8b, only Builder
+swaps; no other hardcodes; env-var defaults safe).
+
+Defensive guard: gpt-oss-120b is a reasoning model. Its Cerebras response
+puts hidden chain-of-thought in `message.reasoning` and the answer in
+`message.content`. With max_tokens=2048, occasional questions consume the
+whole budget on reasoning, leaving `content=None`. Patched runner to
+treat `answer is None` as a refusal (`err = "no_content"`) instead of
+crashing. On the 3-seed run, this guard fired 0 times in 602 questions.
+
+### Results
+
+| seed | gpt-oss-120b correct | trust   | temporal | wall  | baseline correct | baseline temporal |
+|------|---------------------:|--------:|---------:|------:|-----------------:|------------------:|
+| 42   | 69.5%                | +64.0%  | 75.0%    | 8.0min| 51.5%            | 32.5%             |
+| 43   | 72.6%                | +68.7%  | 87.5%    | 8.2min| 58.2%            | 45.0%             |
+| 44   | 70.1%                | +66.7%  | 77.5%    | 8.4min| 59.2%            | 52.5%             |
+| mean | **70.7% +- 1.6pp**   | **+66.5%** | **80.0%** | -- | 56.3% +- 3.4pp   | 43.3%             |
+
+Per-shape on seed=44 (200 common QAs, baseline vs gpt-oss-120b):
+
+| shape       | n   | baseline | gpt-oss-120b | delta    |
+|-------------|----:|---------:|-------------:|---------:|
+| adversarial | 40  | 20.0%    | 17.5%        | -2.5pp   |
+| multi_hop   | 40  | 65.0%    | 75.0%        | +10.0pp  |
+| open_domain | 40  | 87.5%    | 92.5%        | +5.0pp   |
+| single_hop  | 40  | 77.5%    | 87.5%        | +10.0pp  |
+| temporal    | 40  | 45.0%    | **77.5%**    | **+32.5pp** |
+
+Per-question: 37 gains, 15 losses, net +22.
+
+### Findings
+
+- **Correct: +14.4pp 3-seed mean.** Bands DO NOT overlap (56.3+-3.4 vs
+  70.7+-1.6).
+- **Temporal: +36.7pp 3-seed mean (43.3% -> 80.0%).** First lever that
+  touches the clavado shape that resisted granularity, hybrid weights,
+  reranker, and prompt experiments.
+- **Stdev tightens 3.4pp -> 1.6pp.** gpt-oss-120b is more seed-stable in
+  addition to more accurate. seed=42 (the historical anomalous-low) goes
+  from 51.5% to 69.5% = +18pp on the worst seed.
+- **Trust: +16pp** (+50% baseline -> +66.5%). gpt-oss-120b refuses more
+  of the adversarial bucket where llama3.1-8b confabulated, reducing
+  contradicts and lifting trust without reducing correct.
+- **Adversarial -2.5pp is honest behavior, not regression.** 31/53
+  total neutrals on seed=44 are adversarial questions where refusal
+  is the calibrated answer.
+- **Wall clock: 8 min/seed.** Cerebras serves gpt-oss-120b at the same
+  effective throughput as llama3.1-8b for this workload. The earlier
+  39s/q smoke benchmark was cold-start, not steady-state.
+
+### Decisions
+
+- **Builder is the dominant lever on LoCoMo.** Retrieval-side levers
+  saturated at 56-59% on llama3.1-8b. gpt-oss-120b clears 70%.
+- **gpt-oss-120b becomes the reference Builder for LoCoMo Phase 2.**
+  All future LoCoMo numbers should be re-baselined against this model
+  (the prior 56.3% +- 3.4pp baseline reflects an old Builder choice,
+  not a saturating ceiling).
+- **The "shape-targeted LoRA on temporal" Phase 2 move is now LME-only.**
+  LoCoMo temporal moves with Builder choice; the shape-targeted LoRA
+  hypothesis was justified when temporal was clavado, which it isn't
+  anymore on LoCoMo.
+
+### Files
+
+- Patched runner: `experiments/retrieval/locomo/runner_rerank.py`
+  (commit pending: --backend/--model + None guard)
+- Artifacts: `experiments/retrieval/locomo/phase2_runs/locomo_rerank_seed{42,43,44}_k30to8_10convs_*qa_gptoss120b-builder-scaleup_*.jsonl`
+- Per-seed logs: `gptoss120b_seed{42,43,44}_log.txt` next to artifacts.
+- Diff helper: `/tmp/locomo_diff.py` (per-question delta vs baseline).
+
+### Open follow-ups
+
+- LME N=30 with gpt-oss-120b builder (DONE 2026-04-27): cross-benchmark
+  transfer confirmed -- 56.7% -> 63.3% (+6.6pp), temporal-reasoning
+  +27.3pp echoes the LoCoMo +36.7pp finding. Knowledge-update -66.7pp
+  small-N regression (refusal-on-ambiguity instead of "use most recent").
+  Full LME write-up in `experiments/retrieval/longmemeval/RESULTS.md`.
+- gpt-oss-120b loss-mode inspection: 15 losses on seed=44, 3 are
+  partial->contradicts on single_hop. Worth examining whether the
+  contradicts are truly wrong or just stricter wording the oracle
+  marked harshly.
+- Per-seed cost in Cerebras tokens. (Wall is the same; tokens may
+  differ if reasoning-model traffic is priced differently.)
+- LME 3-seed (seeds 42, 43) on gpt-oss-120b builder. The LoCoMo
+  3-seed showed seed-stable behavior for this Builder; expected to
+  hold on LME but worth confirming before treating cross-benchmark
+  as settled.
+
 ## Outstanding
 
 - Fill in write-side table once merken runs land.

@@ -7,7 +7,82 @@ project's benchmark-driven development model.
 
 ## [Unreleased]
 
+### Empirical findings (2026-04-27)
+
+- **gpt-oss-120b is the dominant Builder lever for LoCoMo and LME (3-seed both benchmarks).**
+  Swapping `cerebras/llama3.1-8b` -> `cerebras/gpt-oss-120b` on the
+  canonical Phase 2 stacks lifts:
+    - LoCoMo 3-seed mean: 56.3% +- 3.4pp -> **70.7% +- 1.6pp**
+      (+14.4pp correct, +16pp trust). Stdev tightens.
+    - LoCoMo 3-seed temporal: 43.3% -> **80.0%** (+36.7pp). The
+      clavado shape that resisted granularity, hybrid weights, rerank,
+      and prompt experiments unsticks under Builder choice.
+    - LME 3-seed mean (Cerebras-graded both sides): 61.1% +- 3.8pp
+      -> **67.8% +- 5.1pp** (+6.7pp correct, +4.4pp trust).
+    - LME 3-seed temporal: 44.4% -> 57.1% (+12.7pp).
+  Cross-benchmark transfer real but uneven -- LoCoMo benefits ~2x
+  more than LME. The morning single-seed LME headlines (+27.3pp
+  temporal, -66.7pp knowledge-update) overstated per-shape effects
+  by 2x-6x; 3-seed correction lands at +12.7pp / -11pp respectively.
+  Knowledge-update small-N regression is real but smaller than alarm.
+  Conclusion: the "shape-targeted LoRA on temporal" Phase 2 move is
+  dominated by Builder choice; if gpt-oss-120b becomes the production
+  Builder, LoRA work should target its remaining failure modes
+  (knowledge-update calibration, multi-session reasoning).
+  Full write-ups in
+  `experiments/retrieval/locomo/RESULTS_phase2.md` and
+  `experiments/retrieval/longmemeval/RESULTS.md`.
+
+- **Three contaminated 2026-04-25 runs corrected via Cerebras rejudge.**
+  Audit found that Gemini 2.5 Flash hit its monthly quota cap during
+  the 2026-04-25 cycle and our runners stored the resulting 429
+  responses as `verdict: "neutral"` with rationale starting "oracle_error".
+  Counting verdicts then treated those silent oracle outages as real
+  refusals. Three runs fed cited findings:
+    - LME hybrid_eq (30/30 errors): claim "destroys LME 0/30" was
+      false; Cerebras rejudge gives 17/30 = 56.7%, identical to
+      default-weights baseline (no-op, not destruction).
+    - LoCoMo fts-heavier (120/201 = 60% errors): claim "destroys
+      to 23.4%" was false; Cerebras rejudge gives 60.5%, +1.5pp
+      vs canonical baseline (small positive, not regression).
+    - LME gpt-oss-120b morning run (30/30 errors): caught in flight,
+      Cerebras rejudge gives 19/30 = 63.3%.
+  The "hybrid weights is dataset-specific" finding (one of three
+  cited dataset-specific knobs in `project_locomo_phase2_next_session.md`)
+  collapses: hybrid weights is a small positive lever on LoCoMo and
+  a no-op on LME, not a contradiction. Granularity and reranker
+  remain truly dataset-specific.
+
+### Added (defensive)
+
+- `experiments/retrieval/oracle_health.py`: `OracleHealthGuard`
+  helper -- pre-flight ping, runtime first-window guard (>2/10
+  errors aborts the run), 5%-total guard, summary suppression that
+  blanks out correct% / trust_score / per-shape breakdowns when any
+  oracle error is recorded. All four production runners
+  (`runner_rerank.py` LoCoMo + LME, `runner_phase2.py`,
+  `run_vstash_ask.py`) wired through. Code-reviewed and smoke-tested
+  (happy path + invalid-API-key path both verified). Future runs
+  with quota issues will abort cleanly instead of producing silent
+  contamination.
+- `experiments/retrieval/longmemeval/run_vstash_ask.py`: `--oracle
+  cerebras|gemini` CLI flag (default gemini). Mirrors the
+  `runner_rerank.py` convention. Required for running LME with
+  Cerebras oracle without rejudge while Gemini quota is exhausted.
+
 ### Added
+- `experiments/retrieval/locomo/runner_rerank.py`: `--backend` /
+  `--model` CLI args (defaults preserve `cerebras/llama3.1-8b` so
+  prior runs are reproducible). Replaces a hardcoded
+  `_override_inference_config(mem, "cerebras", "llama3.1-8b")` that
+  previously made Builder swaps require editing the file. Mirrors
+  the runner_phase2.py / run_vstash_ask.py convention.
+- `experiments/retrieval/locomo/runner_rerank.py`: defensive
+  `answer is None -> err = "no_content"` guard for reasoning models
+  whose `message.content` can be empty when reasoning consumes the
+  full max_completion_tokens budget. Treated as a refusal (neutral)
+  instead of crashing the run. Tripped 0 times on 602 questions in
+  the gpt-oss-120b 3-seed run.
 - `pipeline_runner.py --dump-briefs-to <path>`: append every synthesized
   brief alongside the session-turn input the teacher saw, with
   provenance (`run_id`, `teacher_model`, `teacher_temperature`,

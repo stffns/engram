@@ -120,12 +120,16 @@ def _override_inference_config(mem: vstash.Memory, backend: str, model: str):
 
 
 def run_one(
-    conv, oracle_client, top_k: int, backend: str, model: str,
+    conv, score_fn, top_k: int, backend: str, model: str,
     *, granularity: str = "per-turn",
     vec_weight: float | None = None,
     fts_weight: float | None = None,
     retrieval_mode: str | None = None,
 ) -> dict:
+    """``score_fn`` is a callable ``(question, ground_truth, candidate) -> dict``
+    so the caller can swap Gemini (``oracle_score(client, ...)``) or
+    Cerebras (``_CerebrasOracle().score(...)``) without changing this body.
+    """
     t_q = time.perf_counter()
     with tempfile.TemporaryDirectory(prefix="vstash_ask_") as td:
         db_path = Path(td) / "mem.db"
@@ -159,7 +163,7 @@ def run_one(
 
         t0 = time.perf_counter()
         gt = conv.answer if isinstance(conv.answer, str) else str(conv.answer)
-        oracle = oracle_score(oracle_client, conv.question, gt, answer)
+        oracle = score_fn(conv.question, gt, answer)
         oracle_s = time.perf_counter() - t0
 
     return {
@@ -185,6 +189,15 @@ def main() -> int:
     ap.add_argument("--top-k", type=int, default=8)
     ap.add_argument("--backend", default=os.environ.get("VSTASH_BACKEND", "cerebras"))
     ap.add_argument("--model", default=os.environ.get("VSTASH_MODEL", "llama3.1-8b"))
+    ap.add_argument(
+        "--oracle", choices=["gemini", "cerebras"], default="gemini",
+        help="Oracle backend for grading. 'cerebras' uses llama3.1-8b "
+             "as a fallback when Gemini quota is exhausted. The "
+             "Cerebras-graded baseline at "
+             "experiments/retrieval/longmemeval/pipeline_runs/"
+             "vstash_ask_seed44_n30_vstash_ask_cerebras_*.jsonl is "
+             "the apples-to-apples comparison point for --oracle cerebras runs.",
+    )
     ap.add_argument("--tag", default="vstash_ask")
     ap.add_argument("--out", type=Path,
                     default=Path("experiments/retrieval/longmemeval/pipeline_runs"))
@@ -246,7 +259,29 @@ def main() -> int:
     out_path = args.out / f"vstash_ask_seed{args.seed}_n{len(sampled)}_{args.tag}_{ts}.jsonl"
     print(f"[out] {out_path}", flush=True)
 
-    oracle = _oracle_client()
+    if args.oracle == "cerebras":
+        from experiments.retrieval.locomo.runner_rerank import _CerebrasOracle
+        oracle = _CerebrasOracle()
+        print("[oracle] using Cerebras llama3.1-8b (Gemini quota fallback)",
+              flush=True)
+        _score_fn = lambda q, gt, ans: oracle.score(q, gt, ans)
+    else:
+        oracle = _oracle_client()
+        print("[oracle] using Gemini (mode_a_eval default)", flush=True)
+        _score_fn = lambda q, gt, ans: oracle_score(oracle, q, gt, ans)
+
+    from experiments.retrieval.oracle_health import (
+        OracleHealthError,
+        OracleHealthGuard,
+    )
+    health = OracleHealthGuard()
+    try:
+        health.preflight(_score_fn)
+        print(f"[oracle] pre-flight OK", flush=True)
+    except OracleHealthError as exc:
+        print(f"[oracle] PRE-FLIGHT FAILED: {exc}", flush=True)
+        return 2
+
     t_all = time.perf_counter()
     correct = 0
     total = 0
@@ -256,7 +291,7 @@ def main() -> int:
         for i, conv in enumerate(sampled):
             print(f"\n[{i+1}/{len(sampled)}] qid={conv.question_id}", flush=True)
             row = run_one(
-                conv, oracle, args.top_k, args.backend, args.model,
+                conv, _score_fn, args.top_k, args.backend, args.model,
                 granularity=args.granularity,
                 vec_weight=args.vec_weight,
                 fts_weight=args.fts_weight,
@@ -264,6 +299,11 @@ def main() -> int:
             )
             f.write(json.dumps(row, ensure_ascii=False) + "\n")
             f.flush()
+            try:
+                health.record(row.get("oracle"))
+            except OracleHealthError as exc:
+                print(f"\n[oracle] HEALTH ABORT: {exc}", flush=True)
+                return 2
             v = (row.get("oracle") or {}).get("verdict")
             verdicts[v] += 1
             total += 1
@@ -279,8 +319,16 @@ def main() -> int:
     print(f"\n=== SUMMARY ===", flush=True)
     print(f"  total wall   : {time.perf_counter() - t_all:.1f}s", flush=True)
     print(f"  verdicts     : {dict(verdicts)}", flush=True)
-    print(f"  correct      : {correct}/{total} = {correct/max(1,total)*100:.1f}%", flush=True)
-    print(f"  trust_score  : {(correct - verdicts['contradicts'])/max(1,total)*100:+.1f}%", flush=True)
+    if not health.summary_safe:
+        print(f"\n  {health.warning()}\n", flush=True)
+        print(
+            f"  correct      : SUPPRESSED ({health.errors}/{health.total} oracle errors)",
+            flush=True,
+        )
+        print(f"  trust_score  : SUPPRESSED", flush=True)
+    else:
+        print(f"  correct      : {correct}/{total} = {correct/max(1,total)*100:.1f}%", flush=True)
+        print(f"  trust_score  : {(correct - verdicts['contradicts'])/max(1,total)*100:+.1f}%", flush=True)
     print(f"[out] {out_path}", flush=True)
     return 0
 

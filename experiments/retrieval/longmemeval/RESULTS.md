@@ -1704,3 +1704,163 @@ substrate for LongMemEval's specific-fact question profile.
   the regression, but given the mechanism (compression loss on
   specific-fact questions, a property of the prompt not the seed),
   replication is not expected to move the headline.
+
+## Builder scale-up: gpt-oss-120b vs llama3.1-8b (single-seed, 2026-04-27)
+
+LoCoMo 3-seed showed the LoCoMo Builder swap (`cerebras/llama3.1-8b`
+to `cerebras/gpt-oss-120b`) lifted the 3-seed mean from 56.3% +- 3.4pp
+to 70.7% +- 1.6pp, with the temporal shape going from 43.3% to 80.0%
+(+36.7pp). Cross-benchmark transfer to LongMemEval is the natural
+follow-up: LME's temporal-reasoning shape was clavado at 36-38%
+under every config tested in the prior session (granularity, hybrid
+weights, reranker, prompt-fix). Does the Builder lever transfer?
+
+Setup: `experiments/retrieval/longmemeval/run_vstash_ask.py
+--seed 44 --n 30 --top-k 8 --backend cerebras --model gpt-oss-120b`.
+Per-turn ingest, default vec/fts weights, no rerank -- the canonical
+LME 56.7% baseline stack. Apples-to-apples Builder swap.
+
+Oracle wrinkle: Gemini monthly quota was exhausted, so all 30 oracle
+calls returned 429. The model answers themselves were generated
+correctly. Re-judged with `experiments/retrieval/locomo/rejudge_with_cerebras.py`
+which writes an `oracle_cer` field per row using the Cerebras
+llama3.1-8b oracle. Baseline 56.7% was already Cerebras-graded;
+no oracle-asymmetry between the two columns.
+
+### Results
+
+Single-seed N=30 seed=44 (rejudged with Cerebras):
+
+| question_type             | n  | baseline | gpt-oss-120b | delta    |
+|---------------------------|---:|---------:|-------------:|---------:|
+| knowledge-update          | 3  | 100%     | 33.3%        | -66.7pp  |
+| multi-session             | 9  | 44.4%    | 55.6%        | +11.1pp  |
+| single-session-preference | 2  | 50.0%    | 50.0%        | 0pp      |
+| single-session-user       | 5  | 100%     | 100%         | 0pp      |
+| temporal-reasoning        | 11 | 36.4%    | **63.6%**    | **+27.3pp** |
+| TOTAL                     | 30 | 56.7%    | 63.3%        | +6.6pp   |
+
+Trust: +50.0% -> +56.7% (+6.7pp). Per-question: 6 gains, 4 losses,
+net +2.
+
+### Findings
+
+- **Temporal-reasoning unsticks on LME too.** +27.3pp (36.4% -> 63.6%)
+  echoes the +36.7pp 3-seed move on LoCoMo. The "temporal-reasoning
+  is a Builder bottleneck" hypothesis from the prior session is
+  empirically validated cross-benchmark.
+- **Multi-session +11.1pp.** Smaller but consistent direction.
+- **Knowledge-update -66.7pp.** All 3 LME knowledge-update questions
+  in this sample were lost: 2 are user-says-two-different-things
+  scenarios (Harajuku apartment duration, Crash Course episodes) where
+  baseline llama3.1-8b confidently picked one number and gpt-oss-120b
+  flagged the contradiction without selecting. The latter is a
+  reasoning failure: knowledge-update questions test "use the most
+  recent statement", not "detect inconsistency." gpt-oss-120b is
+  miscalibrated on this shape -- refusal-on-ambiguity is correct for
+  adversarial questions (LoCoMo +trust) but wrong for knowledge-update.
+- **N=30 with 3 knowledge-update questions is small.** longmemeval_s
+  has ~36 knowledge-update items total; sampling 3 is too few to
+  call this a robust regression.
+- **Net +6.6pp on a Cerebras-Cerebras-rejudge comparison.** The
+  effect is real on temporal-reasoning, marginal-but-positive overall.
+
+### Decisions
+
+- **Builder scale-up transfers cross-benchmark on the temporal shape.**
+  This was the single biggest open question from the 2026-04-25
+  session ("LME temporal-reasoning stays at 36-38% under EVERY config
+  tested"). The answer is: it stays at 36% for retrieval-side levers,
+  but moves +27pp under Builder swap. Same lever as LoCoMo.
+- **The "shape-targeted LoRA on temporal" Phase 2 move is dominated
+  by Builder choice on both benchmarks.** Re-evaluate whether LoRA
+  is still the right next move; if gpt-oss-120b is the production
+  Builder, LoRA work should target gpt-oss-120b's remaining
+  failure modes (knowledge-update calibration, adversarial-vs-
+  ambiguity disambiguation).
+- **3-seed LME pending.** seeds 42 and 43 should be run before this
+  result is treated as a settled cross-benchmark conclusion. Not
+  blocking the Phase 2 narrative -- the LoCoMo 3-seed already
+  carries the Builder-as-lever conclusion.
+
+### Files
+
+- New artifact: `pipeline_runs/vstash_ask_seed44_n30_gptoss120b-builder-scaleup_20260427T060026Z.jsonl`
+- Cerebras rejudge: `pipeline_runs/vstash_ask_seed44_n30_gptoss120b-builder-scaleup_20260427T060026Z_rejudged_cer.jsonl`
+- Run log: `pipeline_runs/lme_gptoss120b_seed44_log.txt`
+
+## Builder scale-up 3-seed CONFIRMED + per-shape CORRECTED (2026-04-27 session 2)
+
+After patching `run_vstash_ask.py` to accept `--oracle cerebras`
+(mirrors the LoCoMo runner_rerank pattern; the prior version hardcoded
+Gemini for grading) and re-running seeds 42 / 43 plus rejudging the
+seed=42/43 baselines with Cerebras (the seed=44 baseline was already
+Cerebras-graded), the apples-to-apples 3-seed comparison is:
+
+| seed | baseline | gpt-oss-120b | delta |
+|------|---------:|-------------:|------:|
+| 42   | 19/30 = 63.3%   | 22/30 = 73.3% | +10.0pp |
+| 43   | 19/30 = 63.3%   | 20/30 = 66.7% | +3.3pp |
+| 44   | 17/30 = 56.7%   | 19/30 = 63.3% | +6.7pp |
+| **mean** | **61.1% +- 3.8pp** | **67.8% +- 5.1pp** | **+6.7pp** |
+
+Trust mean: +52.2% -> +56.7% (+4.4pp).
+
+The single-seed-vs-single-seed morning headline ("+6.6pp on seed=44")
+landed correctly under 3-seed-mean comparison: +6.7pp. But the
+per-shape claims from seed=44 were inflated by single-seed cherry-pick:
+
+| shape (3-seed mean) | baseline | gpt-oss-120b | 3-seed delta | morning single-seed |
+|---|---:|---:|---:|---:|
+| temporal-reasoning  | 44.4% | 57.1% | **+12.7pp** | +27.3pp (overstated 2x) |
+| knowledge-update    | 80.5% | 69.5% | **-11pp**   | -66.7pp (overstated 6x) |
+| multi-session       | 45.2% | 58.4% | +13.2pp     | +11.1pp |
+| single-session-user | 95.8% | 88.9% | -7pp (saturated, noise) | 0pp |
+
+### Findings (revised)
+
+**Headline +6.7pp 3-seed cross-benchmark transfer holds.** The single-seed
+LME morning result was directionally correct on the overall metric.
+The per-shape numbers were inflated by ~2x on temporal and ~6x on
+knowledge-update; both still real but smaller.
+
+**Cross-benchmark asymmetry:** LoCoMo gets +14.4pp / temporal +36.7pp
+3-seed; LME gets +6.7pp / temporal +12.7pp 3-seed. gpt-oss-120b helps
+both benchmarks but LoCoMo roughly 2x more than LME. Hypothesis: LME
+sessions are 9981 chars mean (LoCoMo 2843) and span much longer
+multi-session journals; the Builder scale-up may be hitting a context-
+length ceiling on LME that doesn't bind on LoCoMo.
+
+**Per-seed stability splits:** LoCoMo gpt-oss-120b stdev TIGHTENS
+(3.4pp -> 1.6pp); LME stdev WIDENS (3.8pp -> 5.1pp). The LME widening
+is driven by temporal-reasoning being unstable across seeds: seed=43
+shows 0pp move, seed=44 shows +27pp move. The +12.7pp 3-seed mean is
+real but seed-to-seed swings are wide.
+
+**The single-seed reporting deprecated rule from 2026-04-25 LoCoMo
+applies cross-benchmark.** Morning headlines from seed=44 alone
+overstated the per-shape effects by 2-6x.
+
+### Decisions (revised)
+
+- **Builder scale-up cross-benchmark transfer is REAL but UNEVEN**.
+  LoCoMo benefits ~2x more than LME. The "Builder is the dominant
+  lever" claim holds; the "transfers identically across benchmarks"
+  was over-stated.
+- **Knowledge-update LME small-N regression (-11pp 3-seed) is real
+  but smaller than the single-seed alarm.** Still worth investigating
+  the failure mode (gpt-oss-120b refuses-on-ambiguity vs "use most
+  recent"). N=10 across 3 seeds is enough to know it's not noise but
+  too small for high-resolution forensics.
+- **gpt-oss-120b stays as production Builder candidate**. Both
+  benchmarks lift; the LoCoMo 3-seed +14.4pp is the strongest signal
+  in Phase 2. LME +6.7pp is moderate but not negative.
+- **3-seed reporting is mandatory going forward**, even when single-
+  seed numbers look strong. The cost is ~10-20 min of compute per
+  benchmark; the benefit is preventing 2x-6x overstatements.
+
+### Files (3-seed)
+
+- Seeds 42/43 new artifacts: `pipeline_runs/vstash_ask_seed4{2,3}_n30_gptoss120b-builder-scaleup-3seed_*.jsonl`
+- Cerebras-rejudged baselines (for apples-to-apples): `pipeline_runs/vstash_ask_seed4{2,3}_n30_vstash_ask_seed{42,43}_*_rejudged_cer.jsonl`
+- Run logs: `pipeline_runs/lme_gptoss120b_seed4{2,3}_log.txt`
