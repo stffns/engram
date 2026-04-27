@@ -125,7 +125,7 @@ def main() -> int:
         else:
             summary["missing_top_30"] += 1
             cat = "MISSING"
-        first = d["first_answer_session_rank"] or "—"
+        first = d["first_answer_session_rank"] or "-"
         ranks = d["all_answer_session_ranks"][:5]
         print(f"{qid:22s} {conv.question_type[:14]:14s} "
               f"{'YES' if d['top_10_has_answer'] else 'no ':>3s}    "

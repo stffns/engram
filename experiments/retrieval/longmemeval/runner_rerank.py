@@ -117,11 +117,15 @@ def main() -> int:
     if args.oracle == "cerebras":
         oracle = _CerebrasOracle()
         print("[oracle] using Cerebras llama3.1-8b", flush=True)
-        _score_fn = lambda q, gt, ans: oracle.score(q, gt, ans)
+
+        def _score_fn(q, gt, ans):
+            return oracle.score(q, gt, ans)
     else:
         oracle = _oracle_client()
         print("[oracle] using Gemini", flush=True)
-        _score_fn = lambda q, gt, ans: oracle_score(oracle, q, gt, ans)
+
+        def _score_fn(q, gt, ans):
+            return oracle_score(oracle, q, gt, ans)
 
     from experiments.retrieval.oracle_health import (
         OracleHealthError,
@@ -148,101 +152,108 @@ def main() -> int:
             with tempfile.TemporaryDirectory(prefix="lme_rerank_") as td:
                 db = str(Path(td) / "mem.db")
                 mem = vstash.Memory(db=db)
-                _override_inference_config(mem, "cerebras", "llama3.1-8b")
-                t0 = time.perf_counter()
-                n_ing = _ingest(mem, conv, "default", granularity=args.granularity)
-                ingest_s = time.perf_counter() - t0
-
-                t_q = time.perf_counter()
-                # 1) retrieve k=30
-                search_kwargs = {
-                    "top_k": args.top_k_retrieve,
-                    "collection": "default",
-                }
-                if args.vec_weight is not None:
-                    search_kwargs["vec_weight"] = args.vec_weight
-                if args.fts_weight is not None:
-                    search_kwargs["fts_weight"] = args.fts_weight
                 try:
-                    with _alarm(60):
-                        hits = mem.search(conv.question, **search_kwargs)
-                except _TimeoutError as exc:
-                    f.write(json.dumps({
-                        "qid": conv.question_id,
-                        "question": conv.question,
-                        "error": f"search_timeout: {exc}",
-                    }) + "\n")
-                    f.flush()
-                    verdicts["error"] += 1
-                    total += 1
-                    mem.close()
-                    continue
+                    _override_inference_config(mem, "cerebras", "llama3.1-8b")
+                    t0 = time.perf_counter()
+                    n_ing = _ingest(mem, conv, "default", granularity=args.granularity)
+                    ingest_s = time.perf_counter() - t0
 
-                # 2) cross-encoder rerank
-                if hits:
-                    pairs = [(conv.question, h.text) for h in hits]
-                    scores = reranker.predict(pairs)
-                    order = sorted(
-                        range(len(hits)), key=lambda j: -float(scores[j])
-                    )
-                    top_final = [hits[j] for j in order[:args.top_k_final]]
-                else:
-                    top_final = hits
-
-                # 3) vstash.chat.ask with reranked chunks
-                try:
-                    with _alarm(120):
-                        answer = _vstash_chat.ask(
-                            conv.question, top_final, mem._cfg,
-                        )
-                    err = None
-                except _TimeoutError as exc:
-                    answer, err = "", f"ask_timeout: {exc}"
-                except Exception as exc:  # noqa: BLE001
-                    traceback.print_exc()
-                    answer, err = "", f"{type(exc).__name__}: {exc}"
-
-                # 4) oracle
-                gt = conv.answer if isinstance(conv.answer, str) else str(conv.answer)
-                if err is None:
+                    t_q = time.perf_counter()
+                    # 1) retrieve k=30
+                    search_kwargs = {
+                        "top_k": args.top_k_retrieve,
+                        "collection": "default",
+                    }
+                    if args.vec_weight is not None:
+                        search_kwargs["vec_weight"] = args.vec_weight
+                    if args.fts_weight is not None:
+                        search_kwargs["fts_weight"] = args.fts_weight
                     try:
                         with _alarm(60):
-                            if args.oracle == "cerebras":
-                                o = oracle.score(conv.question, gt, answer)
-                            else:
-                                o = oracle_score(oracle, conv.question, gt, answer)
+                            hits = mem.search(conv.question, **search_kwargs)
                     except _TimeoutError as exc:
-                        o = {"verdict": "neutral",
-                             "rationale": f"oracle_timeout: {exc}"}
-                else:
-                    o = {"verdict": "neutral", "rationale": err}
+                        f.write(json.dumps({
+                            "qid": conv.question_id,
+                            "question": conv.question,
+                            "error": f"search_timeout: {exc}",
+                        }) + "\n")
+                        f.flush()
+                        verdicts["error"] += 1
+                        total += 1
+                        continue
 
-                try:
-                    health.record(o)
-                except OracleHealthError as exc:
-                    print(f"\n[oracle] HEALTH ABORT: {exc}", flush=True)
-                    return 2
-                v = o.get("verdict") or "error"
-                verdicts[v] += 1
-                qt = conv.question_type or "unknown"
-                by_qt.setdefault(qt, Counter())[v] += 1
-                total += 1
-                if v in ("supports", "partial"):
-                    correct += 1
+                    # 2) cross-encoder rerank
+                    if hits:
+                        pairs = [(conv.question, h.text) for h in hits]
+                        scores = reranker.predict(pairs)
+                        order = sorted(
+                            range(len(hits)), key=lambda j: -float(scores[j])
+                        )
+                        top_final = [hits[j] for j in order[:args.top_k_final]]
+                    else:
+                        top_final = hits
 
-                row = {
-                    "qid": conv.question_id,
-                    "question_type": conv.question_type,
-                    "question": conv.question,
-                    "ground_truth": gt,
-                    "n_ingested": n_ing,
-                    "vstash_answer": answer,
-                    "oracle": o,
-                    "wall_s_total": time.perf_counter() - t_q,
-                }
-                f.write(json.dumps(row, ensure_ascii=False) + "\n")
-                f.flush()
-                mem.close()
+                    # 3) vstash.chat.ask with reranked chunks
+                    try:
+                        with _alarm(120):
+                            answer = _vstash_chat.ask(
+                                conv.question, top_final, mem._cfg,
+                            )
+                        err = None
+                    except _TimeoutError as exc:
+                        answer, err = "", f"ask_timeout: {exc}"
+                    except Exception as exc:  # noqa: BLE001
+                        traceback.print_exc()
+                        answer, err = "", f"{type(exc).__name__}: {exc}"
+                    # Reasoning models (e.g. gpt-oss-120b) sometimes
+                    # exhaust the token budget on hidden reasoning before
+                    # producing visible content, leaving message.content=None.
+                    # Treat as a refusal (neutral) rather than crashing.
+                    if err is None and answer is None:
+                        answer, err = "", "no_content"
+
+                    # 4) oracle
+                    gt = conv.answer if isinstance(conv.answer, str) else str(conv.answer)
+                    if err is None:
+                        try:
+                            with _alarm(60):
+                                if args.oracle == "cerebras":
+                                    o = oracle.score(conv.question, gt, answer)
+                                else:
+                                    o = oracle_score(oracle, conv.question, gt, answer)
+                        except _TimeoutError as exc:
+                            o = {"verdict": "neutral",
+                                 "rationale": f"oracle_timeout: {exc}"}
+                    else:
+                        o = {"verdict": "neutral", "rationale": err}
+
+                    try:
+                        health.record(o)
+                    except OracleHealthError as exc:
+                        print(f"\n[oracle] HEALTH ABORT: {exc}", flush=True)
+                        return 2
+                    v = o.get("verdict") or "error"
+                    verdicts[v] += 1
+                    qt = conv.question_type or "unknown"
+                    by_qt.setdefault(qt, Counter())[v] += 1
+                    total += 1
+                    if v in ("supports", "partial"):
+                        correct += 1
+
+                    row = {
+                        "qid": conv.question_id,
+                        "question_type": conv.question_type,
+                        "question": conv.question,
+                        "ground_truth": gt,
+                        "n_ingested": n_ing,
+                        "vstash_answer": answer,
+                        "oracle": o,
+                        "wall_s_total": time.perf_counter() - t_q,
+                    }
+                    f.write(json.dumps(row, ensure_ascii=False) + "\n")
+                    f.flush()
+                finally:
+                    mem.close()
                 print(
                     f"  -> verdict={v} correct={correct}/{total}="
                     f"{correct/total*100:.1f}%",

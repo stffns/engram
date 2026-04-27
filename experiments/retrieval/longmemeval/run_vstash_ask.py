@@ -159,6 +159,17 @@ def run_one(
                 "error": f"{type(exc).__name__}: {exc}",
                 "wall_s": time.perf_counter() - t_q,
             }
+        # Reasoning models (e.g. gpt-oss-120b) sometimes burn the
+        # token budget on hidden reasoning before producing visible
+        # content, leaving message.content=None. Treat as a refusal
+        # row instead of crashing the oracle on a None candidate.
+        if answer is None:
+            return {
+                "qid": conv.question_id,
+                "question": conv.question,
+                "error": "no_content (model returned None message.content)",
+                "wall_s": time.perf_counter() - t_q,
+            }
         ask_s = time.perf_counter() - t0
 
         t0 = time.perf_counter()
@@ -289,8 +300,9 @@ def main() -> int:
     t_all = time.perf_counter()
     correct = 0
     total = 0
+    errors = 0
     from collections import Counter
-    verdicts = Counter()
+    verdicts: Counter[str] = Counter()
     with out_path.open("w") as f:
         for i, conv in enumerate(sampled):
             print(f"\n[{i+1}/{len(sampled)}] qid={conv.question_id}", flush=True)
@@ -303,12 +315,23 @@ def main() -> int:
             )
             f.write(json.dumps(row, ensure_ascii=False) + "\n")
             f.flush()
-            try:
-                health.record(row.get("oracle"))
-            except OracleHealthError as exc:
-                print(f"\n[oracle] HEALTH ABORT: {exc}", flush=True)
-                return 2
-            v = (row.get("oracle") or {}).get("verdict")
+            # Distinguish runner errors (mem.ask raised, model returned
+            # None) from oracle verdicts. errors land in `total` for the
+            # denominator but never in `correct`, and never feed
+            # health.record so an outage of the *model* is not confused
+            # with an outage of the *oracle*.
+            if "error" in row:
+                v = "error"
+                errors += 1
+            else:
+                try:
+                    health.record(row.get("oracle"))
+                except OracleHealthError as exc:
+                    print(f"\n[oracle] HEALTH ABORT: {exc}", flush=True)
+                    return 2
+                v = (row.get("oracle") or {}).get("verdict") or "error"
+                if v == "error":
+                    errors += 1
             verdicts[v] += 1
             total += 1
             if v in ("supports", "partial"):
@@ -323,6 +346,8 @@ def main() -> int:
     print(f"\n=== SUMMARY ===", flush=True)
     print(f"  total wall   : {time.perf_counter() - t_all:.1f}s", flush=True)
     print(f"  verdicts     : {dict(verdicts)}", flush=True)
+    if errors:
+        print(f"  errors       : {errors}/{total}", flush=True)
     if not health.summary_safe:
         print(f"\n  {health.warning()}\n", flush=True)
         print(

@@ -37,11 +37,11 @@ trade-off vs `pipeline_runner + briefs` is real: -10pp correct,
 
 | direction        | count | interpretation                       |
 |------------------|------:|--------------------------------------|
-| supports → neutral    | 6  | over-hedging introduced               |
-| supports → contradicts| 1  | over-hedging + wrong shift            |
-| neutral → contradicts | 1  | hedge replaced by new lie             |
-| contradicts → neutral | 1  | trivial gain                          |
-| gains (any → supports/partial) | 0 | no unlock from stricter rules |
+| supports -> neutral    | 6  | over-hedging introduced               |
+| supports -> contradicts| 1  | over-hedging + wrong shift            |
+| neutral -> contradicts | 1  | hedge replaced by new lie             |
+| contradicts -> neutral | 1  | trivial gain                          |
+| gains (any -> supports/partial) | 0 | no unlock from stricter rules |
 
 **Net:** -7 correct, 0 gains. Hybrid unambiguously regressed.
 

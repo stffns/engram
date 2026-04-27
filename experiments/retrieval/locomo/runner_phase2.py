@@ -376,6 +376,21 @@ def run_qa(
             "error": f"{type(exc).__name__}: {exc}",
             "wall_s": time.perf_counter() - t_q,
         }
+    # Reasoning models (e.g. gpt-oss-120b) sometimes burn the token
+    # budget on hidden reasoning before producing visible content,
+    # leaving message.content=None. Treat as a refusal row instead
+    # of crashing the oracle on a None candidate.
+    if answer is None:
+        return {
+            "sample_id": conv.sample_id,
+            "question": qa.question,
+            "category": qa.category,
+            "category_name": qa.category_name,
+            "ground_truth": qa.answer,
+            "evidence": qa.evidence,
+            "error": "no_content (model returned None message.content)",
+            "wall_s": time.perf_counter() - t_q,
+        }
     ask_s = time.perf_counter() - t0
 
     t0 = time.perf_counter()
