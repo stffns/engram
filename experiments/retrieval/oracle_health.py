@@ -18,10 +18,11 @@ This guard catches the failure mode at three points:
     questions; abort if > ``max_errors_in_first``. Catches mid-run
     quota exhaustion early so we don't burn an hour on a dead oracle.
 
-3.  Summary refuse: at the end of the run, ``summary_safe()`` returns
-    False if any oracle error has been recorded. Runners use this to
-    suppress the headline ``correct%`` print and emit a warning,
-    forcing the operator to rejudge before citing a number.
+3.  Summary refuse: at the end of the run, the ``summary_safe``
+    property returns False if any oracle error has been recorded.
+    Runners use this to suppress the headline ``correct%`` print and
+    emit a warning, forcing the operator to rejudge before citing a
+    number.
 
 Runner usage::
 
@@ -29,7 +30,7 @@ Runner usage::
 
     oracle = _CerebrasOracle()  # or _oracle_client()
     health = OracleHealthGuard()
-    health.preflight(oracle, score_fn=lambda q, gt, ans: oracle.score(q, gt, ans))
+    health.preflight(score_fn=lambda q, gt, ans: oracle.score(q, gt, ans))
 
     for qa in qas:
         ...
@@ -37,7 +38,7 @@ Runner usage::
         health.record(verdict)  # may raise after first-window
         ...
 
-    if not health.summary_safe():
+    if not health.summary_safe:
         print(health.warning())
     else:
         print(f"correct: {correct}/{total} = {correct/total*100:.1f}%")

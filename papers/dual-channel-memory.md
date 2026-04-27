@@ -575,7 +575,7 @@ Retrieval is not the limiting factor on the remaining failures. A
 per-qid diagnostic using vstash's `miss_analysis` on all 13 neutral
 and contradicted qids from the baseline showed the answer-session
 chunk within top-10 in 13/13 cases. The stuck failures are
-reasoning-shape tasks a 8B Builder cannot close via prompt alone:
+reasoning-shape tasks an 8B Builder cannot close via prompt alone:
 implicit inference across two claims, relative-date comparisons on
 fuzzy temporal expressions, identity resolution across pronoun
 shifts, and strict-category counting.

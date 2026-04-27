@@ -264,11 +264,15 @@ def main() -> int:
         oracle = _CerebrasOracle()
         print("[oracle] using Cerebras llama3.1-8b (Gemini quota fallback)",
               flush=True)
-        _score_fn = lambda q, gt, ans: oracle.score(q, gt, ans)
+
+        def _score_fn(q, gt, ans):
+            return oracle.score(q, gt, ans)
     else:
         oracle = _oracle_client()
         print("[oracle] using Gemini (mode_a_eval default)", flush=True)
-        _score_fn = lambda q, gt, ans: oracle_score(oracle, q, gt, ans)
+
+        def _score_fn(q, gt, ans):
+            return oracle_score(oracle, q, gt, ans)
 
     from experiments.retrieval.oracle_health import (
         OracleHealthError,

@@ -205,10 +205,13 @@ def _v7_chained_decider():
         HeuristicWriteDecider,
     )
 
-    nanogpt_dir = os.environ.get(
-        "NANOGPT_REPO",
-        "/Users/jaysonsteffens/Desktop/Personal/Projects/nanoGPT",
-    )
+    nanogpt_dir = os.environ.get("NANOGPT_REPO")
+    if not nanogpt_dir:
+        raise SystemExit(
+            "[runner_phase2] NANOGPT_REPO env var must point to the local "
+            "nanoGPT checkout (containing out-merken-bpe-v7/ckpt.pt and "
+            "data/merken_bpe_v7/meta.pkl) when --use-v7 is set."
+        )
     ckpt = f"{nanogpt_dir}/out-merken-bpe-v7/ckpt.pt"
     meta = f"{nanogpt_dir}/data/merken_bpe_v7/meta.pkl"
     classifier = NanoGPTWriteDecider(ckpt, meta, calibrator=None)

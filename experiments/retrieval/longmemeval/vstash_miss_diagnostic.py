@@ -83,7 +83,7 @@ def diagnose_one(conv, top_k: int = 30) -> dict:
         answer_ranks = []
         for rank, chunk in enumerate(results):
             title = chunk.title if hasattr(chunk, "title") else getattr(chunk, "path", "?")
-            parsed_qid, sid, idx = _parse_title(title)
+            _, sid, _ = _parse_title(title)
             is_answer = sid in conv.answer_session_ids
             score = getattr(chunk, "score", None)
             details.append({
