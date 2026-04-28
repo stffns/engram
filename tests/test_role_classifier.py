@@ -209,23 +209,62 @@ def test_custom_prototypes_override(fake_embed_fn):
         assert counts[role] == 7
 
 
-def test_custom_prototypes_missing_role_loud_error(fake_embed_fn):
-    """Constructor with a partial prototype set should not silently succeed."""
+def test_empty_prototypes_raises_at_construction(fake_embed_fn):
+    """Empty prototype dict is not a valid taxonomy."""
+    with pytest.raises(ValueError, match="at least one role"):
+        RoleClassifier(
+            embed_fn=fake_embed_fn,
+            model_name="fake-model",
+            prototypes={},
+        )
+
+
+def test_empty_role_pool_raises_at_construction(fake_embed_fn):
+    """A role with no prototypes is not embeddable; reject it loudly upfront."""
+    with pytest.raises(ValueError, match="empty"):
+        RoleClassifier(
+            embed_fn=fake_embed_fn,
+            model_name="fake-model",
+            prototypes={"only_role": []},
+        )
+
+
+def test_custom_taxonomy_with_arbitrary_role_names(fake_embed_fn):
+    """Custom prototypes can use role names outside the default ROLES set."""
     custom = {
-        "state_change_report": [
-            {"id": "x", "text": "x", "topic": "t"} for _ in range(7)
-        ],
-        # other roles missing
+        "alpha": [{"id": f"a{i}", "text": f"alpha example {i}", "topic": "t"} for i in range(5)],
+        "beta": [{"id": f"b{i}", "text": f"beta example {i}", "topic": "t"} for i in range(5)],
     }
-    # The classifier itself doesn't validate at construction (lazy);
-    # validate when it tries to embed.
     clf = RoleClassifier(
         embed_fn=fake_embed_fn,
         model_name="fake-model",
         prototypes=custom,
     )
-    with pytest.raises(KeyError):
-        clf.classify("test")
+    assert clf.roles == ("alpha", "beta")
+    result = clf.classify("any text")
+    assert result.role in {"alpha", "beta"}
+    assert set(result.role_similarities.keys()) == {"alpha", "beta"}
+
+
+def test_single_role_taxonomy_confidence_is_inf(fake_embed_fn):
+    """With one role, no top-2 exists; confidence is +inf by convention."""
+    custom = {
+        "only": [{"id": f"o{i}", "text": f"only example {i}", "topic": "t"} for i in range(5)],
+    }
+    clf = RoleClassifier(
+        embed_fn=fake_embed_fn,
+        model_name="fake-model",
+        prototypes=custom,
+    )
+    result = clf.classify("anything")
+    assert result.role == "only"
+    assert result.confidence == float("inf")
+
+
+def test_roles_property_matches_default_taxonomy(fake_embed_fn):
+    """The ``roles`` property exposes the taxonomy order."""
+    clf = RoleClassifier(embed_fn=fake_embed_fn, model_name="fake-model")
+    assert clf.roles == ROLES
 
 
 def test_roles_tuple_matches_default_prototypes():

@@ -92,7 +92,9 @@ class RoleClassification:
     filtering on ambiguous events (e.g. ``< 0.05`` is "uncertain")."""
 
     role_similarities: dict[str, float]
-    """Mean cosine similarity to each role's prototypes, in order of ROLES."""
+    """Mean cosine similarity to each role's prototypes. Iteration order
+    matches the classifier's taxonomy (the order of keys in the
+    ``prototypes`` dict, defaulting to ROLES for the bundled set)."""
 
 
 def _load_prototypes_default() -> dict[str, list[dict]]:
@@ -144,7 +146,10 @@ class RoleClassifier:
     prototypes:
         Optional override of the bundled prototype set. Use only when
         validating a new taxonomy; the bundled set is the one validated
-        in #39b. If you pass a custom set, you must also update ROLES.
+        in #39b. The taxonomy (set of valid role labels) is derived
+        from this dict's keys -- the global ``ROLES`` constant only
+        describes the bundled default. The classifier supports
+        arbitrary role names and any number of roles >= 1.
     """
 
     def __init__(
@@ -157,6 +162,12 @@ class RoleClassifier:
         self._embed_fn = embed_fn
         self._model_name = model_name
         self._prototypes = prototypes if prototypes is not None else _load_prototypes_default()
+        self._roles: tuple[str, ...] = tuple(self._prototypes.keys())
+        if not self._roles:
+            raise ValueError("prototypes must define at least one role")
+        for role in self._roles:
+            if not self._prototypes[role]:
+                raise ValueError(f"prototypes for role {role!r} is empty")
         self._proto_unit_by_role: dict[str, np.ndarray] | None = None  # lazy
 
     @classmethod
@@ -202,7 +213,7 @@ class RoleClassifier:
             return self._proto_unit_by_role
         proto_texts: list[str] = []
         cursor: list[tuple[str, int]] = []  # (role, len) markers
-        for role in ROLES:
+        for role in self._roles:
             texts = [p["text"] for p in self._prototypes[role]]
             cursor.append((role, len(texts)))
             proto_texts.extend(texts)
@@ -238,8 +249,9 @@ class RoleClassifier:
         eval_unit = _l2_normalize(eval_vec)
 
         n = eval_unit.shape[0]
-        role_means = np.zeros((n, len(ROLES)), dtype=np.float64)
-        for r_idx, role in enumerate(ROLES):
+        n_roles = len(self._roles)
+        role_means = np.zeros((n, n_roles), dtype=np.float64)
+        for r_idx, role in enumerate(self._roles):
             sub = proto_unit_by_role[role]
             sims = eval_unit @ sub.T  # (n, P_role)
             role_means[:, r_idx] = sims.mean(axis=1)
@@ -247,18 +259,24 @@ class RoleClassifier:
         pred_idx = np.argmax(role_means, axis=1)
         sorted_means = -np.sort(-role_means, axis=1)
         top1 = sorted_means[:, 0]
-        top2 = sorted_means[:, 1]
-        margin = top1 - top2
+        if n_roles >= 2:
+            top2 = sorted_means[:, 1]
+            margin = top1 - top2
+        else:
+            # Single-role taxonomy: no alternative to compete with, so
+            # the prediction is trivially decisive. +inf is the natural
+            # margin for "nothing to subtract".
+            margin = np.full_like(top1, np.inf)
 
         out: list[RoleClassification] = []
         for i in range(n):
             out.append(
                 RoleClassification(
-                    role=ROLES[int(pred_idx[i])],
+                    role=self._roles[int(pred_idx[i])],
                     confidence=float(margin[i]),
                     role_similarities={
                         role: float(role_means[i, r_idx])
-                        for r_idx, role in enumerate(ROLES)
+                        for r_idx, role in enumerate(self._roles)
                     },
                 )
             )
@@ -269,6 +287,12 @@ class RoleClassifier:
         return self._model_name
 
     @property
+    def roles(self) -> tuple[str, ...]:
+        """Roles in this classifier's taxonomy (order matches the
+        ``prototypes`` dict's key order)."""
+        return self._roles
+
+    @property
     def prototype_count(self) -> dict[str, int]:
         """Number of prototypes per role."""
-        return {role: len(self._prototypes[role]) for role in ROLES}
+        return {role: len(self._prototypes[role]) for role in self._roles}
