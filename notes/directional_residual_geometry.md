@@ -7,7 +7,10 @@ confirmed no sign-flipping bug, the labeling fix changed AUC by < 1pp.
 
 ## Verdict (per pre-registered primary gate)
 
-**NO_GO on the primary metric. Pivot to issue #39 (semantic markers).**
+**Primary gate (PR) failed per strict pre-registration. Secondary
+metric (EVR_1) shows partial-band signal in the predicted direction.
+Pre-committed pivot to #39 stands; additionally, #38b opens as a
+pre-registered follow-up to validate EVR_1-as-gate on disjoint data.**
 
 Cluster-level PR ROC-AUC across 3 seeds on
 `knowledge_update_50topics.json` (1100 events, 50 decision topics x
@@ -178,30 +181,48 @@ The current `consolidate()` default merges v1+v2+v3 of one topic into
 one fact, losing temporal evolution -- the bottleneck the issue set
 out to attack. Three notes for follow-on work:
 
-1. **Do not ship a PR-as-gate.** PR threshold "below X = contaminated"
-   would technically work as a filter (PR median 2.7 vs ~3.8 has clean
-   separation in this data) but the rule is brittle: it requires the
-   cluster being v1+v2+v3-of-one-topic-shaped, which is exactly the
-   shape the consolidator already produces by default. PR detects the
-   structure that *defines* a successful merge in the current system,
-   so it cannot decide whether that merge is wrong.
+1. **Do not ship a PR-as-gate.** PR is the wrong functional of the
+   eigenvalue spectrum to read from. The "PR median 2.7 contaminated
+   vs ~3.8 clean" separation is real but goes the *opposite* of the
+   intuition the gate would have to encode. Worse: PR detects the
+   v1+v2+v3-of-one-topic shape that the consolidator already produces
+   by default, so it cannot decide whether that merge is wrong.
 
-2. **EVR_1 is a tempting but redundant signal.** EVR_1 = 0.48 vs ~0.30
-   is real, but it is the same eigenvalue information PR has, viewed
-   from the other end. It does not add an independent dimension; it
-   restates the same finding (topic-tight cluster with one outlier =
-   bimodal eigenvalue spectrum).
+2. **EVR_1 is the working geometric signal, but it is not "free."**
+   EVR_1 reads the same eigenvalue spectrum as PR but in the
+   predicted direction at partial-band AUC. The issue spec named it
+   "consistency check, not independent evidence" of PR, so we cannot
+   promote it to a gate within #38's pre-registration. Two specific
+   risks before treating it as production-ready:
 
-3. **Geometric gates need a role *signal*, not a role *consequence*.**
+   a. **N confound is structural at the source data.** The
+      contamination-target classes are pinned at N=4 by design;
+      clean classes vary N=4-6. EVR_1 at N=4-controlled is even
+      stronger (AUC 0.824) than across all sizes (0.760), but that
+      is consistent with two stories: "EVR_1 captures
+      role-mismatch" (the hypothesis) and "EVR_1 captures
+      bimodality, which co-occurs with N=4 in this scenario family."
+      Disjoint data and an explicit N-mode pre-registration are
+      needed to distinguish the two.
+
+   b. **A simple O(N) concentration metric might match EVR_1.** If
+      `max(|residual_i|) / mean(|residual_i|)` (an O(N) outlier
+      detector with no SVD) gives the same AUC, EVR_1 is doing
+      nothing eigenvalue-specific and the spectrum interpretation
+      collapses to "one event is far from the rest." Worth ruling
+      out before claiming the eigenvalue spectrum carries the
+      signal.
+
+   These two risks are what #38b is set up to control for. See
+   `notes/2026-04-28-residual-geometry-38b-followup-issue.md`.
+
+3. **Geometric gates downstream of role still cannot recover role.**
    Both PR and EVR_1 are downstream of "events from the same topic
-   embed close together." Without an upstream role tag, the geometry
+   embed close together." Without an upstream role tag, geometry
    cannot tell `(initial, refinement, reversal)` apart from
    `(initial, initial, initial)` if the three events happen to share
-   a topic.
-
-The pre-committed pivot: **issue #39 (semantic markers via few-shot
-prompting on the existing embedder)**. Markers add the upstream role
-signal that geometry cannot recover post-hoc.
+   a topic. This is why #39 (semantic markers) is pursued in
+   parallel, not gated on #38b's outcome.
 
 ## Bug audit (after the inverted result raised user concern)
 
@@ -342,15 +363,38 @@ key consequence for interpretation:
 
 ## Decision
 
-Per pre-registered gate: **NO_GO on PR-as-gate. Pivot to issue #39.**
+Per pre-registered primary gate: **NO_GO on PR-as-gate.**
 
-The experiment also produced a secondary partial-signal finding
-(EVR_1 AUC ~0.76) but it does not lift the verdict for two reasons:
-(1) the pre-registration named PR as primary, (2) EVR_1 is mathematically
-coupled to PR and adds no independent dimension. Recording the EVR_1
-finding here for the record; not opening a follow-on issue on it.
+The eigenvalue spectrum carries partial-band signal in the predicted
+direction when read via EVR_1 (3-seed AUC mean 0.760; N=4-controlled
+0.824 with lower CI 0.768). EVR_1 was named a "consistency check, not
+independent evidence" by the spec, so it cannot post-hoc lift the
+gate verdict. But the finding is concrete enough to warrant a
+pre-registered follow-up.
 
-Issue #38 will be closed with this writeup linked. Issue #39 (semantic
-markers) is now the active investigation. Issue #40 (combined gate)
-remains gated on #38+#39 and will need re-scoping given that #38 did
-not produce a useable geometric signal.
+Three concrete next moves, in parallel:
+
+1. **Issue #39 (semantic markers)** stays the active investigation,
+   per the pre-committed pivot framing. Markers attack the upstream
+   role-tagging gap that geometry cannot fill post-hoc.
+
+2. **Issue #38b opens** as a pre-registered follow-up of #38: validate
+   EVR_1-as-gate on disjoint data, with explicit pre-registration of
+   (a) AUC threshold and CI bound, (b) N-control mode (fixed N=4 vs
+   N-variable, reported separately because they validate different
+   things), (c) two non-trivial baselines -- cluster size N alone,
+   and a non-SVD concentration metric (e.g., max residual norm /
+   mean residual norm) -- in addition to the original mean-cosine
+   baseline. EVR_1 must beat all three by delta-AUC >= 0.10 to count
+   as genuine eigenvalue signal rather than confounded structural
+   artifact. Spec: `notes/2026-04-28-residual-geometry-38b-followup-issue.md`.
+
+3. **Issue #40 (combined gate)** re-scopes to "EVR_1 (conditional on
+   #38b passing) + role markers from #39." The original "entropy +
+   markers" framing becomes "EVR_1 + markers" since the eigenvalue
+   spectrum is the working geometric signal in the predicted
+   direction, not entropy.
+
+Issue #38 stays **open** with this writeup linked, awaiting #38b's
+verdict before final disposition. Closing it now would discard the
+EVR_1 finding without a clean follow-up to confirm or reject it.
