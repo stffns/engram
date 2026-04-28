@@ -206,6 +206,53 @@ ran is 2 synthetic scenarios in disjoint domains plus the primary
 `knowledge_update_hard`, totaling 3 scenarios. Cross-embedder
 robustness was added on top.
 
+## Audit + null sanity check
+
+After the run, a focused code-reviewer pass audited
+`evr_1_validation.py` and `gen.py` for any bug that could manufacture
+the EVR_1 == MaxNormRatio parity. Eleven hypotheses checked:
+
+- MaxNormRatio formula correct (sanity: outlier cluster gives 1.309
+  vs clean 1.039).
+- EVR_1 formula correct (imported from already-audited
+  `directional_residual_geometry.py`).
+- `build_synthetic_clusters` honors `k_min=k_max=4` in fixed mode;
+  same function as #38, no fork.
+- delta-AUC sign convention correct (`primary - baseline`,
+  beats >= 0.10).
+- Baseline mapping consistent across `metric_arrays`, `aucs`, and
+  `delta_aucs` keys.
+- Bootstrap is sound paired stratified resampling at n=1000.
+- `--embed-model` flag plumbed through to `embed_texts`.
+- Generator produces id `<topic>_v1/v2/v3` with shared topic field --
+  the data contract, not a leak.
+- N=4 a-priori (#38b) vs N=4 post-hoc filter (#38) is a structural
+  change, not a bug. The difference explains the AUC gap between
+  #38's 0.824 and #38b's 0.710 at the discovery scale.
+- Discovery-scale snippet rng schedule differs from #38's commit
+  bit-by-bit but is internally consistent.
+
+Audit conclusion: no bug found. Both metrics implement on the same
+residual vectors, with the same N distribution, in the same vector
+space, compared via paired bootstrap.
+
+**Label-permutation null** confirms the AUCs reflect real signal,
+not artifact. Across 3 seeds on `knowledge_update_hard` (BGE, N=4
+fixed), 100 permutations of `is_contam` per seed:
+
+| seed | EVR_1 real | EVR_1 null mean +- stdev | MaxNR real | MaxNR null mean +- stdev |
+|------|------------|---------------------------|------------|---------------------------|
+| 42   | 0.770      | 0.499 +- 0.055            | 0.786      | 0.500 +- 0.056            |
+| 43   | 0.748      | 0.501 +- 0.052            | 0.764      | 0.496 +- 0.049            |
+| 44   | 0.718      | 0.497 +- 0.047            | 0.736      | 0.496 +- 0.048            |
+
+Under permuted labels, both metrics center on AUC = 0.50 with stdev
+0.05, as expected under H0. Max observed AUC across 300 permutations
+combined: 0.632, within the noise envelope for n=140 samples. Real
+AUCs (~0.75) are >= 4 standard deviations above the null mean. The
+near-equivalence of EVR_1 and MaxNormRatio is therefore a structural
+property of the eigenvalue spectrum, not a numerical artifact.
+
 ## Reproducibility
 
 - Code: `experiments/role_geometry/evr_1_validation.py` (~400 LOC).
