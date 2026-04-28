@@ -48,6 +48,10 @@ experiments/**/.cache/
 
 # Benchmark run logs (raw output; curated results go in RESULTS.md)
 experiments/**/runs/
+
+# Role-geometry generated scenarios (regeneratable from gen.py + vocab*.json,
+# sha256 in aggregate_summary.json covers reproducibility).
+experiments/role_geometry/scenarios_disjoint/generated/
 experiments/retrieval/locomo/data/
 experiments/retrieval/locomo/results_detail.json
 
