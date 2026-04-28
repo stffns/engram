@@ -1,0 +1,58 @@
+{
+  "version": 1,
+  "authored": "2026-04-28",
+  "source_scenario": "authored_from_prototype_style_guide_2026_04_28",
+  "style_guide": "prototype_style_guide.md",
+  "prototype_topics": ["logging", "dashboards", "build_system", "code_review", "oncall"],
+  "notes": "10 prototypes per role across 5 prototype-only topics. Authored before eval.json. Disjoint topic set from eval.json by construction.",
+  "roles": {
+    "decision": [
+      {"id": "proto_dec_01", "topic": "logging", "text": "Decided to switch logging from JSON to OTLP after the schema migration cleared review."},
+      {"id": "proto_dec_02", "topic": "logging", "text": "Approved the structured-logging migration; rollout begins next sprint."},
+      {"id": "proto_dec_03", "topic": "dashboards", "text": "Settled on Grafana over Datadog for internal dashboards; cost was 4x lower."},
+      {"id": "proto_dec_04", "topic": "dashboards", "text": "Switched the SRE on-call dashboard from PagerDuty to Grafana incidents."},
+      {"id": "proto_dec_05", "topic": "build_system", "text": "Adopted Bazel for the polyglot monorepo after a 2-week pilot."},
+      {"id": "proto_dec_06", "topic": "build_system", "text": "Replaced the nightly CI fleet with on-demand spot instances."},
+      {"id": "proto_dec_07", "topic": "code_review", "text": "Changed the code review policy: 1-approver for typo fixes, 2 for logic."},
+      {"id": "proto_dec_08", "topic": "code_review", "text": "Approved the auto-merge feature for dependabot-only PRs."},
+      {"id": "proto_dec_09", "topic": "oncall", "text": "Decided to move oncall rotation from weekly to daily handoffs."},
+      {"id": "proto_dec_10", "topic": "oncall", "text": "Selected PagerDuty over Opsgenie for the new oncall workflow."}
+    ],
+    "investigation": [
+      {"id": "proto_inv_01", "topic": "logging", "text": "Investigating why log ingestion drops 4% of records during peak hours."},
+      {"id": "proto_inv_02", "topic": "logging", "text": "Looking into the Splunk indexer slowness on Tuesdays."},
+      {"id": "proto_inv_03", "topic": "dashboards", "text": "Diagnosing why the Grafana home dashboard loads slowly for new users."},
+      {"id": "proto_inv_04", "topic": "dashboards", "text": "Examining why SLO dashboards show different numbers from the metrics service."},
+      {"id": "proto_inv_05", "topic": "build_system", "text": "Root-causing why CI builds intermittently fail at the dependency-fetch step."},
+      {"id": "proto_inv_06", "topic": "build_system", "text": "Exploring whether we can shave 3 minutes off the build by parallelizing tests."},
+      {"id": "proto_inv_07", "topic": "code_review", "text": "Trying to understand why bot-flagged PRs sit in review for 5+ days."},
+      {"id": "proto_inv_08", "topic": "code_review", "text": "Investigating the recent uptick in self-merged PRs across the platform team."},
+      {"id": "proto_inv_09", "topic": "oncall", "text": "Diagnosing the pager-fatigue trend showing up in the recent oncall surveys."},
+      {"id": "proto_inv_10", "topic": "oncall", "text": "Looking into why the new oncall handoff template is being skipped in 30% of handoffs."}
+    ],
+    "observation": [
+      {"id": "proto_obs_01", "topic": "logging", "text": "Logs show roughly 12% of error events are being silently dropped at the egress proxy."},
+      {"id": "proto_obs_02", "topic": "logging", "text": "Noticed log volume tripled after the recent deploy."},
+      {"id": "proto_obs_03", "topic": "dashboards", "text": "Dashboard metrics show p99 latency rose from 280ms to 410ms last week."},
+      {"id": "proto_obs_04", "topic": "dashboards", "text": "Observed that the SRE dashboard widget for queue depth has been NaN since Tuesday."},
+      {"id": "proto_obs_05", "topic": "build_system", "text": "Build logs indicate the dependency cache hit rate dropped from 92% to 78%."},
+      {"id": "proto_obs_06", "topic": "build_system", "text": "Saw the CI queue back up to 80 builds during the post-lunch deploy window."},
+      {"id": "proto_obs_07", "topic": "code_review", "text": "Code review metrics show median time-to-review at 1.7 days, up from 1.1 last month."},
+      {"id": "proto_obs_08", "topic": "code_review", "text": "Found 3 PRs merged this week without the required test coverage."},
+      {"id": "proto_obs_09", "topic": "oncall", "text": "Oncall dashboard shows page volume up 22% week-over-week."},
+      {"id": "proto_obs_10", "topic": "oncall", "text": "Reports indicate the oncall response p95 is now 8 minutes vs last quarter's 4 minutes."}
+    ],
+    "preference": [
+      {"id": "proto_pref_01", "topic": "logging", "text": "Personally I'd lean toward OTLP-only logging once the migration is done."},
+      {"id": "proto_pref_02", "topic": "logging", "text": "Team's preference is to keep JSON logs for legacy services and OTLP for new ones."},
+      {"id": "proto_pref_03", "topic": "dashboards", "text": "We'd rather have one canonical dashboard than three role-specific ones."},
+      {"id": "proto_pref_04", "topic": "dashboards", "text": "Recommend Grafana over Kibana for the dashboards-as-code workflow."},
+      {"id": "proto_pref_05", "topic": "build_system", "text": "Prefer Bazel hermeticity over Make convenience for the polyglot stack."},
+      {"id": "proto_pref_06", "topic": "build_system", "text": "Lean toward investing in build caching over more CI hardware."},
+      {"id": "proto_pref_07", "topic": "code_review", "text": "Would rather have 2-approver reviews on auth-touching code, even at velocity cost."},
+      {"id": "proto_pref_08", "topic": "code_review", "text": "My preference is async review over synchronous pair-review for non-urgent PRs."},
+      {"id": "proto_pref_09", "topic": "oncall", "text": "In favor of moving to a follow-the-sun oncall once we have EU coverage."},
+      {"id": "proto_pref_10", "topic": "oncall", "text": "Recommend keeping primary plus secondary oncall structure even after the team grows."}
+    ]
+  }
+}
