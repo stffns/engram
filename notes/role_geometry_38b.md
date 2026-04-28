@@ -126,6 +126,102 @@ v1/v2/v3 cluster center, and *any* outlier-detection metric picks
 that up." This is a feature of how the contamination class is
 *constructed*, not a property of role mismatch per se.
 
+## Post-hoc signal mining: what survives the NO_GO
+
+After the gate decision, three additional analyses on the existing
+artifacts surfaced rescuable signal that the aggregate AUC obscured.
+None of these change the verdict, but they sharpen what the
+experiment actually demonstrated.
+
+### Per-class detection asymmetry (AUC 0.92 on the right shape)
+
+The aggregate gate AUC of 0.770-0.813 averages contamination classes
+that turn out to be very different in detectability. Re-aggregating
+per contamination class on BGE n_fixed_4 (3 seeds, 1260 clusters):
+
+| contamination class | n | EVR_1 AUC | MaxNR AUC | PR AUC |
+|----------------------|---|-----------|-----------|--------|
+| `mixed_role_in_topic` (v1+v2+v3+1noise) | 180 | **0.918** | **0.939** | 0.076 |
+| `mixed_role_decisions_no_noise` (v1+v2+v3+1other-topic) | 180 | **0.918** | **0.936** | 0.075 |
+| `mixed_topic_decisions` (random cross-topic) | 168 | 0.429 | 0.435 | 0.576 |
+
+The metrics detect "tight cluster + 1 stray event" at AUC 0.92, but
+fail on "random cross-topic mixture" (AUC 0.43, anti-correlated --
+those clusters are spread without a dominant axis, indistinguishable
+from clean clusters by spectral statistics). The aggregate gate
+diluted the strong signal by averaging across both shapes.
+
+The gate decision (NO_GO) still holds because:
+
+- MaxNormRatio matches EVR_1 within 0.02 AUC on both strong-signal
+  classes -- the equivalence is structural, not dependent on the
+  shape.
+- The `mixed_topic_decisions` class is contamination by topic, not
+  by role -- detecting it was never the point of #38.
+- The pre-registered gate aggregated all contamination, not by
+  shape, so the per-class strong signal does not retroactively
+  rescue the failed gate.
+
+What this *does* unlock: a deferred follow-up issue
+(`notes/2026-04-28-maxnormratio-threshold-relaxation-38c-issue.md`)
+covering the orthogonal question "can MaxNormRatio enable safer
+threshold relaxation in `cluster_by_embedding`," gated on a 30-minute
+sondeo to verify the underlying problem (purity drop at relaxed
+thresholds) actually exists. Deferred because at threshold 0.70 with
+complete linkage, current cluster purity is 100% on existing
+scenarios -- so MaxNormRatio has no fire to detect.
+
+### Cross-embedder convergence (Pearson 0.992, 72 cells)
+
+Per-cell AUC correlation between the BGE-small-en-v1.5 run
+(`38b_20260428_114039`) and the multilingual MiniLM-L12-v2 cross-
+embedder run (`38b_cross_embedder_minilm`) across 72 cells (3
+scenarios x 2 N-modes x 3 seeds x 4 metrics):
+
+| stat | value |
+|------|-------|
+| Pearson r (BGE AUC vs MiniLM AUC) | **0.992** |
+| mean abs delta per cell | 0.030 |
+| max abs delta per cell | 0.085 |
+
+The signal is encoder-invariant. This is a stronger negative claim
+than #38b alone made: the failure of EVR_1 to beat MaxNormRatio is
+not specific to BGE-small. A structurally different encoder
+(multilingual, MiniLM topology) gives the same per-cell numbers
+within 0.03 AUC on average. Folding into the merken paper meta issue
+(`notes/2026-04-28-paper-geometric-methods-meta-issue.md`) as a
+data-point in the convergent-evidence argument.
+
+### Residual cosine as topic-purity detector: false alarm
+
+I had suggested earlier that residual cosine might serve as a
+topic-purity gate refining `cluster_by_embedding`'s precision (since
+#38's pairwise cliff_delta on same-topic-diff-role vs diff-topic-
+same-role pairs was 0.911). Re-checking on the FULL pair population
+(200k pairs from `post_audit_seed42`) instead of the stratified
+subset:
+
+| metric (label = same_topic) | AUC |
+|------------------------------|-----|
+| cos_raw                      | 0.682 |
+| cos_residual                 | **0.454 (anti-correlated)** |
+
+Median pairwise values:
+
+| stratum | cos_raw median | cos_residual median |
+|---------|----------------|----------------------|
+| same-topic | 0.555 | -0.036 |
+| diff-topic | 0.513 | -0.013 |
+
+Residual cosine, on the full population, is *worse* than raw cosine
+as a same-topic detector. The cliff_delta=0.911 result from #38
+came specifically from selecting pairs where role and topic both
+varied between target and control strata; the population-level
+effect goes the other direction with smaller magnitude. The earlier
+suggestion of "residual cosine as topic-purity refinement" is
+withdrawn -- raw cosine is the cleaner topic signal, and even raw
+cosine at AUC 0.682 is a weak gate, not a strong one.
+
 ## Why this is the result the pre-registration was designed to find
 
 The MaxNormRatio baseline was added to #38b explicitly because Jay
