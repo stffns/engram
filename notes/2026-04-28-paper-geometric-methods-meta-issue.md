@@ -1,9 +1,23 @@
 ## Meta issue for the merken paper -- geometric methods finding
 
-Captures the consolidated empirical claim from #38 + #38b for inclusion
-in the merken paper, likely as section 7.3 expansion or a new
-subsection 7.6.x. This is a meta issue (no code, no experiment) -- the
-deliverable is paper text grounded in the experiments already run.
+Captures the consolidated empirical claim from #38 + #38b + #39 V1+V2
+for inclusion in the merken paper, likely as section 7.3 expansion or
+a new subsection 7.6.x. This is a meta issue (no code, no experiment)
+-- the deliverable is paper text grounded in the experiments already
+run.
+
+> **Update 2026-04-28 EOD (post-#39 V2):** the original framing below
+> ("4 lines of negative evidence; pivot to external structure") needs
+> a nuance. #39 V2 (STATE_CHANGE_REPORT taxonomy redefinition) showed
+> that few-shot prototype classification on the existing embedder
+> *succeeds* at AUC 0.93 strong-band when the role taxonomy is chosen
+> with non-overlapping lexical markers between adjacent roles. The
+> "external structure required" conclusion still holds for pure
+> cosine geometry (#38), eigenvalue spectrum statistics (#38b), and
+> prefix-conditioning (#39 V1 P2). But marker-based gating on the
+> existing embedder is now a working primitive when the taxonomy
+> aligns with BGE's surface-lexical clusters. The paper text needs
+> both halves of the story. New section "V1 vs V2 update" below.
 
 ## The empirical claim
 
@@ -120,6 +134,112 @@ from #38/#38b motivates #39's positive direction. Should NOT be
 published in isolation -- the paper needs both halves (failed
 geometric attempt + working marker-based attempt) to make a complete
 argument.
+
+## V1 vs V2 update (added 2026-04-28 EOD)
+
+The original meta issue text consolidated #38 + #38b's negative
+findings on residual geometry. After running #39 (semantic markers)
+in V1 and V2 forms, the consolidated picture is more nuanced:
+
+**5 methods tested. 4 negative, 1 positive (with caveat).**
+
+| # | Method | Result |
+|---|--------|--------|
+| 1 | Spectral functionals (PR, EVR_1, AngDisp, NormVar) | NO_GO (#38) |
+| 2 | Cheap outlier detection (MaxNormRatio) | matches eigenvalue at AUC ~0.75; cannot beat itself by 0.10 (#38b) |
+| 3 | Few-shot prototype classification on V1 taxonomy (DECISION/INVESTIGATION/OBSERVATION/PREFERENCE) | NO_GO; DECISION-PREFERENCE collision (#39 V1) |
+| 4 | Prefix-conditioning on the embedding manifold | structurally ineffective (#39 V1 Phase 2 diagnostic) |
+| 5 | **Few-shot prototype classification on V2 taxonomy (STATE_CHANGE_REPORT replaces DECISION)** | **STRONG_PROCEED at AUC 0.93 across 3 seeds (#39b V2)** |
+
+The positive method (5) succeeds because:
+
+- STATE_CHANGE_REPORT lexical markers (past tense + state-change verbs
+  + specific entity, e.g. "has been running on X since DATE",
+  "decommissioned", "rolled out") share zero structural overlap with
+  PREFERENCE markers (modal verbs, e.g. "prefer", "lean toward",
+  "recommend").
+- The other 3 roles (INVESTIGATION, OBSERVATION, PREFERENCE) keep
+  their V1 definitions and continue to score 87-95% recall.
+- BGE-small carries role information through surface lexical
+  markers when those markers are distinct across role boundaries.
+
+The positive method (5) does NOT contradict methods 1-4. It clarifies
+where the embedding can and cannot be used:
+
+- Cannot: pure geometric analysis of residuals (1-2). The eigenvalue
+  spectrum reads "outlier" not "role."
+- Cannot: prefix-conditioning to compensate for taxonomy choice (4).
+  Adding "[role: X]" tokens does not reorient the manifold.
+- Cannot: a taxonomy whose adjacent roles share lexical structure
+  (3). DECISION and PREFERENCE collide because both use "X over Y."
+- Can: a taxonomy intentionally designed so adjacent roles do not
+  share lexical structure (5). SCR vs PREFERENCE is the worked
+  example.
+
+### Updated paper text (replaces the original suggestion)
+
+Suggested addition to section 7.6 (future work) or a new 7.7
+(geometric ablations + working marker-based gate):
+
+> **Geometric ablations and the marker-based gate (preliminary
+> results in [appendix or supplementary])**
+>
+> Before deciding on the role-aware consolidation primitive, we ran
+> a sequence of pre-registered experiments on the residual geometry
+> of cosine-clustered events.
+>
+> Pure spectral statistics (participation ratio, top eigenvalue ratio,
+> angular dispersion, residual norm variance) on the residual
+> covariance fail to recover role-mismatch from the embedding alone:
+> the participation ratio is inverted relative to the hypothesis,
+> and a cheap O(N) outlier metric (max-residual-norm / mean-residual-
+> norm) matches every spectral functional within delta-AUC < 0.05
+> across two embedders, three disjoint scenarios, and three seeds.
+> The eigenvalue interpretation collapses to outlier detection. This
+> generalizes the limitations articulated by Zep/Graphiti,
+> SmartVector (Xu, arXiv:2604.20598), and Zahn et al.
+> (arXiv:2601.15313): pure cosine geometry of pretrained embeddings
+> cannot host role-mismatch in any spectral form we could find.
+>
+> Few-shot prototype classification on the existing embedder
+> (Snell, Swersky, Zemel 2017) succeeds *with the right taxonomy*.
+> A V1 attempt with the role taxonomy DECISION /
+> INVESTIGATION / OBSERVATION / PREFERENCE failed at macro-F1 0.75
+> because DECISION and PREFERENCE share lexical structure ("X over
+> Y", "switched to X" vs "prefer X over Y"). A V2 attempt replacing
+> DECISION with STATE_CHANGE_REPORT (past tense + state-change
+> verbs + specific entity, no comparative structure) succeeded at
+> macro-F1 0.93 across 3 seeds, with STATE_CHANGE_REPORT recall =
+> 100% pooled. Prefix-conditioning (Schick, Schutze 2020) was
+> structurally ineffective at the 4-token prefix scale, so the V2
+> success comes from the taxonomy itself, not from prompt
+> engineering.
+>
+> Conclusion: role identification on a pretrained embedder is
+> feasible without training when the role taxonomy is intentionally
+> designed so adjacent roles do not share lexical structure.
+> Section [X] describes our production primitive built on this
+> finding.
+
+### Implications for downstream issues
+
+- **#40 (combined gate)** re-scopes again: from "EVR_1 + markers" ->
+  "MaxNormRatio + markers" -> "STATE_CHANGE_REPORT markers as primary
+  + MaxNormRatio as cheap pre-filter for outlier-shaped contamination".
+  The V2 markers are now the load-bearing component; geometric methods
+  are auxiliary.
+
+- **Production integration of SCR markers in `consolidate()`** opens
+  as a new issue (e.g., #41). Specifically, the consolidator would
+  classify each event with the V2 prototype set and treat
+  STATE_CHANGE_REPORT events as a supersession chain within a topic-
+  tight cluster.
+
+- **#38c (deferred MaxNormRatio threshold relaxation)** stays
+  deferred. The relaxation question is independent of #39's positive
+  finding -- it asks "can MaxNormRatio enable lower clustering
+  thresholds without losing purity," which is upstream of marker-
+  based gating.
 
 ## References
 
