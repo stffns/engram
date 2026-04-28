@@ -320,12 +320,22 @@ def build_synthetic_clusters(
                 role = roles_for_topic[int(rng.integers(0, len(roles_for_topic)))]
                 chosen_roles.append(role)
                 indices.append(by_topic_role[(topic, role)][0])
+            # If by chance the K random draws all picked the same role, the
+            # cluster is genuinely role-clean (different topics, same role)
+            # and should be labeled is_clean=True. Otherwise it is the
+            # intended mixed_role mixed_topic case. Bug audit 2026-04-28:
+            # original code labeled the role-pure subclass is_clean=False,
+            # injecting clean clusters into the contaminated class. The
+            # effect on the headline AUC was < 1pp because the rate is
+            # ~3% (3 distinct roles, K~5 events, P(all same)~3/3^5 = 0.04),
+            # but the labeling is now semantically correct.
+            role_pure = len(set(chosen_roles)) == 1
             cluster_class = (
-                "mixed_topic_decisions"
-                if len(set(chosen_roles)) > 1
-                else "mixed_topic_decisions_role_pure"
+                "mixed_topic_decisions_role_pure"
+                if role_pure
+                else "mixed_topic_decisions"
             )
-            _add(cluster_class, is_clean=False, indices=indices)
+            _add(cluster_class, is_clean=role_pure, indices=indices)
 
     logger.info(
         "built %d synthetic clusters across %d classes",

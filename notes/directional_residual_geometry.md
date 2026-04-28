@@ -1,7 +1,9 @@
 # Directional residual geometry as a role-contamination signal -- results
 
 Pre-registered experiment for merken issue #38. Run 2026-04-28 on
-`feature/role-geometry-residuals`.
+`feature/role-geometry-residuals`. Numbers below are post a labeling
+fix found by a focused bug audit (see "Bug audit" section); the audit
+confirmed no sign-flipping bug, the labeling fix changed AUC by < 1pp.
 
 ## Verdict (per pre-registered primary gate)
 
@@ -9,21 +11,21 @@ Pre-registered experiment for merken issue #38. Run 2026-04-28 on
 
 Cluster-level PR ROC-AUC across 3 seeds on
 `knowledge_update_50topics.json` (1100 events, 50 decision topics x
-{initial, refinement, reversal}, 950 noise events):
+{initial, refinement, reversal}, 950 noise events), post-fix:
 
 | seed | AUC mean | 95% CI lower | 95% CI upper |
 |------|----------|--------------|--------------|
-| 42   | 0.214    | 0.135        | 0.303        |
+| 42   | 0.211    | 0.130        | 0.298        |
 | 43   | 0.260    | 0.172        | 0.362        |
-| 44   | 0.199    | 0.118        | 0.284        |
-| **3-seed** | **0.224 +- 0.032** | **0.118 (worst lo)** | **0.362 (best hi)** |
+| 44   | 0.200    | 0.120        | 0.282        |
+| **3-seed** | **0.224 +- 0.032** | **0.120 (worst lo)** | **0.362 (best hi)** |
 
 Pre-registered thresholds: lower CI > 0.80 (strong), 0.65-0.80
-(partial), < 0.65 (no-go). Worst-case lower CI = 0.118, well below
+(partial), < 0.65 (no-go). Worst-case lower CI = 0.120, well below
 0.65. Best-case upper CI = 0.362 -- still below 0.5.
 
-**Baseline-beat**: mean intra-cluster cosine ROC-AUC = 0.287 +- 0.050
-(also inverted). delta-AUC over baseline = -0.063 (PR is *worse* than
+**Baseline-beat**: mean intra-cluster cosine ROC-AUC = 0.285 +- 0.052
+(also inverted). delta-AUC over baseline = -0.061 (PR is *worse* than
 the baseline it was supposed to beat). Pre-registered requirement
 delta-AUC >= 0.10 not met.
 
@@ -31,24 +33,32 @@ delta-AUC >= 0.10 not met.
 topics): PR AUC = 0.199 [0.120, 0.287]. Same direction, tighter
 magnitude. Negative result is structural, not data-specific.
 
+**Size-controlled re-analysis (N=4 only, post-fix):** PR AUC = 0.165,
+CI [0.112, 0.225] across 214 N=4 clusters (81 clean / 133 contaminated).
+The inversion is *stronger* under size control than across all sizes,
+falsifying the alternative hypothesis "PR inversion is a
+PR-bound-by-(N-1) artifact." See "N confound" below.
+
 ## What actually happened: the hypothesis was inverted
 
 The issue predicted: contaminated (role-mixed) clusters have **higher**
 PR than clean (same-role) clusters because role-mismatch adds independent
 variance to the residual covariance.
 
-The data shows the opposite. Per-class PR medians (3-seed average):
+The data shows the opposite. Per-class PR / EVR_1 medians (3-seed
+aggregate, post-fix; `mixed_topic_decisions_role_pure` is now correctly
+labeled clean -- bug audit, see below):
 
-| cluster_class                       | n_clusters | PR    | EVR_1 | direction |
-|-------------------------------------|------------|-------|-------|-----------|
-| clean_role_initial                  | 60         | 3.88  | 0.307 | clean     |
-| clean_role_refinement               | 60         | 3.82  | 0.326 | clean     |
-| clean_role_reversal                 | 60         | 4.04  | 0.300 | clean     |
-| clean_noise                         | 60         | 3.52  | 0.371 | clean     |
-| mixed_topic_decisions               | 58         | 4.06  | 0.295 | contam    |
-| mixed_topic_decisions_role_pure     | 2          | 3.38  | 0.358 | contam    |
-| **mixed_role_decisions_no_noise**   | 60         | **2.69** | **0.479** | **contam (target)** |
-| **mixed_role_in_topic**             | 60         | **2.73** | **0.473** | **contam (target)** |
+| cluster_class                       | label | n_clusters | PR    | EVR_1 |
+|-------------------------------------|-------|------------|-------|-------|
+| clean_role_initial                  | clean | 60         | 3.89  | 0.307 |
+| clean_role_refinement               | clean | 60         | 3.84  | 0.320 |
+| clean_role_reversal                 | clean | 60         | 3.93  | 0.299 |
+| clean_noise                         | clean | 60         | 3.63  | 0.371 |
+| mixed_topic_decisions               | contam | 58        | 3.93  | 0.301 |
+| mixed_topic_decisions_role_pure     | clean (post-fix) | 2 | 3.38 | 0.358 |
+| **mixed_role_decisions_no_noise**   | contam | 60         | **2.71** | **0.479** |
+| **mixed_role_in_topic**             | contam | 60         | **2.72** | **0.475** |
 
 The two role-mismatched-within-topic classes (`mixed_role_*`) have
 **~30% lower PR** than every clean class (2.7 vs ~3.5-4.0). Same-topic
@@ -73,18 +83,32 @@ cleanly resolved: the noise event is not the source of the PR drop.
 ## Where the eigenvalue spectrum *did* carry signal: EVR_1 and NormVar
 
 The same residual covariance, viewed through different functionals,
-points the predicted direction:
+points the predicted direction (post-fix 3-seed):
 
-| Metric | 3-seed AUC mean | 3-seed stdev | direction relative to issue prediction |
-|--------|-----------------|--------------|----------------------------------------|
+| Metric | AUC mean | stdev | direction relative to issue prediction |
+|--------|----------|-------|----------------------------------------|
 | PR (primary)        | 0.224 | 0.032 | **inverted** |
-| EVR_1 (secondary)   | 0.759 | 0.030 | predicted, partial-band signal |
-| AngDisp (tertiary)  | 0.618 | 0.050 | predicted, weak |
-| NormVar (auxiliary) | 0.752 | 0.024 | predicted, partial-band signal |
+| EVR_1 (secondary)   | 0.760 | 0.031 | predicted, partial-band signal |
+| AngDisp (tertiary)  | 0.616 | 0.055 | predicted, weak |
+| NormVar (auxiliary) | 0.756 | 0.032 | predicted, partial-band signal |
 
-EVR_1 (0.759 mean, lower CIs in [0.626, 0.698] across seeds) clears the
-partial band on two of three seeds and lands at the 0.65 boundary on
-seed 43.
+Per-seed lower CIs for EVR_1: 0.700 (seed 42), 0.626 (seed 43), 0.679
+(seed 44). Seed 43 is the only run where the lower CI does not clear
+the 0.65 partial-band threshold; the other two clear it cleanly.
+
+**Size-controlled (N=4 only) AUCs strengthen the EVR_1 finding:**
+
+| Metric (N=4 only) | AUC | 95% CI | partial-band lower bound (0.65) cleared? |
+|-------------------|-----|--------|-------------------------------------------|
+| PR                | 0.165 | [0.112, 0.225] | inverted, no |
+| **EVR_1**         | **0.824** | **[0.768, 0.879]** | **yes, cleanly** |
+
+At fixed N=4, EVR_1 lower CI = 0.768 lands at the upper end of the
+partial band, just below the 0.80 strong-band cutoff. Mean 0.824 is
+solidly partial-band. This is despite EVR_1 being explicitly a
+"consistency check, not independent evidence" of PR per the issue
+spec line 47, so per the pre-registration we cannot promote it to a
+gate of its own.
 
 PR and EVR_1 are mathematically coupled (both functions of the
 eigenvalue spectrum) but they encode *different* properties:
@@ -179,6 +203,81 @@ The pre-committed pivot: **issue #39 (semantic markers via few-shot
 prompting on the existing embedder)**. Markers add the upstream role
 signal that geometry cannot recover post-hoc.
 
+## Bug audit (after the inverted result raised user concern)
+
+The inversion + opposite-direction pairwise finding was unusual enough
+to warrant a focused bug audit before treating the result as a clean
+negative. The audit looked specifically for sign-flipping or labeling
+errors that could invert the result, not for general code quality.
+
+**Eleven items checked:**
+
+1. AUC label/score wiring (cluster-level): VERIFIED CORRECT.
+   `is_contam = 1 - is_clean`, `roc_auc_score(labels=is_contam,
+   scores=pr_vals)`. AUC > 0.5 iff contaminated has higher scores;
+   observed 0.224 = data inverts the prediction.
+2. Cluster construction labeling: VERIFIED CORRECT for clean_role_*,
+   clean_noise, mixed_role_in_topic, mixed_role_decisions_no_noise.
+3. **`mixed_topic_decisions_role_pure` labeling: BUG FOUND.** Original
+   code labeled the role-pure subclass `is_clean=False` despite all
+   members sharing one fine_role (different topics, same role = clean
+   on the role axis). Effect: ~3% of one class (2 of 60 clusters per
+   seed) injected clean-role clusters into the contaminated pool. The
+   bias direction was *toward* the hypothesis (lowers contaminated PR
+   slightly), so fixing it pushes AUC further from 0.5, not closer.
+   Post-fix 3-seed PR AUC: 0.224 (mean), unchanged at the rounding
+   we report.
+4. Centroid + residuals (cluster_metrics): VERIFIED CORRECT. axis=0
+   collapses rows, broadcasting (N,d)-(d,) -> (N,d).
+5. SVD + PR + EVR_1 normalization: VERIFIED CORRECT. PR and EVR_1
+   are both scale-invariant, so missing 1/N or 1/(N-1) normalization
+   cannot affect them.
+6. Pairwise residual computation: VERIFIED CORRECT.
+7. Same-topic / same-fine-role mask pairing: VERIFIED CORRECT.
+8. MW-U direction: VERIFIED CORRECT. `alternative="less"` directly
+   tests the pre-registered prediction; observed p_two_sided=6.3e-80
+   in the opposite direction means the data refutes H1.
+9. Pairwise AUC sign: VERIFIED CORRECT. AUC ~0.045 is the correct
+   numerical reflection of "data refutes hypothesis," not a sign
+   error.
+10. Embedder sanity: VERIFIED CORRECT. cos(cache, cache) = 0.765 >
+    cos(cache, db) = 0.541 > cos(cache, noise) = 0.402. Sensible
+    space.
+11. No other potential sign-flippers identified.
+
+**Conclusion of audit**: no sign error. The 0.224 cluster PR AUC and
+the 4.6x pairwise inversion both correctly reflect the data given the
+wiring. The one labeling bug is real but trivially small and biases
+*toward* the hypothesis.
+
+## N confound
+
+PR is bounded by `min(N-1, d)`; with d=384 and N <= 6 in this study,
+the bound is N-1. The two contamination-target classes are forced to
+N=4 (each (topic, fine_role) cell holds 1 event in the data, so we
+cannot grow the role-mixed-within-topic cluster beyond v1+v2+v3 + 1
+extra). All other classes vary N=4 to 6. Mean N: clean ~5.0,
+contaminated ~4.4.
+
+This is a real confound: lower N -> lower PR ceiling. To rule it out,
+we re-computed AUCs restricted to N=4 clusters only (the largest
+fully-comparable subset). Result:
+
+| Metric (N=4 only, 214 clusters) | AUC | 95% CI |
+|---------------------------------|-----|--------|
+| PR                              | 0.165 | [0.112, 0.225] |
+| EVR_1                           | 0.824 | [0.768, 0.879] |
+
+The PR inversion is *stronger* under size control (0.165 vs 0.224),
+not weaker. The N confound exists and shifts numbers, but does not
+explain the inversion -- if anything, it was masking how clean the
+inversion is.
+
+EVR_1 at N=4 controlled clears the partial band cleanly with lower CI
+0.768. This does not rescue the primary gate (which is on PR by
+pre-registration), but it documents that the eigenvalue spectrum
+*does* carry signal, just oriented opposite the way PR reads it.
+
 ## What changed vs the issue spec
 
 The script's module docstring lists three deviations forced by the
@@ -209,12 +308,19 @@ key consequence for interpretation:
 
 - `experiments/role_geometry/directional_residual_geometry.py` (CLI,
   default `--scenario knowledge_update_50topics.json`).
-- 3 runs at `--seed {42, 43, 44}` produced
-  `experiments/role_geometry/runs/20260428_*` directories. Each
-  contains `auc_summary.json` (sha256 of scenario + vstash version +
-  numpy version + bootstrap counts), `metrics_by_cluster.csv`, and a
-  sampled `pairwise_role_geometry.csv`.
-- 1 replication on 20topics: `runs/20260428_102411`.
+- Pre-fix 3 runs at `--seed {42, 43, 44}` produced
+  `experiments/role_geometry/runs/20260428_1021*` directories
+  (retained for diff against the post-fix runs).
+- **Post-fix 3 runs** at `--seed {42, 43, 44}` produced
+  `experiments/role_geometry/runs/post_audit_seed{42,43,44}/`. The
+  numbers cited in this writeup are from the post-fix runs unless
+  noted. Each directory contains `auc_summary.json` (with sha256 of
+  scenario + vstash version + numpy version + bootstrap counts),
+  `metrics_by_cluster.csv`, and a sampled `pairwise_role_geometry.csv`.
+- 1 replication on 20topics (pre-fix): `runs/20260428_102411`. Same
+  inversion direction; the labeling fix would not change the result
+  because the same `mixed_topic_decisions_role_pure` accident applies
+  at <= 3% rate.
 - Embedder: BAAI/bge-small-en-v1.5 (dim 384) via vstash 0.35.0.
 - Independent child generators (`rng.spawn(4)`) ensure cluster
   construction, cluster-level bootstrap, pairwise CSV sampling, and
