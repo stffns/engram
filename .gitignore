@@ -64,8 +64,10 @@ experiments/midloop_pilot/training_data/
 
 # Training-data extracts from merken_labels across projects. Contains
 # private transcript snippets; regeneratable via
-# experiments/extract_labels_to_jsonl.py.
-data/
+# experiments/extract_labels_to_jsonl.py. Anchored to repo root so
+# `merken/data/` (bundled package data, e.g. role classifier prototypes)
+# stays tracked.
+/data/
 *.jsonl
 
 # Mode C demo / benchmark local artifacts (regeneratable; auto-written
