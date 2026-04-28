@@ -1,0 +1,185 @@
+{
+  "domain": "medical_clinical_decisions",
+  "topics": [
+    {
+      "topic": "antibiotic_choice_uti",
+      "v1": "Empiric therapy for uncomplicated UTI in non-pregnant adult women is nitrofurantoin 100mg twice daily for 5 days per the local antibiogram.",
+      "v2": "Updated empiric UTI therapy from nitrofurantoin to fosfomycin 3g single-dose after our antibiogram showed E. coli resistance to nitrofurantoin climbing above 18%.",
+      "v3": "Reverted UTI empiric therapy from fosfomycin back to nitrofurantoin after fosfomycin shortages and a re-audit showed nitrofurantoin resistance was over-counted from a single contaminated batch."
+    },
+    {
+      "topic": "anesthesia_protocol_pediatric",
+      "v1": "Pediatric general anesthesia uses sevoflurane induction with propofol maintenance for cases over 30 minutes.",
+      "v2": "Added dexmedetomidine 0.5mcg/kg as adjunct after pediatric anesthesiologists reported reduced emergence delirium and better pain scores in PACU.",
+      "v3": "Removed routine dexmedetomidine after a quality-review found 4 cases of post-induction bradycardia requiring atropine in the past quarter."
+    },
+    {
+      "topic": "post_op_pain_mgmt",
+      "v1": "Post-operative pain is managed with IV morphine PCA for the first 24 hours, transitioning to oral oxycodone-acetaminophen on POD2.",
+      "v2": "Added gabapentin 300mg at induction and continued postoperatively as part of multimodal pain management. Opioid consumption dropped 35% in the first 48h.",
+      "v3": "Removed gabapentin after the FDA respiratory-depression warning and after our own data showed no functional outcome difference at POD7."
+    },
+    {
+      "topic": "diabetes_screening",
+      "v1": "Type-2 diabetes screening for adults 35 and older uses fasting plasma glucose with a cutoff of 126 mg/dL for diagnosis.",
+      "v2": "Added HbA1c as a preferred initial screen because patients tolerate non-fasting better and HbA1c was already available in 92% of routine panels.",
+      "v3": "Lowered the screening start age from 35 to 25 in patients with BMI >= 27, after the ADA updated their 2022 guidelines based on rising young-adult diabetes incidence."
+    },
+    {
+      "topic": "hypertension_treatment",
+      "v1": "First-line treatment for stage-1 hypertension in adults under 60 is a thiazide diuretic, typically chlorthalidone 12.5mg daily.",
+      "v2": "Switched first-line from chlorthalidone to amlodipine after patient-reported side-effect surveys showed 18% urinary frequency complaints with chlorthalidone.",
+      "v3": "Restored chlorthalidone as first line for cost and outcome reasons. Re-analysis of cardiovascular events showed amlodipine had higher 3-year MACE in our population."
+    },
+    {
+      "topic": "vaccine_schedule",
+      "v1": "Pediatric MMR vaccine is administered as a 2-dose series at 12-15 months and 4-6 years of age, per CDC ACIP.",
+      "v2": "Moved the second MMR dose earlier from 4-6 years to 18 months in patients traveling to high-risk regions, based on a 2024 CDC interim guideline.",
+      "v3": "Reverted the early-second-dose policy back to 4-6 years for general population, keeping the early option only for documented international travel."
+    },
+    {
+      "topic": "imaging_modality_appendicitis",
+      "v1": "Suspected appendicitis in pediatric patients gets ultrasound first; CT only if ultrasound is non-diagnostic.",
+      "v2": "Added MRI as a second-line option for non-diagnostic ultrasound in patients above 15 years to reduce CT radiation exposure.",
+      "v3": "Removed MRI as the routine second line because of long acquisition times in the ED. CT with low-dose protocol is now preferred when ultrasound is non-diagnostic."
+    },
+    {
+      "topic": "chemotherapy_regimen",
+      "v1": "Adjuvant chemotherapy for stage III colon cancer is FOLFOX (oxaliplatin + fluorouracil + leucovorin) for 6 months.",
+      "v2": "Shortened the FOLFOX duration from 6 months to 3 months for low-risk stage III based on the 2018 IDEA collaboration trial showing non-inferiority with less neuropathy.",
+      "v3": "Restored 6-month FOLFOX duration for high-risk subgroup (T4 or N2) after sub-analysis of IDEA showed worse outcomes for those patients on the 3-month arm."
+    },
+    {
+      "topic": "mental_health_screening",
+      "v1": "Adolescent depression screening uses PHQ-9 administered annually at well-child visits starting at age 12.",
+      "v2": "Added PHQ-A (adolescent-specific version) and lowered the screening start age to 11 after AAP updated their 2022 recommendations.",
+      "v3": "Replaced the PHQ-A with the Computer-Adaptive PHQ-9, which adjusts question depth based on initial responses. Sensitivity went up and time-per-screen dropped."
+    },
+    {
+      "topic": "prenatal_testing",
+      "v1": "First-trimester screening combines nuchal translucency ultrasound at 11-13 weeks with maternal serum markers (PAPP-A, free beta-hCG).",
+      "v2": "Added cell-free DNA (cfDNA) screening as an option for high-risk patients (advanced maternal age or prior aneuploidy), reducing invasive testing requests.",
+      "v3": "Made cfDNA the first-line screen for all patients regardless of risk, after professional society guidelines (ACOG) recommended universal cfDNA in 2023."
+    },
+    {
+      "topic": "fall_risk_assessment",
+      "v1": "Inpatient fall risk is assessed with the Morse Fall Scale on admission and every shift change for patients scoring above 45.",
+      "v2": "Replaced Morse with the Hester Davis Fall Risk Scale after a 6-month pilot showed Hester-Davis identified 12% more high-risk patients with comparable specificity.",
+      "v3": "Reverted to Morse Fall Scale because the Hester-Davis transition required additional EHR build-out and inter-rater reliability dropped during onboarding."
+    },
+    {
+      "topic": "nutrition_intervention_icu",
+      "v1": "ICU patients are started on enteral feeds within 24 hours of admission at 25% goal rate, advanced over 48-72 hours to full target.",
+      "v2": "Switched from gradual advancement to full-rate enteral feeds within 6 hours of admission per the EDEN trial, after a pilot showed no increase in feed intolerance.",
+      "v3": "Reverted to gradual advancement specifically for septic shock patients after our own data showed higher gastric residual volumes and 2 cases of bowel ischemia on the rapid-advancement protocol."
+    },
+    {
+      "topic": "physical_therapy_protocol",
+      "v1": "Total knee arthroplasty post-op physical therapy starts on POD1 with passive range-of-motion exercises, transitioning to active assisted on POD3.",
+      "v2": "Compressed the timeline: passive ROM on POD0 (within 4 hours of arrival to floor) and active assisted on POD1, after pilot data showed 1-day shorter LOS.",
+      "v3": "Standardized on the compressed timeline for routine TKA but kept the conservative POD1/POD3 schedule for patients with revisions, complications, or comorbid heart failure."
+    },
+    {
+      "topic": "transfusion_threshold",
+      "v1": "Restrictive transfusion threshold is hemoglobin < 7 g/dL for non-cardiac surgical patients without active bleeding.",
+      "v2": "Raised the threshold to < 8 g/dL for elderly cardiac surgery patients after the TRICS-III trial showed non-inferiority and 30-day mortality benefit.",
+      "v3": "Returned to < 7 g/dL for elective cardiac surgery patients after an internal audit showed no clinical difference but higher transfusion-related adverse events at the higher threshold."
+    },
+    {
+      "topic": "icu_admission_criteria",
+      "v1": "Patients are admitted to ICU based on SOFA score >= 2 with at least one organ system failure or anticipated need for mechanical ventilation.",
+      "v2": "Lowered the SOFA threshold to >= 1 for patients with active sepsis or known immunosuppression, expanding ICU capacity utilization by ~14%.",
+      "v3": "Returned to SOFA >= 2 for general patients but added a separate fast-track admission pathway for known sickle-cell crises and DKA without organ failure."
+    },
+    {
+      "topic": "discharge_planning",
+      "v1": "Inpatient discharge planning meetings are held twice weekly with case management, nursing, and the primary team to identify barriers.",
+      "v2": "Switched to daily discharge huddles after analysis showed average length-of-stay was 0.8 days longer when discharge planning lagged the medical readiness.",
+      "v3": "Augmented the daily huddles with an EHR-based discharge prediction tool that flags likely-tomorrow discharges 24h ahead, allowing pharmacy and home-care setup to start earlier."
+    },
+    {
+      "topic": "code_status_review",
+      "v1": "Code status (full code vs DNR) is documented on admission by the admitting physician and reviewed at each transition of care.",
+      "v2": "Added a mandatory family meeting at hospital day 5 for any patient who has not had a documented code-status conversation with family present.",
+      "v3": "Replaced the day-5 trigger with a goals-of-care conversation triggered by a SOFA-trajectory model that predicts deterioration. Earlier conversations, less family distress."
+    },
+    {
+      "topic": "medication_reconciliation",
+      "v1": "Medication reconciliation is performed by pharmacy on admission for patients on five or more chronic medications.",
+      "v2": "Expanded medication reconciliation to all admissions regardless of med count after a sentinel event involving an omitted single critical medication (warfarin) on a 3-med list.",
+      "v3": "Maintained universal medication reconciliation but introduced a tiered model: pharmacy-led for complex (5+ meds), nurse-led for simple, with escalation criteria."
+    },
+    {
+      "topic": "surgical_site_prep",
+      "v1": "Surgical site preparation uses chlorhexidine-alcohol scrub for non-mucosal sites with a 3-minute scrub and 3-minute dry time per CDC guidelines.",
+      "v2": "Switched the scrub agent from chlorhexidine-alcohol to povidone-iodine for ENT and head-and-neck cases after concern about chlorhexidine ototoxicity in pediatric ear surgery.",
+      "v3": "Returned to chlorhexidine-alcohol for general head-and-neck cases but kept povidone-iodine specifically for procedures opening the middle ear."
+    },
+    {
+      "topic": "antibiotic_prophylaxis_surgery",
+      "v1": "Surgical antibiotic prophylaxis is cefazolin 2g IV given within 60 minutes of incision for clean surgeries.",
+      "v2": "Increased the cefazolin dose to 3g for patients over 120kg per updated SCIP guidelines on weight-based dosing.",
+      "v3": "Switched the obesity-cohort prophylaxis to dual cefazolin 3g + metronidazole 500mg for colorectal cases after deep-organ-space infection rate was 2x baseline."
+    },
+    {
+      "topic": "thrombosis_prevention",
+      "v1": "DVT prophylaxis for medical inpatients uses enoxaparin 40mg SC daily, started within 24 hours of admission for those with Padua score >= 4.",
+      "v2": "Switched the prophylactic agent from enoxaparin to apixaban 2.5mg twice daily based on the MAGELLAN trial, citing easier transition to outpatient.",
+      "v3": "Reverted to enoxaparin after a quality audit showed apixaban was not being administered correctly NPO patients pre-procedure, leading to dose-skip events."
+    },
+    {
+      "topic": "glucose_monitoring_inpatient",
+      "v1": "Inpatient glucose monitoring uses point-of-care fingerstick four times daily for patients on subcutaneous insulin.",
+      "v2": "Piloted continuous glucose monitoring (Dexcom G7) on the diabetes step-down unit, finding 30% fewer hypoglycemic episodes captured-and-treated within 30 minutes.",
+      "v3": "Limited continuous glucose monitoring rollout to step-down and ICU due to staff workflow disruption when used on general medical floors with high patient turnover."
+    },
+    {
+      "topic": "blood_pressure_target",
+      "v1": "Inpatient blood pressure target for non-stroke hypertensive emergencies is reduction of mean arterial pressure by no more than 25% in the first hour.",
+      "v2": "Tightened the MAP-reduction limit to 20% per the 2024 SCCM recommendations after concerns about end-organ hypoperfusion in elderly patients.",
+      "v3": "Reverted to the original 25% MAP-reduction limit for non-stroke patients but kept the 20% limit specifically for ischemic stroke and aortic dissection."
+    },
+    {
+      "topic": "pain_scoring",
+      "v1": "Inpatient pain is assessed using the 0-10 numeric rating scale every 4 hours and after each pain intervention.",
+      "v2": "Added the FLACC scale for non-verbal patients (post-anesthesia, dementia, intubated) after nurses reported the 0-10 NRS was unusable in those populations.",
+      "v3": "Standardized on a hybrid model: 0-10 NRS for verbal patients, FLACC for non-verbal, BPS-NI for intubated patients. Documentation now requires the scale used."
+    },
+    {
+      "topic": "delirium_screening",
+      "v1": "ICU delirium screening uses CAM-ICU performed once per shift by the bedside nurse on all intubated and post-extubation patients.",
+      "v2": "Increased CAM-ICU frequency from once per shift to every 4 hours after a quality review found 12% of delirium cases were missed at the once-per-shift cadence.",
+      "v3": "Returned to once-per-shift CAM-ICU but added an automated alert when a patient receives any benzodiazepine, requiring a CAM-ICU within 1 hour."
+    },
+    {
+      "topic": "pressure_ulcer_prevention",
+      "v1": "Pressure ulcer prevention uses 2-hour repositioning for at-risk inpatients identified by Braden score <= 18.",
+      "v2": "Switched to 4-hour repositioning intervals for patients on alternating-pressure mattresses, after the 2-hour cadence was deemed unnecessary on the new mattresses.",
+      "v3": "Reverted to 2-hour repositioning universally after pressure-injury rate ticked up 1.5x in the first 6 months on the 4-hour interval. Mattress technology was insufficient."
+    },
+    {
+      "topic": "infection_control_audit",
+      "v1": "Hand-hygiene compliance is audited by direct observation of 100 opportunities per unit per month, with feedback at the unit-meeting cadence.",
+      "v2": "Replaced direct observation with electronic monitoring (badge sensors at hand-sanitizer dispensers), capturing 10x more events with no observer bias.",
+      "v3": "Reverted to a hybrid model after the electronic system flagged a pattern of bypass behavior (touching the dispenser without dispensing) that direct observation could verify."
+    },
+    {
+      "topic": "isolation_protocol",
+      "v1": "Contact precautions for MRSA-colonized inpatients require gowns and gloves for all room entries until 3 negative swabs over 3 months.",
+      "v2": "Discontinued routine contact precautions for MRSA after a 12-month internal study showed no transmission rate difference compared to standard precautions plus chlorhexidine bathing.",
+      "v3": "Reinstated contact precautions specifically in oncology and ICU units after a small uptick in unit-level transmission rate, while keeping standard precautions for other units."
+    },
+    {
+      "topic": "end_of_life_care",
+      "v1": "End-of-life care involves a palliative care consult triggered by attending request or patient request for hospice information.",
+      "v2": "Added an automatic palliative-care consult for any ICU stay greater than 7 days. Cost reduction and family-satisfaction metrics improved.",
+      "v3": "Refined the trigger to ICU stay greater than 5 days OR a SOFA trajectory predictive of low likelihood of recovery, after the 7-day threshold missed several rapidly-deteriorating patients."
+    },
+    {
+      "topic": "triage_scoring",
+      "v1": "Emergency department triage uses the Emergency Severity Index (ESI) 5-level scale assigned by the triage nurse on arrival.",
+      "v2": "Augmented ESI with a vital-signs-driven automated rescoring that runs every 30 minutes during the wait, escalating patients whose vitals worsen.",
+      "v3": "Replaced ESI with a hospital-built model trained on local data and validated against ESI on 90 days of historical visits. Concordance with attending judgment is higher."
+    }
+  ]
+}

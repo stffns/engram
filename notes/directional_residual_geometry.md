@@ -5,6 +5,21 @@ Pre-registered experiment for merken issue #38. Run 2026-04-28 on
 fix found by a focused bug audit (see "Bug audit" section); the audit
 confirmed no sign-flipping bug, the labeling fix changed AUC by < 1pp.
 
+> **Correction (post-#38b, 2026-04-28).** The "Size-controlled
+> re-analysis (N=4 only)" subsection below reports EVR_1 N=4
+> AUC=0.824 [0.768, 0.879] obtained by post-hoc filtering of the
+> N-variable build to clusters that happened to land at N=4. The
+> follow-up #38b ran proper a-priori N=4 construction (forcing
+> k_min=k_max=4) and recovered EVR_1 N=4 AUC=0.710 -- the cell
+> compositions differ between post-hoc filter and a-priori
+> construction. The corrected N=4 AUC falls in the same band as
+> MaxNormRatio (0.748), confirming #38b's finding that the
+> eigenvalue spectrum signal is interchangeable with a cheap
+> outlier metric. See `notes/role_geometry_38b.md` section
+> "Discovery-scale replication." The "EVR_1 partial band" framing
+> in the verdict and Decision sections of this document was
+> falsified by #38b and should be read alongside that writeup.
+
 ## Verdict (per pre-registered primary gate)
 
 **Primary gate (PR) failed per strict pre-registration. Secondary
