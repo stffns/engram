@@ -285,8 +285,7 @@ def write_classification_csv(
     cols = [
         "id", "topic", "true_role", "predicted_role", "correct",
         "top1_sim", "margin",
-        "sim_decision", "sim_investigation", "sim_observation", "sim_preference",
-    ]
+    ] + [f"sim_{role}" for role in ROLES]
     with out.open("w", newline="") as fh:
         w = csv.DictWriter(fh, fieldnames=cols)
         w.writeheader()

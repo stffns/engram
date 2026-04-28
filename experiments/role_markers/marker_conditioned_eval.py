@@ -268,8 +268,30 @@ def main(argv: Iterable[str] | None = None) -> int:
             sep["dec_dec_same"], sep["pref_pref_same"],
         )
 
-    # Per-event CSV: vanilla cosine to each role's centroid + predicted prefix vs vanilla
-    # diff per event. (Smaller table than the role-pair JSON above.)
+    # Per-event CSV: cosine of each event to each role's centroid within
+    # each cohort. The centroid is the L2-normalized mean of all eval
+    # vectors with ground-truth role == r, in that cohort. Diagnostic:
+    # if prefix-conditioning works, an event with true role r should
+    # show higher cosine to centroid_r in the prefixed cohorts than in
+    # vanilla, and lower cosine to centroids of other roles. Original
+    # implementation recorded ||v|| per cohort, which is uninformative
+    # because vstash returns near-unit vectors. Fixed 2026-04-28 per
+    # gemini-code-assist review on PR #42.
+    cohort_centroids: dict[str, dict[str, np.ndarray]] = {}
+    cohort_unit_vectors: dict[str, np.ndarray] = {}
+    for name, vec_arr in cohort_vectors.items():
+        unit = l2_normalize(vec_arr)
+        cohort_unit_vectors[name] = unit
+        per_role_centroid: dict[str, np.ndarray] = {}
+        for r in ROLES:
+            mask = role_array == r
+            if not mask.any():
+                continue
+            centroid = unit[mask].mean(axis=0)
+            cnorm = np.linalg.norm(centroid)
+            per_role_centroid[r] = centroid / cnorm if cnorm > 0 else centroid
+        cohort_centroids[name] = per_role_centroid
+
     csv_rows = []
     for i, e in enumerate(events):
         row = {
@@ -280,13 +302,17 @@ def main(argv: Iterable[str] | None = None) -> int:
             "predicted_correct": int(predicted_roles[i] == e["role"]),
         }
         for name in cohorts:
-            v = cohort_vectors[name][i]
-            n = np.linalg.norm(v)
-            row[f"{name}_norm"] = f"{n:.6f}"
+            unit_i = cohort_unit_vectors[name][i]
+            for r in ROLES:
+                centroid_r = cohort_centroids[name].get(r)
+                if centroid_r is None:
+                    row[f"{name}_cos_to_{r}"] = ""
+                else:
+                    row[f"{name}_cos_to_{r}"] = f"{float(unit_i @ centroid_r):.6f}"
         csv_rows.append(row)
 
     csv_cols = ["id", "topic", "true_role", "predicted_role", "predicted_correct"] + [
-        f"{name}_norm" for name in cohorts
+        f"{name}_cos_to_{r}" for name in cohorts for r in ROLES
     ]
     with (args.output_dir / "phase2_per_event.csv").open("w", newline="") as fh:
         w = csv.DictWriter(fh, fieldnames=csv_cols)
