@@ -76,6 +76,7 @@ if TYPE_CHECKING:
         MidloopDecision,
         StepObservation,
     )
+    from merken.role_classifier import RoleClassification, RoleClassifier
 
 DEFAULT_LAYER = "episodic"
 DEFAULT_COLLECTION = "default"
@@ -230,6 +231,7 @@ class Memory:
         consolidate_decider: ConsolidateDecider | None = None,
         recall_decider: RecallDecider | None = None,
         forget_decider: ForgetDecider | None = None,
+        role_classifier: "RoleClassifier | None" = None,
         midloop_decider: MidloopDecider | None = None,
         temporal_weight: float = 0.0,
         trajectory_window: int = 20,
@@ -249,6 +251,11 @@ class Memory:
         )
         self._recall_decider: RecallDecider = recall_decider or LayeredRecaller()
         self._forget_decider: ForgetDecider = forget_decider or NeverForget()
+        # Opt-in role tagging at write time. Default off because the
+        # bundled V2 SCR taxonomy is specific (system events, ops
+        # context) and not all callers want it. Pass an explicit
+        # RoleClassifier instance to enable.
+        self._role_classifier: "RoleClassifier | None" = role_classifier
 
         # Midloop default is Noop (never intervenes). The trajectory
         # is per-Memory instance state, intentionally NOT persisted
@@ -318,12 +325,23 @@ class Memory:
         if not decision.write:
             return RememberResult(written=False, decision=decision, ingest=None)
 
+        # Opt-in: when a role_classifier is configured, attach a
+        # ``role:<role>`` tag so downstream consolidate / recall paths
+        # can read it without re-classifying. Classification happens
+        # only on writes (skipped events stay untagged) so the cost
+        # tracks the write rate, not the call rate.
+        final_tags = tags
+        if self._role_classifier is not None:
+            classification = self._role_classifier.classify(text)
+            role_tag = f"role:{classification.role}"
+            final_tags = f"{tags},{role_tag}" if tags else role_tag
+
         ingest = self._vstash.remember(
             text,
             title=title,
             collection=self.collection,
             layer=layer,
-            tags=tags,
+            tags=final_tags,
         )
 
         # vstash has its own guardrails (e.g. it rejects text shorter
@@ -343,6 +361,23 @@ class Memory:
             return RememberResult(written=False, decision=override, ingest=ingest)
 
         return RememberResult(written=True, decision=decision, ingest=ingest)
+
+    def classify_role(self, text: str) -> "RoleClassification":
+        """Classify an event's role without writing it.
+
+        Convenience wrapper around the configured ``role_classifier``.
+        Useful for callers that want to inspect a role label before
+        deciding whether to ``remember`` (e.g. routing, gating, UI
+        previews). Raises ``RuntimeError`` when no classifier was
+        passed at construction.
+        """
+        if self._role_classifier is None:
+            raise RuntimeError(
+                "Memory was constructed without a role_classifier. Pass "
+                "`role_classifier=RoleClassifier.default()` (or a custom "
+                "instance) to Memory(...) to enable role classification."
+            )
+        return self._role_classifier.classify(text)
 
     # ------------------------------------------------------------------- read
 
