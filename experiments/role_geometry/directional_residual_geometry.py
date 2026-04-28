@@ -233,10 +233,16 @@ def build_synthetic_clusters(
             indices = [by_topic_role[(topics_with_role[c], role)][0] for c in chosen]
             _add(f"clean_role_{role}", is_clean=True, indices=indices)
 
-    # 4. clean_noise: K random noise events.
+    # 4. clean_noise: K random noise events. Cap k by available noise
+    # to avoid rng.choice(replace=False) ValueError on small noise pools.
+    # Bug found by gemini-code-assist on PR #41: existing code only
+    # checked >= k_min, allowing k > len(noise_indices) when the pool
+    # was small. None of the runs used scenarios with such small noise
+    # pools, but this is a latent crash fixed for resilience.
     if len(noise_indices) >= k_min:
+        max_k_noise = min(k_max, len(noise_indices))
         for _ in range(k_target):
-            k = int(rng.integers(k_min, k_max + 1))
+            k = int(rng.integers(k_min, max_k_noise + 1))
             chosen = rng.choice(len(noise_indices), size=k, replace=False)
             indices = [noise_indices[c] for c in chosen]
             _add("clean_noise", is_clean=True, indices=indices)
