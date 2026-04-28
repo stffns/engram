@@ -1,0 +1,185 @@
+{
+  "domain": "products_ecommerce",
+  "topics": [
+    {
+      "topic": "billing_engine",
+      "v1": "Built billing engine on Stripe Subscriptions because we need usage-based pricing and proration handled by the gateway.",
+      "v2": "Migrated invoice rendering off Stripe Tax to TaxJar after Stripe Tax mishandled VAT for two EU markets during launch week.",
+      "v3": "Replaced Stripe Subscriptions with self-hosted billing on Lago. The 2.9% fee on invoiced enterprise plans was eating margin and Lago lets us issue net-30 terms."
+    },
+    {
+      "topic": "inventory_sync",
+      "v1": "Inventory syncs from the warehouse into the storefront via a 5-minute cron pulling from the WMS REST endpoint.",
+      "v2": "Switched inventory sync from cron to event-driven: WMS publishes stock-level events to Kafka and the storefront subscribes, dropping median freshness from 4 minutes to 12 seconds.",
+      "v3": "Reverted inventory sync from event-driven Kafka back to a 30-second cron pull. The Kafka topic dropped messages during a partition rebalance and oversold 200 SKUs on Black Friday."
+    },
+    {
+      "topic": "recommendation_engine",
+      "v1": "Recommendation widgets on the home page use collaborative filtering trained nightly on the last 90 days of user-item interactions.",
+      "v2": "Added a content-based reranker on top of the collaborative scores. Click-through went from 4.1% to 5.3% on the home grid in the A/B test.",
+      "v3": "Replaced the entire stack with an embedding-based two-tower model served from Vespa. Rank pipeline latency dropped 60ms and CTR ticked up another 0.4 percentage points."
+    },
+    {
+      "topic": "review_moderation",
+      "v1": "Product reviews go through a manual moderation queue staffed by trust-and-safety contractors with a 24-hour SLA.",
+      "v2": "Layered an automated profanity classifier in front of the manual queue. About 35% of reviews now auto-approve without human review and the SLA backlog dropped by half.",
+      "v3": "Removed the auto-approve path after legal flagged that user-generated content with brand mentions has different liability rules. All reviews go back through humans, with the classifier providing a ranking signal only."
+    },
+    {
+      "topic": "shopping_cart",
+      "v1": "Shopping cart state lives in Redis with a 30-day TTL keyed by anonymous device id; logged-in users get persistence to Postgres.",
+      "v2": "Cart TTL extended from 30 days to 90 days after analytics showed 18% of conversions involve a cart older than 30 days.",
+      "v3": "Migrated cart state from Redis-with-TTL to authoritative Postgres for everyone, anonymous and logged-in alike. The TTL approach was losing carts whenever Redis was failover-ed."
+    },
+    {
+      "topic": "onboarding_flow",
+      "v1": "New-user onboarding shows a 4-step wizard collecting interests, location, budget tier, and notification preferences before the first home view.",
+      "v2": "Cut the onboarding wizard from 4 steps to 2 (interests + notification preferences only) after funnel analysis showed step 3 dropping 30% of users.",
+      "v3": "Removed onboarding entirely. New users land on a personalized home page generated from clickstream within the first session. D7 retention went up 4 percentage points."
+    },
+    {
+      "topic": "referral_program",
+      "v1": "Referral program gives the inviter $10 in store credit when the invitee places their first order over $25.",
+      "v2": "Bumped the referral reward from $10 to $20 after the program plateaued at 0.6 referrals per active user. CAC payback period went from 3 months to 4 months but volume tripled.",
+      "v3": "Killed the referral program. Fraud (self-referrals via temporary emails) was eating 40% of payouts and the legitimate channel was already saturated."
+    },
+    {
+      "topic": "gift_card",
+      "v1": "Gift cards are issued as 16-character alphanumeric codes redeemable through the standard discount-code field at checkout.",
+      "v2": "Introduced digital gift cards delivered by email with personalized messages, separate from the physical card SKU. Email delivery used SendGrid templates.",
+      "v3": "Moved gift card delivery off SendGrid templates onto an internal templating service after a SendGrid outage caused a 6-hour delivery delay during the holiday peak."
+    },
+    {
+      "topic": "subscription_billing",
+      "v1": "Subscriptions renew on the calendar day matching the original signup date, with grace period of 3 days on payment failure before suspension.",
+      "v2": "Extended the grace period from 3 days to 7 days and added 3 retry attempts spaced exponentially. Involuntary churn dropped from 4.2% to 2.1% per cycle.",
+      "v3": "Switched from calendar-day renewals to staggered renewals across the month after our payment processor warned us about the bursty load on the 1st and 15th."
+    },
+    {
+      "topic": "pricing_experiment",
+      "v1": "A/B prices on the standard plan are tested at $9 vs $12 vs $15 with cohort assignment by hashed user id at signup.",
+      "v2": "Halted the $9 arm after 2 weeks because it was pulling significantly more signups but those signups had 50% higher refund rate within 30 days.",
+      "v3": "Settled on a single $14 price point and ended ongoing pricing tests. Concluded that price elasticity in this segment is dominated by feature-tier perception, not absolute dollar amount."
+    },
+    {
+      "topic": "product_catalog",
+      "v1": "Product catalog is sourced from the master ERP and synced nightly to a denormalized read replica that the storefront queries.",
+      "v2": "Added a Redis cache in front of the read replica with 1-minute TTL after the read replica started saturating CPU during peak browsing hours.",
+      "v3": "Replaced the Redis-cache + replica architecture with a CDC pipeline streaming catalog changes from ERP to a search index, with the storefront querying the search index directly."
+    },
+    {
+      "topic": "coupon_engine",
+      "v1": "Coupon engine validates codes server-side at cart-add and at checkout, using a Postgres lookup with row locks for usage limits.",
+      "v2": "Moved coupon usage counters from Postgres row locks to a Redis INCR with atomic limit check, dropping checkout p99 latency from 280ms to 90ms.",
+      "v3": "Reverted coupon usage counters back to Postgres after a Redis split-brain caused us to over-redeem a 1000-use coupon to 1400 redemptions during a promo."
+    },
+    {
+      "topic": "shipping_calculator",
+      "v1": "Shipping rates are computed at checkout via an EasyPost API call using the cart contents and the destination zip.",
+      "v2": "Cached EasyPost responses by (origin_zip, destination_zip, total_weight_bucket) for 24 hours, cutting EasyPost API spend by 60%.",
+      "v3": "Replaced EasyPost with a Shippo + ShipStation combination after EasyPost discontinued the volume-discount tier we depended on for international rates."
+    },
+    {
+      "topic": "tax_engine",
+      "v1": "Sales tax is computed via Avalara AvaTax at order creation, with the rate looked up by destination address and product taxability code.",
+      "v2": "Pre-computed tax rates for the top 1000 destination zips into a local table refreshed daily, cutting AvaTax calls by 80% on routine orders.",
+      "v3": "Switched the entire tax engine off AvaTax onto TaxJar API after a renewal price hike. Migration took 6 weeks and required reconciling 12 edge-case taxability rulings."
+    },
+    {
+      "topic": "fraud_detection",
+      "v1": "Fraud detection at checkout uses Stripe Radar rules plus a manual review queue for orders flagged above $500.",
+      "v2": "Added a custom XGBoost model trained on 18 months of labeled chargebacks, reducing false-positive rate from 8% to 3% while keeping fraud catch rate flat.",
+      "v3": "Migrated the custom XGBoost model to a managed Sift integration after the model required quarterly retraining and the data-science cost exceeded Sift's licensing fee."
+    },
+    {
+      "topic": "chargeback_handler",
+      "v1": "Chargebacks are handled manually by the trust-and-safety team using the Stripe dashboard, with evidence templates stored in a shared Notion doc.",
+      "v2": "Built a small in-house tool that auto-fills chargeback evidence packets from the order record + delivery proof, cutting per-case handling time from 25 minutes to 8 minutes.",
+      "v3": "Outsourced chargeback dispute handling to Chargebacks911. The internal tool's win rate plateaued at 38% and the vendor consistently delivers 52% on similar disputes."
+    },
+    {
+      "topic": "multi_currency",
+      "v1": "Multi-currency support displays prices in the user's locale via a daily-refreshed FX rate table, but charges in USD at checkout.",
+      "v2": "Added local-currency charging in EUR, GBP, CAD, AUD by routing those orders through a Stripe-account-per-currency setup with daily settlement.",
+      "v3": "Consolidated the 5 Stripe accounts into a single account using Stripe's Cross-Border Payouts feature, eliminating the daily settlement reconciliation work."
+    },
+    {
+      "topic": "locale_routing",
+      "v1": "User locale is detected from Accept-Language header at first request and stored as a cookie for subsequent visits.",
+      "v2": "Added geo-IP fallback when Accept-Language is missing or set to en-US for non-US IPs (catches mobile browsers with default-English).",
+      "v3": "Removed geo-IP fallback after EU users complained about being auto-routed to localized stores when traveling. Now we ask explicitly on first visit."
+    },
+    {
+      "topic": "product_search",
+      "v1": "Product search runs on Algolia with custom ranking by purchase-recency, popularity, and a manual boost list per category.",
+      "v2": "Added typo tolerance and synonym expansion using Algolia's built-in features, raising zero-result-rate-improving queries by 12%.",
+      "v3": "Migrated product search from Algolia to OpenSearch with a custom BM25 + popularity hybrid, after Algolia's pricing tier crossed a threshold that made self-hosted OpenSearch cheaper."
+    },
+    {
+      "topic": "abandoned_cart",
+      "v1": "Abandoned-cart emails fire 4 hours after cart inactivity if the user has provided an email, with a 10% discount code valid for 48 hours.",
+      "v2": "Replaced the 10% blanket discount with a personalized incentive: free shipping on orders below $50, 10% off above, no incentive for high-AOV carts.",
+      "v3": "Cut abandoned-cart emails to a single send at 24 hours instead of the 4-hour + 24-hour + 7-day sequence. Email-channel revenue stayed flat and unsubscribe rate dropped 2pp."
+    },
+    {
+      "topic": "saved_for_later",
+      "v1": "Saved-for-later items appear as a separate section in the cart, persisted server-side for logged-in users and in localStorage for anonymous.",
+      "v2": "Renamed Saved-for-later to Wishlist and merged the localStorage path into the server-side path on login. UX is now consistent across devices.",
+      "v3": "Split Wishlist back into two surfaces: a public Wishlist (sharable, gift-targetable) and a private Saved Items list (in-cart-context). The merged single-list confused users."
+    },
+    {
+      "topic": "bundle_pricing",
+      "v1": "Bundles are configured in admin as fixed SKUs with a discount applied at order time, using a Postgres view to compute effective price.",
+      "v2": "Switched to dynamic bundles where any 3 of N SKUs from a category get 15% off, computed in the cart at add-time. Dramatic increase in bundle attach rate.",
+      "v3": "Reverted to fixed-SKU bundles after the dynamic discount rule allowed combinations that violated supplier MAP pricing agreements. Got a cease-and-desist from a brand partner."
+    },
+    {
+      "topic": "exchange_policy",
+      "v1": "Exchanges are allowed within 30 days of delivery for items in original condition, processed manually by customer support via the order admin.",
+      "v2": "Self-serve exchanges launched: users initiate via the order page, get an automated return label, and a replacement ships when the return arrives at the warehouse.",
+      "v3": "Added instant-exchange option: replacement ships immediately on return-label scan, with refund-on-failure-to-return after 14 days. Cut exchange cycle time from 9 days to 3."
+    },
+    {
+      "topic": "return_workflow",
+      "v1": "Returns generate a UPS return label sent by email on RMA approval, with refund triggered when the return is scanned at the warehouse.",
+      "v2": "Switched return-label printing from UPS to ShipBob's multi-carrier integration, cutting per-return cost by $1.80 on average.",
+      "v3": "Added box-free returns at Walgreens and FedEx Office partner drop points. Customer satisfaction with return UX rose from 3.6 to 4.4 stars."
+    },
+    {
+      "topic": "order_fulfillment",
+      "v1": "Orders are fulfilled from a single warehouse in Indianapolis, batched twice daily, picked manually with paper picklists.",
+      "v2": "Added a second warehouse in Reno for Western US orders, with order-routing based on destination state. Cut average shipping zone from 5.2 to 3.8.",
+      "v3": "Outsourced fulfillment from the two owned warehouses to a 3PL network (ShipBob). Capex savings funded the inventory platform rebuild."
+    },
+    {
+      "topic": "delivery_tracking",
+      "v1": "Delivery tracking links sent in the shipping confirmation email link directly to the carrier tracking page (UPS, USPS, FedEx).",
+      "v2": "Built a unified tracking page on our own domain that pulls carrier updates from EasyPost webhooks. CTR on the tracking link doubled.",
+      "v3": "Added delivery prediction estimates trained on historical carrier data, surfacing a confidence band on the unified tracking page."
+    },
+    {
+      "topic": "customer_support",
+      "v1": "Customer support is staffed by 8 agents on Zendesk, handling email and chat with a 24-hour first-response SLA.",
+      "v2": "Layered an Intercom chatbot in front of the queue to deflect common questions (where's my order, return policy). Deflection rate hit 40% and SLA improved to 4 hours.",
+      "v3": "Replaced the Intercom chatbot with a fine-tuned LLM-based responder. Deflection rate dropped to 35% but quality scores rose, and we eliminated 2 agent seats."
+    },
+    {
+      "topic": "live_chat",
+      "v1": "Live chat is offered on product pages 9am-9pm ET via the LiveChat platform, with an offline form outside hours.",
+      "v2": "Extended live chat to 24/7 by adding overnight coverage from a BPO contractor, after analytics showed 22% of chat volume coming from EU and APAC outside business hours.",
+      "v3": "Scaled back 24/7 chat to follow-the-sun coverage limited to logged-in customers with $500+ lifetime value. Cost-to-serve was unsustainable on the long tail."
+    },
+    {
+      "topic": "newsletter_segmentation",
+      "v1": "Newsletter audience is segmented into 4 cohorts (new, active, lapsed, churned) by recency-of-last-order, with separate creative per cohort.",
+      "v2": "Switched cohort definitions to use a 2D grid of recency x frequency, doubling the number of cohorts to 9 and customizing offer aggressiveness per cell.",
+      "v3": "Replaced the static cohort grid with a per-user model that picks the next best campaign for each user from a candidate pool, lifting newsletter revenue 18%."
+    },
+    {
+      "topic": "loyalty_tier",
+      "v1": "Loyalty tiers are Silver, Gold, Platinum based on lifetime spend thresholds of $500, $2000, $5000 with annual reset.",
+      "v2": "Removed the annual reset after retention analysis showed cliff-edge churn in months 11-12 from customers about to be demoted.",
+      "v3": "Restructured tiers to be points-based instead of spend-based, with points earned for orders, reviews, and referrals. Engagement-driven loyalty replaces transaction-driven."
+    }
+  ]
+}
