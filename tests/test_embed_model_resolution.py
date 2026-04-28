@@ -22,35 +22,22 @@ from merken import Memory
 from merken.memory import _resolve_vstash_embed_model
 
 
-def test_resolver_falls_back_to_config_on_fresh_store(tmp_path: Path) -> None:
-    """A fresh store has no store_meta row for embedding_model because
-    no ingest has happened yet. The resolver must return the vstash
-    config default in that case."""
-    from vstash.config import EmbeddingsConfig
-
-    with Memory(project="fresh", db=tmp_path / "e.db") as mem:
-        resolved = _resolve_vstash_embed_model(mem._vstash)
-
-    assert resolved == EmbeddingsConfig().model
-
-
-def test_resolver_falls_back_when_store_meta_lacks_embedding_model(
+def test_resolver_returns_value_written_by_vstash_on_fresh_store(
     tmp_path: Path,
 ) -> None:
-    """As of vstash 0.27.0, a fresh store does not auto-write
-    ``store_meta.embedding_model`` even after the first ingest —
-    only ``schema_version`` and ``vstash_version`` land there. The
-    resolver must treat a missing row the same as a fresh store
-    and fall back to the config default. (Jay's legacy store has
-    the row because it was created by an older vstash that used
-    to write it — worth tracking as a vstash upstream regression
-    in observability, not something merken should paper over.)
+    """As of vstash 0.35.0, a fresh store has ``store_meta.embedding_model``
+    populated automatically (previously vstash 0.27.0 did not write it).
+    The resolver must return that authoritative value so merken's
+    clustering and vstash's retrieval stay in the same vector space.
+
+    Earlier behavior (vstash 0.27.0): no row -> fall back to config.
+    Current behavior (vstash 0.35.0+): row present -> use it.
+
+    Regression guard: if vstash ever stops writing this row again the
+    precondition assertion below points to fixing the upstream
+    observability rather than papering over it in merken.
     """
-    from vstash.config import EmbeddingsConfig
-
-    with Memory(project="ingested", db=tmp_path / "e.db") as mem:
-        mem.remember("A real event so vstash populates store_meta.")
-
+    with Memory(project="fresh", db=tmp_path / "e.db") as mem:
         con = sqlite3.connect(str(mem._vstash._store.db_path))
         row = con.execute(
             "SELECT value FROM store_meta WHERE key = ?",
@@ -58,15 +45,44 @@ def test_resolver_falls_back_when_store_meta_lacks_embedding_model(
         ).fetchone()
         con.close()
 
+        assert row is not None, (
+            "vstash did not write store_meta.embedding_model on store "
+            "creation. If vstash regressed on this, the resolver fallback "
+            "path is now load-bearing again -- update this test to assert "
+            "the fallback rather than papering over a vstash regression."
+        )
+        stored_model = row[0]
+
         resolved = _resolve_vstash_embed_model(mem._vstash)
 
-    # Confirm the precondition: vstash did not write embedding_model
-    assert row is None, (
-        "vstash unexpectedly wrote store_meta.embedding_model on ingest. "
-        "If vstash regained this behavior upstream, update this test to "
-        "assert the resolver reads the row instead of falling back."
-    )
-    # Resolver falls back cleanly to config default
+    assert resolved == stored_model
+
+
+def test_resolver_falls_back_when_store_meta_row_missing(
+    tmp_path: Path,
+) -> None:
+    """Legacy stores (created by older vstash versions) and corrupted
+    stores may lack the ``embedding_model`` row. The resolver must
+    still resolve cleanly by falling back to the vstash config default
+    rather than returning ``None`` or crashing.
+
+    The "missing row" state is not currently reachable through the
+    vstash public API on a new store (vstash 0.35.0 always writes it),
+    so we simulate it by deleting the row after store init.
+    """
+    from vstash.config import EmbeddingsConfig
+
+    with Memory(project="legacy", db=tmp_path / "e.db") as mem:
+        con = sqlite3.connect(str(mem._vstash._store.db_path))
+        con.execute(
+            "DELETE FROM store_meta WHERE key = ?",
+            ("embedding_model",),
+        )
+        con.commit()
+        con.close()
+
+        resolved = _resolve_vstash_embed_model(mem._vstash)
+
     assert resolved == EmbeddingsConfig().model
 
 

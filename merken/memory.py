@@ -931,7 +931,7 @@ class Memory:
             top_k=top_k,
             collection=AUDIT_COLLECTION,
             layer=AUDIT_LAYER,
-            fts_only=fts_only,
+            retrieval_mode="fts_only" if fts_only else None,
         )
 
     # --------------------------------------------------------------- midloop
