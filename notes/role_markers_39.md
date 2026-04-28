@@ -243,19 +243,115 @@ data because the existing scenarios cannot test the spec.
   confusion matrix, K-saturation table, used prototype IDs, env
   metadata).
 
+## Phase 2 diagnostic results (run 2026-04-28)
+
+Phase 2 was run as a diagnostic (not the gated pre-registered Phase 2)
+to test whether prefix-conditioning helps the embedding manifold
+separate roles. Four cohorts at seed 42:
+
+| cohort                  | same role mean | cross role mean | separation | DEC-PREF mean |
+|-------------------------|-----------------|------------------|-------------|----------------|
+| vanilla                 | 0.532           | 0.475            | 0.056       | 0.489          |
+| ground_truth_prefix     | 0.610           | 0.536            | 0.074       | 0.577          |
+| predicted_prefix        | 0.607           | 0.537            | 0.070       | 0.579          |
+| random_prefix           | 0.590           | 0.538            | 0.052       | 0.555          |
+
+Pre-registered diagnostic gate (recorded before run):
+
+- "manifold can host role with prefix" iff GT-prefix separation
+  delta >= 0.05 over vanilla AND beats random-prefix improvement
+  by >= 0.05.
+- "DEC-PREF specifically rescued" iff GT-prefix DEC-PREF cross
+  cosine drops by >= 0.10 below vanilla (lower cosine = more
+  separation).
+
+**Result on all 3 seeds (42, 43, 44): PREFIX_CONDITIONING_INEFFECTIVE.**
+
+- GT-prefix separation delta: +0.018 (vs threshold 0.05)
+- GT vs random delta: +0.022 (vs threshold 0.05)
+- DEC-PREF GT-prefix delta: +0.087 (cosine *increases*; threshold
+  required <= -0.10)
+
+The DEC-PREF result is particularly stark: prefix-conditioning makes
+DECISION and PREFERENCE events MORE similar (cross cosine climbs
+0.489 -> 0.577 with GT prefix), not less. The 3-token prefix
+("[role: X] ") inflates pairwise cosine uniformly across all event
+pairs, but the role-specific component does not differentially push
+same-role pairs together vs. cross-role pairs apart. The lift from
+ground-truth role prefix is barely larger than from a random
+NATO-phonetic-tag prefix.
+
+3-seed result is essentially identical across seeds (vanilla and
+GT-prefix cohorts do not depend on seed; random and predicted vary
+only in the random tag draws and the Phase 1 prediction). The
+diagnostic outcome is consistent.
+
+## What Phase 2 changes about the conclusion
+
+Phase 2 closes the prefix-conditioning rescue path. The embedding
+manifold of BGE-small does not host role information via the
+Schick-Schutze pattern-conditioning mechanism, at least not at the
+4-token prefix scale tested.
+
+But Phase 2's negative result is actually consistent with a
+constructive next move: **redefine the DECISION role to have
+non-overlapping lexical markers** with PREFERENCE. The 3 roles that
+work in Phase 1 (INVESTIGATION 90%, OBSERVATION 87%, PREFERENCE 95%)
+all have distinctive lexical markers that BGE picks up natively
+("investigating", "shows/noticed/observed", "prefer/lean/recommend").
+DECISION fails precisely because it shares lexical structure with
+PREFERENCE ("X over Y", "switch to X").
+
+A redefined role like **STATE_CHANGE_REPORT**:
+
+- Past tense + concrete state-change verb (deployed, migrated,
+  shipped, launched, removed, configured, switched-to-X-as-of-DATE)
+- Names a specific identifiable entity in production
+- Reports state, not the act of choosing among alternatives
+- Avoids the "X over Y" comparative structure entirely
+
+Example contrast:
+
+- Current DECISION: "Switched search infra from Elasticsearch to
+  Vespa to support hybrid queries." -> collides with PREFERENCE.
+- STATE_CHANGE_REPORT: "Production search has been running on Vespa
+  since 2026-04-15; Elasticsearch instances were decommissioned the
+  same day." -> distinct from PREFERENCE.
+
+The redefinition is testable as #39b (or simply a re-author of
+prototypes.json + eval.json with the new role definitions). It is
+NOT in scope for #39 itself; the original spec committed to the
+4-role taxonomy as defined.
+
 ## Decision
 
 Per strict per-seed gate: **NO_GO with one PARTIAL outlier.** Per
 3-seed mean: borderline PARTIAL. Per-class failure is structural
-(DECISION ↔ PREFERENCE collision), not sample-noise.
+(DECISION ↔ PREFERENCE collision). Phase 2 prefix-conditioning
+rescue: structurally ineffective (3-seed PREFIX_CONDITIONING_INEFFECTIVE).
 
-Phase 2 *as pre-registered* (predicted-role prefix) inherits the
-Phase 1 failure and is unlikely to clear its own gate. Phase 2 *as
-diagnostic* (ground-truth-prefix, not gated) could refine the next
-move. Defer the choice to the next session.
+The combined #38 + #38b + #39 P1+P2 result is robust: BGE-small
+cannot recover the role distinction merken needs (committed-vs-stated
+within the v1+v2+v3 supersession axis), through any of the four
+methods tested -- spectral functionals (PR/EVR_1/AngDisp/NormVar),
+cheap outlier detection (MaxNormRatio), few-shot prototype
+classification, or prefix-conditioning.
 
-In the meantime: the consolidated argument from #38 + #38b + #39
-Phase 1 is robust enough to motivate the merken paper's pivot to
-external structure (knowledge graphs, brief_v1 typed schemas,
-upstream metadata). Update `notes/2026-04-28-paper-geometric-methods-meta-issue.md`
-to fold in #39's contribution to the convergent-evidence argument.
+**Recommended next move (deferred to next session, captured here):**
+
+- **#39b: STATE_CHANGE_REPORT taxonomy** -- pre-register a redefined
+  role with non-overlapping lexical markers, re-author prototypes.json
+  and eval.json against that role, re-run the Phase 1 protocol. If
+  STATE_CHANGE_REPORT separates from PREFERENCE at >= 0.85 recall,
+  marker-based gating becomes viable for that specific axis.
+- **Alternate path: external structure** -- if the redefined-role test
+  also fails or feels like overfitting the language, the merken paper
+  pivot to external metadata (commit type, ticket field, audit trail
+  type, knowledge graph edges) is the working answer. This is the
+  path argued in `notes/2026-04-28-paper-geometric-methods-meta-issue.md`.
+
+In the meantime: the meta paper issue should fold in #39 as the
+fourth independent line of negative geometric/embedding evidence,
+alongside #38 (PR/EVR_1 inverted), #38b (eigenvalue spectrum =
+outlier detection), and the field consensus from Zep / SmartVector /
+"Attention Is Not Retention."
