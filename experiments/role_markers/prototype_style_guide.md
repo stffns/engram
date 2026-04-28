@@ -123,6 +123,68 @@ by inspecting the topic sets in each file.
    subsetting the prototype pool deterministically by seed; the
    pool itself is not re-authored.
 
+## V2 redefinition (added 2026-04-28 EOD after #39 Phase 1+P2 NO_GO)
+
+#39 v1 found that BGE-small cannot reliably distinguish DECISION from
+PREFERENCE because both express comparative judgment with a named
+choice ("Approved X over Y" vs "Prefer X over Y"). The pre-committed
+follow-up #39b replaces the DECISION role with **STATE_CHANGE_REPORT**,
+designed to share zero lexical structure with PREFERENCE.
+
+### STATE_CHANGE_REPORT (V2 only)
+
+An event that documents a *confirmed change to system state*, framed
+as a factual report of what is now in production rather than as the
+act of choosing. The defining property is *post-hoc state reporting*.
+Past tense and date/version markers are typical. The text typically
+names the changed entity and the change itself, NOT the alternatives
+considered.
+
+Linguistic markers: "now runs", "is now configured", "has been
+running on X since DATE", "deployed to production on DATE",
+"migrated to X on DATE", "shipped X", "launched X", "removed X",
+"configured X for Y", "decommissioned", "rolled out", "retired",
+"version X went live".
+
+What MUST be avoided (these are the patterns that collide with
+PREFERENCE):
+
+- "X over Y" comparative structure
+- "Approved A; chose A; selected A; settled on A" (focuses on the
+  act of choosing rather than the resulting state)
+- Modal verbs about future action ("will deploy", "going to switch")
+- Recommendation framing ("decided to", "agreed to")
+
+Borderline cases:
+
+- "Migrated to Aurora; old Postgres decommissioned" -> STATE_CHANGE_REPORT
+  (state is reported, no alternatives)
+- "Switched from Postgres to Aurora" -> NOT STATE_CHANGE_REPORT (uses
+  "switched X to Y" comparative; would be DECISION in v1, but in v2
+  this category does not exist; such events are EXCLUDED from v2 eval)
+- "Production now serves search through Vespa as of 2026-04-15" ->
+  STATE_CHANGE_REPORT (clean state report, no comparative).
+
+### Other roles in V2
+
+INVESTIGATION, OBSERVATION, PREFERENCE keep their V1 definitions
+unchanged. The disjointness commitments (prototype topics vs eval
+topics) and the anti-leak protocol apply identically.
+
+### V1 vs V2 file naming
+
+| File | V1 role set | V2 role set |
+|------|-------------|-------------|
+| `prototypes.json` (V1) | decision, investigation, observation, preference | -- |
+| `prototypes_v2.json` (V2) | -- | state_change_report, investigation, observation, preference |
+| `eval.json` (V1) | as above | -- |
+| `eval_v2.json` (V2) | -- | as V2 prototypes |
+| `few_shot_classifier.py` (V1) | hardcoded ROLES tuple | -- |
+| `few_shot_classifier_v2.py` (V2) | -- | hardcoded ROLES tuple |
+
+V2 is a separate experiment artifact; V1 is preserved for #39's
+record.
+
 ## What this is NOT
 
 - A complete typology of all event roles. Many real events fall

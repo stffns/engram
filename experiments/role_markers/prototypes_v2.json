@@ -1,0 +1,58 @@
+{
+  "version": 2,
+  "authored": "2026-04-28",
+  "source_scenario": "authored_from_prototype_style_guide_v2_2026_04_28",
+  "style_guide": "prototype_style_guide.md",
+  "prototype_topics": ["logging", "dashboards", "build_system", "code_review", "oncall"],
+  "notes": "V2 redefinition: DECISION replaced with STATE_CHANGE_REPORT (past tense + concrete state-change verbs + specific entity, no comparative structure). Other 3 roles unchanged from V1. Authored after the V1 #39 Phase 1+2 NO_GO finding showed DECISION-PREFERENCE collision in V1.",
+  "roles": {
+    "state_change_report": [
+      {"id": "proto_scr_01", "topic": "logging", "text": "Production logging has been running on OTLP since the 2026-03-12 release."},
+      {"id": "proto_scr_02", "topic": "logging", "text": "All structured-logging migrations completed; legacy JSON logging was retired on 2026-03-20."},
+      {"id": "proto_scr_03", "topic": "dashboards", "text": "The internal Grafana stack went live on 2026-02-08; Datadog dashboards were decommissioned that week."},
+      {"id": "proto_scr_04", "topic": "dashboards", "text": "The SRE oncall view is now served from Grafana Incidents; PagerDuty integration was disabled on 2026-02-22."},
+      {"id": "proto_scr_05", "topic": "build_system", "text": "Bazel has been the polyglot monorepo build system since 2026-01-30; the previous Make scripts were archived."},
+      {"id": "proto_scr_06", "topic": "build_system", "text": "Nightly CI now runs on on-demand spot instances as of 2026-03-05; the dedicated fleet was retired."},
+      {"id": "proto_scr_07", "topic": "code_review", "text": "The 1-approver typo-fix policy has been in effect since 2026-02-14."},
+      {"id": "proto_scr_08", "topic": "code_review", "text": "Auto-merge for dependabot-only PRs went live on 2026-03-01."},
+      {"id": "proto_scr_09", "topic": "oncall", "text": "Daily oncall handoffs replaced the weekly rotation on 2026-03-15."},
+      {"id": "proto_scr_10", "topic": "oncall", "text": "PagerDuty has been the oncall platform since 2026-02-01; Opsgenie was sunsetted that month."}
+    ],
+    "investigation": [
+      {"id": "proto_inv_01", "topic": "logging", "text": "Investigating why log ingestion drops 4% of records during peak hours."},
+      {"id": "proto_inv_02", "topic": "logging", "text": "Looking into the Splunk indexer slowness on Tuesdays."},
+      {"id": "proto_inv_03", "topic": "dashboards", "text": "Diagnosing why the Grafana home dashboard loads slowly for new users."},
+      {"id": "proto_inv_04", "topic": "dashboards", "text": "Examining why SLO dashboards show different numbers from the metrics service."},
+      {"id": "proto_inv_05", "topic": "build_system", "text": "Root-causing why CI builds intermittently fail at the dependency-fetch step."},
+      {"id": "proto_inv_06", "topic": "build_system", "text": "Exploring whether we can shave 3 minutes off the build by parallelizing tests."},
+      {"id": "proto_inv_07", "topic": "code_review", "text": "Trying to understand why bot-flagged PRs sit in review for 5+ days."},
+      {"id": "proto_inv_08", "topic": "code_review", "text": "Investigating the recent uptick in self-merged PRs across the platform team."},
+      {"id": "proto_inv_09", "topic": "oncall", "text": "Diagnosing the pager-fatigue trend showing up in the recent oncall surveys."},
+      {"id": "proto_inv_10", "topic": "oncall", "text": "Looking into why the new oncall handoff template is being skipped in 30% of handoffs."}
+    ],
+    "observation": [
+      {"id": "proto_obs_01", "topic": "logging", "text": "Logs show roughly 12% of error events are being silently dropped at the egress proxy."},
+      {"id": "proto_obs_02", "topic": "logging", "text": "Noticed log volume tripled after the recent deploy."},
+      {"id": "proto_obs_03", "topic": "dashboards", "text": "Dashboard metrics show p99 latency rose from 280ms to 410ms last week."},
+      {"id": "proto_obs_04", "topic": "dashboards", "text": "Observed that the SRE dashboard widget for queue depth has been NaN since Tuesday."},
+      {"id": "proto_obs_05", "topic": "build_system", "text": "Build logs indicate the dependency cache hit rate dropped from 92% to 78%."},
+      {"id": "proto_obs_06", "topic": "build_system", "text": "Saw the CI queue back up to 80 builds during the post-lunch deploy window."},
+      {"id": "proto_obs_07", "topic": "code_review", "text": "Code review metrics show median time-to-review at 1.7 days, up from 1.1 last month."},
+      {"id": "proto_obs_08", "topic": "code_review", "text": "Found 3 PRs merged this week without the required test coverage."},
+      {"id": "proto_obs_09", "topic": "oncall", "text": "Oncall dashboard shows page volume up 22% week-over-week."},
+      {"id": "proto_obs_10", "topic": "oncall", "text": "Reports indicate the oncall response p95 is now 8 minutes vs last quarter's 4 minutes."}
+    ],
+    "preference": [
+      {"id": "proto_pref_01", "topic": "logging", "text": "Personally I'd lean toward OTLP-only logging once the migration is done."},
+      {"id": "proto_pref_02", "topic": "logging", "text": "Team's preference is to keep JSON logs for legacy services and OTLP for new ones."},
+      {"id": "proto_pref_03", "topic": "dashboards", "text": "We'd rather have one canonical dashboard than three role-specific ones."},
+      {"id": "proto_pref_04", "topic": "dashboards", "text": "Recommend Grafana over Kibana for the dashboards-as-code workflow."},
+      {"id": "proto_pref_05", "topic": "build_system", "text": "Prefer Bazel hermeticity over Make convenience for the polyglot stack."},
+      {"id": "proto_pref_06", "topic": "build_system", "text": "Lean toward investing in build caching over more CI hardware."},
+      {"id": "proto_pref_07", "topic": "code_review", "text": "Would rather have 2-approver reviews on auth-touching code, even at velocity cost."},
+      {"id": "proto_pref_08", "topic": "code_review", "text": "My preference is async review over synchronous pair-review for non-urgent PRs."},
+      {"id": "proto_pref_09", "topic": "oncall", "text": "In favor of moving to a follow-the-sun oncall once we have EU coverage."},
+      {"id": "proto_pref_10", "topic": "oncall", "text": "Recommend keeping primary plus secondary oncall structure even after the team grows."}
+    ]
+  }
+}
