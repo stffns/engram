@@ -131,7 +131,7 @@ def main() -> int:
         args.mlx_path.parent.mkdir(parents=True, exist_ok=True)
         print(f"[mlx] convert -> {args.mlx_path} (q{args.q_bits})", flush=True)
         t0 = time.perf_counter()
-        mlx_convert.convert(
+        mlx_convert(
             hf_path=str(args.merged_path),
             mlx_path=str(args.mlx_path),
             quantize=True,
