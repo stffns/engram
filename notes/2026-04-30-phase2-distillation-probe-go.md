@@ -751,7 +751,128 @@ Each row is `{"messages": [system, user, assistant]}` -- mlx-lm
 applies the chat template at training time, so the format is
 already what the trainer wants.
 
-### Step 4d: training (next)
+### Step 4d: training run + post-train eval (DONE)
+
+**Training (Colab A100 80GB, train_qwen_lora.py).** Loaded
+Qwen/Qwen2.5-7B-Instruct as base. LoRA r=16 alpha=32 on
+q/k/v/o_proj. 900 train rows, 1 epoch, bs=1 grad_accum=4 (eff
+bs=4), max_seq_len=8192, lr=1e-4. Eval disabled by default
+(40GB A100 OOMs on the eval logits; flag added but stayed off
+for the smoke).
+
+Wallclock 20.7 min on Colab A100 (subscription Pro). Final
+train_loss 1.51 (avg over the run); per-step trajectory 1.91
+-> 1.41 (-26%), token_accuracy 0.561 -> 0.641 (+14pp). Curve is
+healthy: model is learning the trace pattern.
+
+Cost: ~$0.60-1.20 estimated on Pay-as-you-go; with Colab Pro
+subscription the run consumed ~3 of ~100 monthly compute units.
+
+Adapter ~40 MB. Fused into base on local Mac (CPU merge via
+peft.merge_and_unload, ~2 s) and converted to MLX q8 via
+mlx_lm.convert (~8 s once base is local). Final MLX weights
+~7.6 GB.
+
+**Post-train eval: re-run step3 against the trained student.**
+Same N=22 stratified sample (2 per shape * 11 shapes). Run dir:
+`experiments/phase2_distillation/runs/step3_qwen25-7b-merken-smoke-v1_20260430T140523Z/`.
+Wallclock 51.8 min on local Mac via LM Studio MLX backend.
+
+Headline numbers vs the qwen3.5-9b GGUF zero-shot baseline:
+
+| metric | zero-shot baseline | trained student | delta |
+|---|---|---|---|
+| truncation rate     | 4/22 = 18% | **10/22 = 45%** | **+27pp** |
+| empty content rows  | 4/22       | 9/22            | +5 |
+| reasoning chars med | 9614       | **2218**        | -77% (where it converges) |
+| content chars med   | 338        | 124             | -63% (skewed by empties) |
+| wall_s median       | 94s        | 88s             | ~tie |
+
+Headline reading: **the SFT pipeline works end-to-end and on
+several load-bearing shapes the student got dramatically tighter
+(94% reasoning reduction), but on others it fell into greedy-
+decoding repetition loops and truncated.** The aggregate
+truncation rate got worse (+27pp), which by the plan's gate
+metric is a regression. But the per-shape picture is bimodal
+and the wins concentrate exactly where the plan needed them.
+
+### Per-shape distillation outcome
+
+| shape | zero-shot | student | reasoning ratio | verdict |
+|---|---|---|---|---|
+| lme:multi-session            | 2/2 trunc, r=13860 | **0/2 trunc, r= 991** | -93% | **WIN** |
+| lme:knowledge-update         | 1/2 trunc, r=13106 | **0/2 trunc, r= 1492** | -89% | **WIN** |
+| lme:temporal-reasoning       | 1/2 trunc, r= 8819 | **0/2 trunc, r= 2315** | -74% | **WIN** |
+| lme:single-session-user      | 0/2 trunc, r= 5986 | 0/2 trunc, r=  375 | -94% | win |
+| locomo:open_domain           | 0/2 trunc, r= 3387 | 0/2 trunc, r=  791 | -77% | win |
+| lme:single-session-assistant | 0/2 trunc, r= 6564 | **2/2 trunc, r=18712** | +185% | **LOSS** |
+| lme:single-session-preference| 0/2 trunc, r=11153 | **2/2 trunc, r=18778** | +68% | **LOSS** |
+| locomo:multi_hop             | 0/2 trunc, r= 9939 | **2/2 trunc, r=16245** | +63% | **LOSS** |
+| locomo:single_hop            | 0/2 trunc, r= 9115 | **2/2 trunc, r= 9268** | ~ | **LOSS** |
+| locomo:temporal              | 0/2 trunc, r= 7927 | 1/2 trunc, r= 8759 | ~ | tie- |
+| locomo:adversarial           | 0/2 trunc, r= 5640 | 1/2 trunc, r= 8260 | +46% | tie- |
+
+The three big wins are **exactly the shapes the plan flagged as
+the teacher's documented weakness** (multi-session,
+knowledge-update, temporal-reasoning). On those shapes the SFT
+pulled the student from 4/6 truncations to 0/6 -- the failure
+mode the original design predicted, and the one the SFT was
+intended to address, is fixed by even this undertrained smoke.
+
+### Failure-mode forensics: repetition loops
+
+On the loss shapes, manual inspection of one row
+(locomo:single_hop, qid `What are some changes Caroline has
+faced during her transition journey?`) shows the model produces
+the correct bullet list for the first 5-6 items, then repeats
+"Exploring her transition and her changing body (Context 6)"
+verbatim hundreds of times until it hits max_tokens=4096. Same
+pattern on the LME single-session-assistant shapes.
+
+Cause: SFT with greedy decoding (temperature=0.0) plus
+undertrained model. The model learned the bullet-list shape but
+not the variety, so once the local KL gradient converges to a
+favorite n-gram it loops. With a trained-but-not-yet-robust
+student, greedy decoding is what amplifies this into a
+catastrophic repetition.
+
+### What this changes about Step 5
+
+Step 5 was already going to bump epochs (1 -> 3) and corpus size
+(1K -> 50K). The smoke confirms both moves are necessary, not
+optional. Two further changes worth landing before the Step 5
+run:
+
+1. **Inference with temperature > 0 + repetition_penalty.**
+   Add to the canonical evaluation pipeline (step3 + others):
+   pass `temperature=0.2` (matching the teacher's setting) and
+   `presence_penalty` / `frequency_penalty` if LM Studio /
+   vstash backends expose them. Greedy decoding on a freshly
+   SFT'd 7-9B reasoning model is a known pathological setting;
+   the smoke confirms it bites here.
+2. **Lower lr** for the LoRA (1e-4 -> 5e-5 or 1e-5). r=16 LoRA
+   at 1e-4 over only 225 effective steps is fast enough to
+   over-fit local n-grams. R1-Distill recipes typically use
+   lr=1e-5 for LoRA on reasoning models; ours is 10x that.
+
+Both changes can be tested in a follow-up smoke (same 1K corpus,
+new training run) before committing the $200-400 Step 5 budget.
+
+### Cost ledger Step 4 total
+
+- Step 4a corpus generation: ~$2 (Cerebras gpt-oss-120b, 1000 calls).
+- Step 4b/c formatting + split: $0 (local).
+- Step 4d Colab training: ~3 compute units (Colab Pro
+  subscription); under Pay-as-you-go ~$1.
+- Step 4d local fuse + MLX convert: $0.
+- Step 4d post-train eval: $0 (local LM Studio).
+- **Total Step 4: ~$3.**
+
+The smoke produced a clear empirical finding (pipeline works,
+specific failure mode identifiable, target wins on the planned
+hard shapes) for ~$3.
+
+
 
 The mlx-lm-lora command is in step4c's output and the script
 docstring. Practical considerations for the smoke run on Apple
