@@ -654,6 +654,127 @@ The cheap-to-validate paths if MLX is needed long-term:
 For now: GGUF is the working surface for Step 4 smoke distillation.
 MLX-TQ3 stays out.
 
+## Step 4 SFT corpus (2026-04-30)
+
+Pipeline e2e: capture teacher trajectories -> format as
+chat-template -> split for mlx-lm-lora -> train on Apple Silicon.
+
+### Step 4a: corpus generation
+
+`experiments/phase2_distillation/step4a_generate_sft_data.py`. Runs
+gpt-oss-120b on Cerebras over the canonical Phase 2 retrieval
+pipeline and captures both the visible answer and the hidden
+reasoning trace per row.
+
+Production run (deterministic seed=42):
+
+| metric | value |
+|---|---|
+| total rows | 1000 |
+| LoCoMo / LME | 800 / 200 |
+| n_with_reasoning | 1000/1000 (100%) |
+| n_empty_content (teacher truncations) | 0/1000 |
+| avg prompt tokens | 4568 |
+| avg completion tokens | 327 |
+| wallclock | 60.5 min |
+| cost (estimated, $0.35 in / $0.75 out) | ~$2 |
+
+The teacher converged on every single call -- no truncations
+across 1000 calls is meaningful given that the student smoke
+showed 4/22 truncations on the same shapes. Confirms the
+distillation gap is structural (reasoning convergence), not a
+benchmark difficulty.
+
+LME ingest dominated wallclock: ~25s per LME conv (ingest +
+call) vs ~0.6s per LoCoMo call (single ingest amortized across
+the conv's questions).
+
+Cost tracked closely to projection. Three transient 503
+queue_exceeded errors caught and retried by the helper's
+4-attempt backoff. No hard failures.
+
+### Step 4b: format conversion
+
+`experiments/phase2_distillation/step4b_format_sft_corpus.py`. Each
+row from step4a becomes a chat-template training example with
+the assistant target wrapped in Qwen3.5 reasoning tags::
+
+    <think>
+    {teacher_reasoning}
+    </think>
+
+    {teacher_content}
+
+This is exactly the inference-time emission shape, so the student
+learns to (a) emit a trace, (b) close it, (c) commit to a visible
+answer. The third property is what step3 showed the zero-shot
+student fails at.
+
+| metric | value |
+|---|---|
+| rows in | 1000 |
+| rows kept | 1000 (zero drops; no empty-content rows to filter) |
+| target chars (min/median/max) | 184 / 1196 / 5469 |
+
+Per-shape target chars (median, what the student will learn to
+produce per question shape):
+
+| shape | n | target chars med |
+|---|---|---|
+| LoCoMo single_hop  | 171 | 1527 |
+| LoCoMo temporal    | 177 | 1000 |
+| LoCoMo multi_hop   |  96 | 1346 |
+| LoCoMo open_domain | 178 |  906 |
+| LoCoMo adversarial | 178 | 1180 |
+| LME single-session-user      | 34 |  616 |
+| LME single-session-assistant | 34 |  768 |
+| LME single-session-preference| 30 | 1623 |
+| LME multi-session            | 34 | 1306 |
+| LME temporal-reasoning       | 34 | 1576 |
+| LME knowledge-update         | 34 | 1615 |
+
+Distribution matches the qualitative pattern from step2: harder
+shapes (knowledge-update, temporal-reasoning, multi-session) get
+longer targets. The student's SFT therefore learns shape-aware
+trace length, not a fixed format.
+
+### Step 4c: mlx-lm split
+
+`experiments/phase2_distillation/step4c_prepare_mlx_train.py`.
+Splits the train.jsonl into 90/5/5 (deterministic seed=42) in the
+directory layout mlx-lm-lora expects:
+
+  `experiments/phase2_distillation/sft_corpus_v1/mlx_split/`
+  -> `train.jsonl` (900), `valid.jsonl` (50), `test.jsonl` (50)
+
+Each row is `{"messages": [system, user, assistant]}` -- mlx-lm
+applies the chat template at training time, so the format is
+already what the trainer wants.
+
+### Step 4d: training (next)
+
+The mlx-lm-lora command is in step4c's output and the script
+docstring. Practical considerations for the smoke run on Apple
+Silicon:
+
+- `--model`: use a quantized base (`mlx-community/Qwen3.5-9B-Instruct-4bit`
+  or the q8 variant). NOT TQ3 -- step3 confirmed TQ3 breaks
+  reasoning convergence on long contexts.
+- `--max-seq-length`: 8192 covers the canonical row (~7K tokens
+  total for system + user + assistant). Bumping above 8192
+  spikes memory; below 4096 truncates assistant targets.
+- `--batch-size 1` + `--grad-checkpoint`: required to fit a 9B
+  + LoRA on Apple Silicon unified memory at this seq length.
+- `--mask-prompt`: load-bearing. Loss only on assistant tokens.
+- `--iters`: 1000 with bs=1 ~ 1.1 epoch on 900 train rows. At
+  ~50-80s per iter (M-series throughput estimate) the wallclock
+  is 14-22 hours. Reduce to 200-300 iters for the smoke if
+  overnight is not available; the eval gate (>=5pp over zero-shot)
+  is the test, not the iter count.
+
+Open: actual M-series throughput at this seq length is unknown;
+first 50-100 iters will pin it.
+
 ## Files
 
 - `experiments/phase2_distillation/__init__.py`
@@ -662,10 +783,15 @@ MLX-TQ3 stays out.
 - `experiments/phase2_distillation/step2_analyze.py` (markdown analysis helper)
 - `experiments/phase2_distillation/step3_zero_shot_smoke.py` (Step 3 smoke, takes --model)
 - `experiments/phase2_distillation/step3_compare_to_teacher.py` (joins step3 + step2)
+- `experiments/phase2_distillation/step4a_generate_sft_data.py` (Step 4a corpus gen)
+- `experiments/phase2_distillation/step4b_format_sft_corpus.py` (Step 4b chat-template)
+- `experiments/phase2_distillation/step4c_prepare_mlx_train.py` (Step 4c split)
 - `experiments/phase2_distillation/runs/probe_20260430T050027Z/{rows.jsonl,summary.json}`
   (10 rows, gitignored)
 - `experiments/phase2_distillation/runs/step2_20260430T060103Z/{rows.jsonl,summary.json}`
   (55 rows, gitignored)
 - `experiments/phase2_distillation/runs/step3_qwen_qwen3_5-9b_20260430T065831Z/{rows.jsonl,summary.json}`
   (22 rows, GGUF, gitignored)
+- `experiments/phase2_distillation/sft_corpus_v1/{rows,train,mlx_split/*}.jsonl`
+  (1000-row SFT corpus + chat-template + train/valid/test split, gitignored)
 - `notes/2026-04-30-phase2-distillation-probe-go.md` (this file)
