@@ -17,11 +17,15 @@ usage, leaving open whether the channel was empty or just unbilled.
 
 The probe answers that empirically: **the channel populates 10/10
 calls with structured, on-topic traces** ranging 280-1756 chars
-(median 637.5). Every probed shape (LoCoMo single_hop, temporal,
-multi_hop, open_domain, adversarial; LME single-session-user) had
-populated reasoning. The `usage.reasoning_tokens=0` field was a
-billing/categorization quirk -- the trace text is in
-`message.reasoning` regardless.
+(median 637.5). Every probed shape had populated reasoning, but the
+shape coverage was uneven: 5 LoCoMo categories (single_hop, temporal,
+multi_hop, open_domain, adversarial) but only 1 LME shape
+(single-session-user, since the first 5 conversations of
+longmemeval_s all happened to be that type). LME shape stratification
+is deferred to Step 2 proper. The `usage.reasoning_tokens=0` field
+was a billing/categorization quirk -- the trace text is in
+`message.reasoning` regardless, and the tokens for it appear to be
+billed under `completion_tokens` (see "Cost accounting" below).
 
 **Recommendation: PROCEED** to Step 3 (target architecture decision)
 of the larger plan.
@@ -56,29 +60,60 @@ before committing to the $200-400 program.
 
 Distinguishes "attribute absent from SDK response" from "attribute
 present but None / empty" via sentinel object pattern (per code-
-review P1#1).
+review P1#1). Empirical update from the contract test
+(`tests/test_cerebras_chat_capture.py`): the Cerebras SDK exposes
+the `reasoning` attribute on **every** model tested (both reasoning
+and non-reasoning), with value `None` on non-reasoning models. So
+the actual reasoning-vs-not discriminator for callers is
+`reasoning is not None`; `reasoning_present` is preserved as a
+defensive guard against a hypothetical future SDK schema change.
 
 ## Headlines
 
 | metric | value |
 |---|---|
 | n calls                              | 10 |
-| reasoning attribute present (SDK)    | 10/10 |
-| reasoning text non-empty             | 10/10 |
+| reasoning attribute present (SDK)    | 10/10 (always True on Cerebras, see contract test) |
+| reasoning text non-empty             | 10/10 (the load-bearing signal) |
 | reasoning chars (min / median / max) | 280 / 637.5 / 1756 |
 | content chars  (min / median / max)  | 87 / 216 / 1221 |
 | `usage.reasoning_tokens` (always)    | 0 |
 | LoCoMo non-empty / LME non-empty     | 5/5 / 5/5 |
 
+### Cost accounting
+
 The `usage.reasoning_tokens=0` is consistent with the prior cost
-sample but does **not** indicate empty channels. Cerebras categorizes
-the trace as completion_tokens -- e.g. row 0 had `completion_tokens=223`
-which exactly matches the 223-char visible answer, leaving the 768
-chars of reasoning text unaccounted in usage. Inference: Cerebras
-ships reasoning text in the response body but does not bill it under
-the o-series-style `reasoning_tokens` line item. **For SFT data
-generation cost estimation, plan to bill it under
-completion_tokens.**
+sample but does **not** indicate empty channels. Reasoning text is
+present in `message.reasoning`; the question is which line item
+bills it.
+
+Comparing observed `completion_tokens` against rough char->token
+estimates (gpt-oss tokenizer averages ~3.5 chars/tok, so divide
+char counts by 3.5 to get a token estimate) across all 10 rows:
+
+| row | content chars | reasoning chars | completion_tokens | content-only est | content+reasoning est |
+|---|---|---|---|---|---|
+| 0 | 223  | 768  | 223 |  64 | 283 |
+| 1 | 211  | 746  | 272 |  60 | 273 |
+| 2 | 1221 | 1756 | 673 | 349 | 851 |
+| 3 | 87   | 280  |  94 |  25 | 105 |
+| 4 | 347  | 1388 | 382 |  99 | 496 |
+| 5 | 103  | 352  | 112 |  29 | 130 |
+| 6 | 90   | 614  | 180 |  26 | 201 |
+| 7 | 225  | 661  | 220 |  64 | 253 |
+| 8 | 221  | 459  | 186 |  63 | 194 |
+| 9 | 100  | 391  | 140 |  29 | 140 |
+
+Across 10/10 rows: `completion_tokens` is far higher than would be
+needed for visible content alone (ratio of completion to
+content-only-est ~2.6x-4x), and lands close to the
+content+reasoning estimate (ratio 0.77-1.00, mean ~0.87 -- the
+under-1.0 mean reflects gpt-oss tokenization being more efficient
+than 3.5 chars/tok on prose). Conclusion: **Cerebras bills the
+reasoning trace under `completion_tokens` and does not surface it
+in the o-series-style `reasoning_tokens` line item**. For SFT data
+generation cost estimation, plan ~3-4x the visible-answer token
+count when prompts elicit reasoning.
 
 ## Qualitative trace inspection (5/10 read by hand)
 

@@ -248,12 +248,17 @@ def cerebras_chat_capture(
 
     Returns a dict with keys:
       - ``content``       (str) -- visible answer.
-      - ``reasoning``     (str | None) -- hidden trace; None when
-        the SDK message lacks the attribute.
-      - ``reasoning_present`` (bool) -- True iff the SDK exposed
-        the attribute (distinguishes "no such field" from "empty
-        string"; this is the load-bearing distinction for the
-        Phase 2 distillation pipeline).
+      - ``reasoning``     (str | None) -- hidden trace text. None
+        on non-reasoning models (e.g. llama3.1-8b), populated on
+        reasoning models (e.g. gpt-oss-120b). Callers that want
+        the reasoning-vs-not discriminator should check
+        ``reasoning is not None`` AND non-empty.
+      - ``reasoning_present`` (bool) -- True iff the SDK message
+        object exposes the ``reasoning`` attribute at all. As of
+        the Cerebras SDK observed on 2026-04-30, this is True for
+        every model tested (both reasoning and non-reasoning); the
+        flag is a defensive guard against a hypothetical future
+        SDK schema change that drops the attribute entirely.
       - ``wall_s``        (float) -- end-to-end wall time including
         retry backoffs.
       - ``usage``         (dict) -- prompt / completion / total
@@ -261,6 +266,15 @@ def cerebras_chat_capture(
         ``completion_tokens`` (no separate ``reasoning_tokens``
         line item observed); use the length of ``reasoning`` if
         you need a separate accounting.
+
+    Note: ``content`` is empty-string-collapsed on missing message
+    or ``content=None`` (mirrors ``cerebras_chat``). Reasoning models
+    that burn the token budget on hidden tokens before producing
+    visible content return ``content=None`` from the SDK; callers
+    that need to distinguish "burned budget" from "model said nothing"
+    must inspect the raw SDK response, not this helper's output.
+    See ``runner_phase2._call_question`` for the production refusal-
+    row pattern.
 
     Retry / backoff is identical to ``cerebras_chat`` (4 attempts,
     backoffs at 2s/4s/8s, only retries 5xx and 429).
