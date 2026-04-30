@@ -466,14 +466,159 @@ are `llama3:8b` (~4.7 GB) and `qwen2.5:7b` (~4.4 GB). Vstash
 already supports the Ollama backend, so no new infrastructure
 is needed.
 
+## Step 3 zero-shot smoke -- qwen3.5-9b GGUF (2026-04-30)
+
+First floor measurement of the local student. Same canonical
+pipeline as steps 1+2 (per-session LoCoMo / per-turn LME ingest,
+top_k=8 vec=0.5/fts=0.5, vstash._build_messages prompt) with the
+Builder swap to qwen/qwen3.5-9b via LM Studio's OpenAI-compatible
+endpoint at http://localhost:1234/v1.
+
+Sample N=22 = 2 per shape x 11 shapes (the first 2 of each shape
+from step2's seeded draw, empirically verified). Cost: $0 (local).
+Wallclock: 40.3 min. Run dir:
+`experiments/phase2_distillation/runs/step3_qwen_qwen3_5-9b_20260430T065831Z/`.
+
+LM Studio loaded the model in **GGUF** format. An MLX equivalent
+(alexcovo/qwen35-9b-mlx-turboquant-tq3, 4-bit MLX + 3-bit KV-cache
+TQ3 overlay, ~5.95 GB, ~51 tok/s on Apple Silicon) is the production
+format and a parallel MLX run is recommended before the candidate-
+student decision is locked. The first GGUF run is enough to establish
+that qwen3.5-9b zero-shot **does** populate the reasoning channel
+(LM Studio surfaces it as `message.reasoning_content`, not Cerebras's
+`message.reasoning`).
+
+Earlier setup blocker: LM Studio's default n_ctx=4096 rejects the
+canonical RAG prompt (~6430 tokens). Fixed by reloading the model
+with n_ctx >= 8192 (2026-04-30, mid-session); the smoke would have
+to be re-run if a future ETL bumps prompt size beyond that.
+
+### Per-shape numbers (student vs teacher)
+
+Reasoning channel populated 22/22. Per-shape **median reasoning
+chars** vs teacher (step2 medians on the same questions):
+
+| shape | n | student r med | teacher r med | ratio | student wall_s med |
+|---|---|---|---|---|---|
+| locomo:single_hop                 | 2 |  9115 | 1259 |  7.2x |  89s |
+| locomo:temporal                   | 2 |  7927 |  849 |  9.3x |  91s |
+| locomo:multi_hop                  | 2 |  9939 | 1411 |  7.0x | 101s |
+| locomo:open_domain                | 2 |  3387 |  769 |  4.4x |  48s |
+| locomo:adversarial                | 2 |  5640 | 1877 |  3.0x |  65s |
+| lme:single-session-user           | 2 |  5986 |  374 | 16.0x |  62s |
+| lme:single-session-assistant      | 2 |  6564 |  796 |  8.2x |  75s |
+| lme:single-session-preference     | 2 | 11153 | 1762 |  6.3x | 107s |
+| lme:multi-session                 | 2 | 13860 | 1275 | 10.9x | 148s |
+| lme:temporal-reasoning            | 2 |  8819 | 1181 |  7.5x | 101s |
+| lme:knowledge-update              | 2 | 13106 | 1316 | 10.0x | 143s |
+
+Reasoning is **uniformly 3-16x longer** than teacher's. Median
+ratio ~8x.
+
+### Truncation: 4/22 calls did not return visible content
+
+`finish_reason=length` on:
+
+- lme:multi-session: **2/2** (both calls)
+- lme:knowledge-update: 1/2
+- lme:temporal-reasoning: 1/2
+
+These calls exhausted `max_tokens=4096` on reasoning_content with
+no remaining budget for visible content -- the row's `content` field
+is empty even though `reasoning_content` is populated. Failure mode:
+**rumination loop without convergence.** The student keeps re-reading
+contexts and self-correcting ("Wait, ...", "Let me re-check Context
+N...") and never commits to an answer.
+
+This is the most informative finding of Step 3. It says: the
+student's structural problem zero-shot is **not** "doesn't know
+how to reason" -- it's "doesn't know when to stop reasoning."
+
+### Hand-inspected outcomes
+
+Direct comparison teacher vs student on six shapes (full output in
+`step3_compare_to_teacher.py` against the run dir):
+
+- LoCoMo single_hop, multi_hop, temporal, adversarial, open_domain:
+  **same correctness** as teacher, just verbose. E.g. "Who is
+  Melanie a fan of in terms of modern music?" -> Ed Sheeran (both
+  correct). Student takes 5164 reasoning chars; teacher takes 314.
+- LoCoMo adversarial ("What did Caroline do after the road trip?"):
+  both correctly identify it was Melanie's road trip, not
+  Caroline's. Speaker disambiguation works zero-shot.
+- LME knowledge-update ("Corey Schafer videos completed?" -> 30):
+  teacher commits to "30 videos". Student **hedges**: "two
+  different numbers depending on document source" despite the
+  oracle answer being 30. The teacher's heuristic ("most recent
+  count wins") fires; the student's does not.
+- LME multi-session ("eggs sold this month?" -> $120): teacher
+  cleanly synthesizes 40 dozen * $3 = $120 from two contexts.
+  Student burns 15281 chars on reasoning_content and **writes
+  zero content** (truncation). The exact synthesis the teacher
+  performs in 1680 chars, the student cannot complete in 4096
+  tokens of generation budget.
+
+### What this means for distillation
+
+Three concrete findings:
+
+1. **The student already has the right structure.** Trace pattern
+   is identical: enumerate contexts, identify relevant chunks,
+   discriminate candidates, cite. SFT does not need to teach
+   format from scratch -- it needs to teach **brevity** and
+   **convergence**.
+2. **The trace is the right SFT target.** The teacher's traces
+   are 4-16x shorter and produce equally correct (often more
+   correct on knowledge-update) answers. Distilling on
+   `Q -> teacher_trace -> A` with the student initialized on its
+   verbose-but-structurally-correct floor gives the student a
+   tight target with same shape.
+3. **Truncation is the most-likely failure mode if SFT under-
+   trains.** Multi-session + knowledge-update were exactly the
+   shapes that truncated. They are also the shapes the teacher
+   spent the **most** chars on (1271, 1275 medians). If the
+   student fails to compress, those shapes will remain truncated
+   even after limited SFT. Step 4 (smoke distillation) should
+   target multi-session as the canary -- if smoke can't get
+   multi-session to commit to an answer, the SFT is undertrained
+   or the student is too small.
+
+### What this means for the wallclock budget
+
+Wallclock per call is the more practical concern for Step 5 (50K
+training corpus generation): the **teacher** did 55 calls in 12.8
+min (~14 s/call). The **student zero-shot** does 22 calls in 40.3
+min (~110 s/call). That ratio is moot for training-corpus generation
+(teacher produces the corpus, not student) but is the operational
+ceiling on local-merken serving cost: a 6-9B reasoning model on
+Apple Silicon GGUF runs at ~110 s/RAG-question. A trained student
+that produces tighter traces (target ~1200 reasoning chars + 300
+content chars = ~430 tokens) should land at roughly **15-25 s/call**
+(estimate: ~40 tok/s on a 9B Q4 GGUF, 600 output tokens). MLX should
+shave another ~30%. The Step 6 gate is correctness; this is the
+operational footnote.
+
+### Open: MLX run
+
+GGUF run logged. MLX run (alexcovo/qwen35-9b-mlx-turboquant-tq3
+once downloaded) needs to land in the same writeup. The two should
+produce comparable correctness; the practical difference is wallclock
+on Apple Silicon. The MLX run is also the right surface for Step 5
+training (the LoRA fuses to MLX in `experiments/phase2_training/
+fuse_to_mlx.py` from the prior phase2 work).
+
 ## Files
 
 - `experiments/phase2_distillation/__init__.py`
 - `experiments/phase2_distillation/probe_reasoning_channel.py` (probe, Step 1+2 lite)
 - `experiments/phase2_distillation/step2_stratified_capture.py` (Step 2 proper)
 - `experiments/phase2_distillation/step2_analyze.py` (markdown analysis helper)
+- `experiments/phase2_distillation/step3_zero_shot_smoke.py` (Step 3 smoke, takes --model)
+- `experiments/phase2_distillation/step3_compare_to_teacher.py` (joins step3 + step2)
 - `experiments/phase2_distillation/runs/probe_20260430T050027Z/{rows.jsonl,summary.json}`
   (10 rows, gitignored)
 - `experiments/phase2_distillation/runs/step2_20260430T060103Z/{rows.jsonl,summary.json}`
   (55 rows, gitignored)
+- `experiments/phase2_distillation/runs/step3_qwen_qwen3_5-9b_20260430T065831Z/{rows.jsonl,summary.json}`
+  (22 rows, GGUF, gitignored)
 - `notes/2026-04-30-phase2-distillation-probe-go.md` (this file)
