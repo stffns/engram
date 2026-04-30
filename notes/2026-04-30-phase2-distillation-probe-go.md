@@ -598,14 +598,61 @@ content chars = ~430 tokens) should land at roughly **15-25 s/call**
 shave another ~30%. The Step 6 gate is correctness; this is the
 operational footnote.
 
-### Open: MLX run
+### MLX (alexcovo/qwen35-9b-mlx-turboquant-tq3) -- ABORTED, NOT VIABLE
 
-GGUF run logged. MLX run (alexcovo/qwen35-9b-mlx-turboquant-tq3
-once downloaded) needs to land in the same writeup. The two should
-produce comparable correctness; the practical difference is wallclock
-on Apple Silicon. The MLX run is also the right surface for Step 5
-training (the LoRA fuses to MLX in `experiments/phase2_training/
-fuse_to_mlx.py` from the prior phase2 work).
+Tested same canonical pipeline against the MLX-TQ3 quantization
+(4-bit weights + 3-bit KV-cache compression via Hadamard rotation).
+Run dir:
+`experiments/phase2_distillation/runs/step3_qwen3_5-9b-mlx_PARTIAL_n12_20260430T080329Z/`.
+
+Run aborted at 12/22 rows after the truncation pattern was already
+unambiguous (Jay called it: "porque sigues corriendo este si el
+resultado no es bueno?").
+
+| metric | GGUF | MLX-TQ3 (n=12 partial) |
+|---|---|---|
+| reasoning chars (LoCoMo single_hop median) | 9115 | 14630 |
+| reasoning chars (LoCoMo multi_hop median)  | 9939 | 14035 |
+| reasoning chars (LoCoMo adversarial median)| 5640 | 15323 |
+| LoCoMo truncation rate | **0/10** | **5/10 (50%)** |
+| sanity wall_s on the same single_hop prompt | 91.5s | 109.9s |
+| sanity reasoning chars on the same prompt   | 10705 | 16678 |
+
+**MLX-TQ3 is worse on every axis** vs the same model in GGUF on the
+same hardware:
+
+- Reasoning runs **50-180% longer per shape** -- the 3-bit KV-cache
+  compression damages attention precision; the model cannot keep
+  track of where it is in the trace and re-reads contexts more.
+- **5/10 LoCoMo calls truncated** before producing visible content
+  (vs 0/10 on GGUF). Even shapes GGUF handled cleanly
+  (single_hop, multi_hop, adversarial) now produce empty content
+  responses on MLX-TQ3.
+- Wallclock per call also worse (~109s vs ~91s on the sanity
+  prompt) -- the longer trace dwarfs any per-token throughput
+  speedup MLX would offer.
+- Earlier crash mode: when GGUF and MLX were both loaded, MLX
+  crashed entirely at large prompts ("The model has crashed
+  without additional information") because of memory pressure.
+  Fixed by ejecting GGUF, but the verbosity / truncation
+  finding survives.
+
+**Conclusion: alexcovo/qwen35-9b-mlx-turboquant-tq3 is not a
+viable production target for this pipeline.** TQ3 trades attention
+precision for KV-cache compression, and reasoning models on long
+RAG contexts are exactly where that trade-off bites.
+
+The cheap-to-validate paths if MLX is needed long-term:
+- A non-TQ3 MLX quant: `mlx-community/Qwen3.5-9B-Instruct` in q8
+  or bf16. Less aggressive compression, more memory, more stable
+  attention. Step 5 training also wants q8/bf16 base, so this
+  likely lands in the program at Step 5 anyway.
+- Stay on GGUF for inference. ~91s per RAG-question on Apple
+  Silicon at zero-shot is acceptable as a working baseline; SFT
+  should bring per-call wall down by tightening traces.
+
+For now: GGUF is the working surface for Step 4 smoke distillation.
+MLX-TQ3 stays out.
 
 ## Files
 
