@@ -450,17 +450,21 @@ load-bearing artifact; the original N=10 probe served as a
 falsification check. No further reasoning-channel verification is
 needed before committing to Steps 4-5.
 
-### Step 3 readiness note
+### Step 3 setup
 
-The plan's candidate students are Llama-3 8B Instruct and
-Qwen-2.5 7B Instruct. Cerebras' currently-hosted catalog is
-`llama3.1-8b`, `gpt-oss-120b`, `qwen-3-235b-a22b-instruct-2507`,
-and `zai-glm-4.7` -- neither candidate student is on Cerebras.
-Step 3 zero-shot smoke eval therefore needs local hosting via
-Ollama (already installed; current pulls are `qwen3.5:4b`).
-Pulls needed: `llama3:8b` (~4.7 GB) and `qwen2.5:7b` (~4.4 GB).
-Vstash already supports the Ollama backend, so no new
-infrastructure is required.
+The plan's whole point is to fall from ~$1/Q on Cerebras to
+~$0/Q on local hardware (per
+`notes/2026-04-27-local-distillation-from-gptoss120b.md`,
+"Above those gates -> declare local-merken viable; cost falls
+from ~$1/Q on Cerebras to ~$0/Q on local hardware"). The
+student has always been local by design.
+
+Step 3 zero-shot smoke runs locally via Ollama, which is
+already installed (current pulls: `qwen3.5:4b`). The candidates
+are Llama-3 8B Instruct and Qwen-2.5 7B Instruct; pulls needed
+are `llama3:8b` (~4.7 GB) and `qwen2.5:7b` (~4.4 GB). Vstash
+already supports the Ollama backend, so no new infrastructure
+is needed.
 
 ## Files
 
