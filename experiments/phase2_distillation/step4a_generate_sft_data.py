@@ -99,10 +99,10 @@ TEMPERATURE = 0.2
 # to a generous bound for the production run; tighter for smoke.
 HARD_COST_CAP_USD = 50.0
 
-# Rough Cerebras gpt-oss-120b pricing (as of 2026-04). Adjust if
-# tier changes. Used only for the cost cap, not actual billing.
-ROUGH_USD_PER_1M_INPUT = 0.50
-ROUGH_USD_PER_1M_OUTPUT = 1.50
+# Cerebras gpt-oss-120b pricing (as of 2026-04-30, confirmed by
+# Jay). Used only for the cost cap projection, not actual billing.
+ROUGH_USD_PER_1M_INPUT = 0.35
+ROUGH_USD_PER_1M_OUTPUT = 0.75
 
 
 def _now_stamp() -> str:
