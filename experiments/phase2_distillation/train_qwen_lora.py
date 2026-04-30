@@ -89,6 +89,11 @@ def main() -> int:
                     default=["q_proj", "k_proj", "v_proj", "o_proj"],
                     help="LoRA target modules. Default matches Qwen attention.")
     ap.add_argument("--seed", type=int, default=42)
+    ap.add_argument("--enable-eval", action="store_true",
+                    help="Run mid-training eval on the valid split. "
+                         "Disabled by default because eval at this "
+                         "seq length OOMs on a 40 GB A100 -- only "
+                         "set this on H100 / 80 GB A100.")
     args = ap.parse_args()
 
     train_path = args.data / "train.jsonl"
@@ -139,9 +144,14 @@ def main() -> int:
     print(f"[train] {len(train_rows)} train rows", flush=True)
 
     valid_rows: list[dict] = []
-    if valid_path.exists():
+    if args.enable_eval and valid_path.exists():
         valid_rows = _load_jsonl(valid_path)
         print(f"[train] {len(valid_rows)} valid rows", flush=True)
+    elif valid_path.exists():
+        n_valid = sum(1 for _ in valid_path.open())
+        print(f"[train] valid.jsonl has {n_valid} rows; "
+              f"eval disabled (use --enable-eval to opt in)",
+              flush=True)
 
     def _format(row: dict) -> dict:
         # Apply Qwen's chat template to the {system, user, assistant}
@@ -184,6 +194,12 @@ def main() -> int:
         packing=False,
         eval_strategy="steps" if eval_ds is not None else "no",
         eval_steps=50 if eval_ds is not None else None,
+        # Move eval predictions to CPU per batch so the eval pass
+        # does not blow the 40 GB A100 with full-vocab logits in
+        # GPU memory; only matters when --enable-eval is set.
+        eval_accumulation_steps=1 if eval_ds is not None else None,
+        prediction_loss_only=True if eval_ds is not None else False,
+        per_device_eval_batch_size=1 if eval_ds is not None else 8,
         seed=args.seed,
     )
     trainer = SFTTrainer(
