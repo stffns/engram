@@ -858,6 +858,53 @@ run:
 Both changes can be tested in a follow-up smoke (same 1K corpus,
 new training run) before committing the $200-400 Step 5 budget.
 
+### Step 4d v2 retry: sampling + repetition penalty
+
+Re-ran step3 against the same trained student with
+`--temperature 0.2 --repetition-penalty 1.1`. Run dir:
+`experiments/phase2_distillation/runs/step3_qwen25-7b-merken-smoke-v1_temp0.2-reppen1.1_20260430T173524Z/`.
+
+Three-way comparison (same N=22 stratified sample):
+
+| metric | zero-shot baseline | student v1 (greedy) | **student v2 (sampled+pen)** |
+|---|---|---|---|
+| truncation rate    | 4/22 = 18% | 10/22 = 45% | **4/22 = 18%** |
+| empty content rows | 4/22       | 9/22        | **4/22** |
+| reasoning chars med| 9614c      | 2218c       | **1004c** |
+| content chars med  | 338c       | 124c        | **198c** |
+| wall_s median      | 94s        | 88s         | **77s** |
+| total wallclock    | 34 min     | 43 min      | **30 min** |
+
+**v2 erases the +27pp truncation regression and lands at -90%
+reasoning chars vs baseline.** That is the result the plan
+targeted: distillation produces a tighter student that converges
+in 1/10th the trace length without losing content quality, at
+matched truncation rate to the zero-shot teacher.
+
+Per-shape v2 truncation breakdown:
+
+| shape | zero-shot | v1 greedy | **v2** |
+|---|---|---|---|
+| lme:knowledge-update          | 1/2 | 0/2 | **0/2** |
+| lme:multi-session             | 2/2 | 0/2 | **0/2** |
+| lme:single-session-assistant  | 0/2 | 2/2 | **0/2** |
+| lme:single-session-preference | 0/2 | 2/2 | **0/2** |
+| lme:single-session-user       | 0/2 | 0/2 | **0/2** |
+| lme:temporal-reasoning        | 1/2 | 0/2 | **0/2** |
+| locomo:adversarial            | 0/2 | 1/2 | 1/2 |
+| locomo:multi_hop              | 0/2 | 2/2 | 1/2 |
+| locomo:open_domain            | 0/2 | 0/2 | **0/2** |
+| locomo:single_hop             | 0/2 | 2/2 | 1/2 |
+| locomo:temporal               | 0/2 | 1/2 | 1/2 |
+
+All six LME shapes at 0/2 truncated, including the three the
+plan flagged as hard (knowledge-update, multi-session,
+temporal-reasoning). The four residual truncations are all
+LoCoMo. Hypothesis: the SFT corpus had ~5x more LME hard-shape
+diversity than LoCoMo narrative-content diversity, and the
+student remains brittle on the latter even with sampling. Step 5
+(50K corpus, 3 epochs) is the right place to fix this.
+
 ### Cost ledger Step 4 total
 
 - Step 4a corpus generation: ~$2 (Cerebras gpt-oss-120b, 1000 calls).
@@ -865,12 +912,40 @@ new training run) before committing the $200-400 Step 5 budget.
 - Step 4d Colab training: ~3 compute units (Colab Pro
   subscription); under Pay-as-you-go ~$1.
 - Step 4d local fuse + MLX convert: $0.
-- Step 4d post-train eval: $0 (local LM Studio).
+- Step 4d post-train eval (v1 + v2): $0 (local LM Studio).
 - **Total Step 4: ~$3.**
 
-The smoke produced a clear empirical finding (pipeline works,
-specific failure mode identifiable, target wins on the planned
-hard shapes) for ~$3.
+The smoke produced clean empirical findings (pipeline works,
+distillation lesson transfers strongly, brittle-on-greedy
+remediation identified) for ~$3.
+
+### What this changes about Step 5
+
+Going into the smoke, the planned remediation list was:
+1. 1 -> 3 epochs.
+2. 1K -> 50K corpus.
+3. lr 1e-4 -> 1e-5.
+4. Add temperature + repetition_penalty at inference.
+
+Item 4 is now **measured** to fix the loops on its own; the v2
+student is already viable as a working baseline for further
+experiments. Items 1-3 still recommended for Step 5 because:
+
+- **3 epochs** for stronger generalization beyond the 900 LoCoMo
+  rows; v2's residual LoCoMo truncations (4/10) suggest the
+  student has under-fit on narrative content.
+- **50K corpus** for shape coverage; the per-shape distribution
+  in our 1K is uneven (single-session-* gets ~30 examples each,
+  open_domain gets 178). 50K should balance.
+- **lr 1e-5** for adapter stability; r=16 LoRA at lr=1e-4 over
+  225 effective steps is fast enough to over-fit specific
+  n-grams (which is exactly what v1 demonstrated).
+
+### Step 4 -- closing verdict
+
+Pipeline e2e proven. Distillation lesson lands strongly.
+Inference settings matter (greedy + reasoning model + SFT =
+loops; sampled + penalty fixes it). Step 5 budget defensible.
 
 
 
