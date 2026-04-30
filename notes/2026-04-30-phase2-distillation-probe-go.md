@@ -292,11 +292,184 @@ tempdir + fresh Memory + close).
 P0: none. P2 (nits): repo-root `parents[2]` brittle to future moves;
 half-median replaced with `statistics.median`.
 
+## Step 2 stratified update (2026-04-30, same day)
+
+Re-run with N=55 stratified across all 11 shapes (5 LoCoMo
+categories x 5 calls + 6 LME question_types x 5 calls). Closes the
+LME shape-coverage gap from Step 1+2 lite. Cost: ~$1, wallclock
+12.8 min (faster than the 30-40 min estimate -- LoCoMo phase
+shared a single ingest, and gpt-oss-120b on Cerebras turns ~3-5s
+per call). Run dir:
+`experiments/phase2_distillation/runs/step2_20260430T060103Z/`.
+
+### Per-shape reasoning rates
+
+LoCoMo (single conversation, conv-26):
+
+| shape | n | reasoning rate | r chars (min/med/max) | content med |
+|---|---|---|---|---|
+| single_hop  | 5 | 5/5 (100%) | 596 / 1115 / 1560 | 437 |
+| temporal    | 5 | 5/5 (100%) | 508 / 776  / 1084 | 215 |
+| multi_hop   | 5 | 5/5 (100%) | 551 / 1208 / 5300 | 502 |
+| open_domain | 5 | 5/5 (100%) | 314 / 535  / 1224 | 233 |
+| adversarial | 5 | 5/5 (100%) | 456 / 1501 / 2160 | 296 |
+
+LME (one conversation per question, 30 separate ingests):
+
+| shape | n | reasoning rate | r chars (min/med/max) | content med |
+|---|---|---|---|---|
+| single-session-user      | 5 | 5/5 (100%) | 322 / 370  / 423  | 97 |
+| single-session-assistant | 5 | 5/5 (100%) | 350 / 700  / 861  | 148 |
+| single-session-preference| 5 | 5/5 (100%) | 411 / 916  / 2609 | 326 |
+| multi-session            | 5 | 5/5 (100%) | 491 / 871  / 1680 | 205 |
+| temporal-reasoning       | 5 | 5/5 (100%) | 628 / 1177 / 2222 | 228 |
+| knowledge-update         | 5 | 5/5 (100%) | 785 / 1271 / 2646 | 465 |
+
+Zero burned-budget rows, zero ingest skips, zero per-conv errors
+across all 55 calls.
+
+### What the per-shape distribution tells us
+
+Reasoning rate is **uniformly 100%** across every shape; that
+falsifies the worry that the channel is shape-sensitive. But the
+**length distribution** is the more informative signal:
+
+- Hardest shapes get the longest traces. LME `knowledge-update`
+  (median 1271, max 2646) and `temporal-reasoning` (median 1177,
+  max 2222) are at the top -- exactly the shapes the plan flagged
+  as the teacher's documented weakness. The model is reasoning
+  *more*, not less, on those shapes.
+- Simplest shapes get the shortest traces. LME `single-session-user`
+  (median 370) is the floor -- single context, single user
+  statement, direct answer. The model isn't padding.
+- LoCoMo `multi_hop` has a 5300-char outlier (max). Inspection
+  confirms it is the model walking through 8 retrieved sessions
+  systematically -- a long but coherent trace, not filler.
+
+Implication for SFT: the trace **length variance follows question
+complexity**, which is the property reasoning-distillation
+literature relies on. A student trained on these traces would see
+both short-and-direct and long-and-deliberative examples,
+correlated with question shape. That is the signal that lets the
+student learn *when* to reason at length, not just *how*.
+
+### Hand-inspected traces (2 per load-bearing shape)
+
+**LME temporal-reasoning** ("Which group did I join first, 'Page
+Turners' or 'Marketing Professionals'?" -> Page Turners):
+
+> Context 2: user says "I've been engaging with a group called
+> 'Marketing Professionals' on LinkedIn since I joined it
+> yesterday..." So they joined Marketing Professionals yesterday.
+>
+> Context 3: user says "I'm looking for some book recommendations.
+> I just joined a new book club group called 'Page Turners' last
+> week..." So they joined Page Turners last week.
+>
+> Thus timeline: Marketing Professionals joined yesterday; Page
+> Turners joined last week. So Page Turners was joined earlier
+> (last week) than Marketing Professionals (yesterday). So
+> answer: Page Turners first.
+
+Same date-arithmetic pattern as the LoCoMo temporal trace from the
+probe. Distillable.
+
+**LME multi-session** ("How much have I made from selling eggs
+this month?" -> $120) -- cross-context synthesis with arithmetic:
+
+> Context 1: user says selling eggs to neighbor for $3 a dozen.
+> No quantity.
+> Context 2: user says sold a total of 40 dozen eggs so far. No
+> price given, but earlier context maybe price $3 per dozen. [...]
+> So we can compute revenue: 40 dozen * $3 = $120.
+
+Identifies price in one context, quantity in another, multiplies,
+cites both. The student needs to learn this exact synthesis
+pattern; the trace makes it explicit.
+
+**LME knowledge-update** -- two outcomes worth contrasting:
+
+Trace #1 (qid=6a27ffc2, "How many videos of Corey Schafer's Python
+programming series have I completed?" -> 30):
+
+> Context 1: user says "I've completed 30 videos so far for
+> Corey's series". That's 30.
+> Context 3: user says "I've completed 20 videos so far". That's
+> 20.
+> Context 6: assistant says "Congratulations on completing 30
+> videos". So 30. [...]
+> Thus the user likely wants current count. The most recent
+> statements: In context 1 and 2 and 6 they say 30 videos. The
+> earlier 20 was earlier. So answer: 30 videos.
+
+Correct. The model resolves the conflict via "most recent count
+wins" heuristic, applied to retrieval order, and gets it right
+when retrieval order happens to match temporal order.
+
+Trace #2 (qid=06db6396, "How many projects have I completed since
+starting painting classes?" -> GT 5; **model answers 4**):
+
+> Context 1: user says "I just finished my 5th project since
+> starting painting classes". So that says 5 projects.
+> Context 2: user says "I've completed 4 projects since starting
+> painting classes". So 4. [...]
+> The latest mention is context 3 (turn 8) where user says "Since
+> I've completed 4 projects". That is after context 2 (turn 4).
+> So likely the correct answer is 4 projects.
+
+Wrong -- the model applies the "most recent" heuristic to
+*retrieval order* (chunk turn index) instead of *temporal order
+in the conversation*. The 5-projects statement was a later event;
+the 4-projects statements were earlier reports the model
+encountered last in retrieval. **The trace makes the failure mode
+visible:** the student would inherit this exact heuristic, which
+is what the plan's "teacher's failure modes transfer" risk
+predicts. A future remediation (claim-level Judge with explicit
+temporal ordering, or a retrieval rewrite that surfaces newest-
+first) could be specifically targeted at this trace pattern --
+and the trace gives the test cases.
+
+### What this changes about the GO
+
+Step 1+2 lite said "PROCEED to Step 3" with the LME-shape gap
+flagged. Step 2 stratified closes the gap and confirms:
+
+- Reasoning fires at 100% across all 11 shapes the student
+  needs to learn.
+- Reasoning length scales with question complexity -- the
+  property reasoning distillation needs.
+- The teacher's documented LME failure modes
+  (knowledge-update, temporal-reasoning) get *more* reasoning,
+  not less; the failure is in the heuristic the model applies,
+  not in the model refusing to reason. Distillable; remediable
+  downstream.
+
+Updated recommendation: **PROCEED to Step 3** (target
+architecture decision). The N=55 stratified evidence is now the
+load-bearing artifact; the original N=10 probe served as a
+falsification check. No further reasoning-channel verification is
+needed before committing to Steps 4-5.
+
+### Step 3 readiness note
+
+The plan's candidate students are Llama-3 8B Instruct and
+Qwen-2.5 7B Instruct. Cerebras' currently-hosted catalog is
+`llama3.1-8b`, `gpt-oss-120b`, `qwen-3-235b-a22b-instruct-2507`,
+and `zai-glm-4.7` -- neither candidate student is on Cerebras.
+Step 3 zero-shot smoke eval therefore needs local hosting via
+Ollama (already installed; current pulls are `qwen3.5:4b`).
+Pulls needed: `llama3:8b` (~4.7 GB) and `qwen2.5:7b` (~4.4 GB).
+Vstash already supports the Ollama backend, so no new
+infrastructure is required.
+
 ## Files
 
 - `experiments/phase2_distillation/__init__.py`
-- `experiments/phase2_distillation/probe_reasoning_channel.py` (probe)
-- `experiments/phase2_distillation/runs/probe_20260430T050027Z/rows.jsonl`
+- `experiments/phase2_distillation/probe_reasoning_channel.py` (probe, Step 1+2 lite)
+- `experiments/phase2_distillation/step2_stratified_capture.py` (Step 2 proper)
+- `experiments/phase2_distillation/step2_analyze.py` (markdown analysis helper)
+- `experiments/phase2_distillation/runs/probe_20260430T050027Z/{rows.jsonl,summary.json}`
   (10 rows, gitignored)
-- `experiments/phase2_distillation/runs/probe_20260430T050027Z/summary.json`
+- `experiments/phase2_distillation/runs/step2_20260430T060103Z/{rows.jsonl,summary.json}`
+  (55 rows, gitignored)
 - `notes/2026-04-30-phase2-distillation-probe-go.md` (this file)
