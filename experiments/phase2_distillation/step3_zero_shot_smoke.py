@@ -104,7 +104,14 @@ def _take_per_shape(picks: list, key: str, n: int, valid_keys: list) -> list:
     return out
 
 
-def _call_lm_studio(model: str, messages: list[dict]) -> dict:
+def _call_lm_studio(
+    model: str,
+    messages: list[dict],
+    temperature: float = TEMPERATURE,
+    repetition_penalty: float | None = None,
+    frequency_penalty: float | None = None,
+    presence_penalty: float | None = None,
+) -> dict:
     """Call LM Studio's OpenAI-compatible endpoint. Returns
     {content, reasoning_content, reasoning_present, wall_s, usage}.
 
@@ -112,13 +119,27 @@ def _call_lm_studio(model: str, messages: list[dict]) -> dict:
     ``message.reasoning_content`` (note: different from Cerebras's
     ``message.reasoning``). Sentinel-guard so non-reasoning models
     degrade to ``reasoning_present=False``.
+
+    Optional sampling tweaks (default off, opt-in via the runner
+    CLI flags). Useful when an undertrained SFT student loops
+    on greedy decoding -- pass ``--temperature 0.2`` and
+    ``--repetition-penalty 1.1`` to break the loop.
     """
     payload = {
         "model": model,
         "messages": messages,
         "max_tokens": MAX_TOKENS,
-        "temperature": TEMPERATURE,
+        "temperature": temperature,
     }
+    if repetition_penalty is not None:
+        # LM Studio accepts repetition_penalty as a llama.cpp-style
+        # extra param; ignored gracefully on backends that don't
+        # support it.
+        payload["repetition_penalty"] = repetition_penalty
+    if frequency_penalty is not None:
+        payload["frequency_penalty"] = frequency_penalty
+    if presence_penalty is not None:
+        payload["presence_penalty"] = presence_penalty
     body = json.dumps(payload).encode("utf-8")
     req = Request(
         LM_STUDIO_URL,
@@ -156,7 +177,14 @@ def _call_lm_studio(model: str, messages: list[dict]) -> dict:
     }
 
 
-def _run(model: str, out_dir: Path) -> list[dict]:
+def _run(
+    model: str,
+    out_dir: Path,
+    temperature: float,
+    repetition_penalty: float | None,
+    frequency_penalty: float | None,
+    presence_penalty: float | None,
+) -> list[dict]:
     rows: list[dict] = []
     rows_path = out_dir / "rows.jsonl"
     fh = rows_path.open("w", encoding="utf-8")
@@ -196,7 +224,13 @@ def _run(model: str, out_dir: Path) -> list[dict]:
                 fts_weight=FTS_WEIGHT,
             )
             messages = _build_messages(qa.question, chunks, history=None)
-            res = _call_lm_studio(model, messages)
+            res = _call_lm_studio(
+                model, messages,
+                temperature=temperature,
+                repetition_penalty=repetition_penalty,
+                frequency_penalty=frequency_penalty,
+                presence_penalty=presence_penalty,
+            )
             _record({
                 "source": "locomo",
                 "model": model,
@@ -238,7 +272,13 @@ def _run(model: str, out_dir: Path) -> list[dict]:
                     fts_weight=FTS_WEIGHT,
                 )
                 messages = _build_messages(conv.question, chunks, history=None)
-                res = _call_lm_studio(model, messages)
+                res = _call_lm_studio(
+                model, messages,
+                temperature=temperature,
+                repetition_penalty=repetition_penalty,
+                frequency_penalty=frequency_penalty,
+                presence_penalty=presence_penalty,
+            )
                 _record({
                     "source": "lme",
                     "model": model,
@@ -325,15 +365,36 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--model", required=True,
                     help="LM Studio model id (see /v1/models)")
+    ap.add_argument("--temperature", type=float, default=TEMPERATURE,
+                    help=f"Sampling temperature. Default {TEMPERATURE} "
+                         "(greedy). Bump to 0.2 for SFT'd students that "
+                         "loop on greedy decoding.")
+    ap.add_argument("--repetition-penalty", type=float, default=None,
+                    help="llama.cpp-style repetition penalty. None = "
+                         "off (default). 1.1 is a typical value to "
+                         "break greedy repetition loops without "
+                         "harming legitimate reasoning structure.")
+    ap.add_argument("--frequency-penalty", type=float, default=None,
+                    help="OpenAI-style frequency penalty. Mutually "
+                         "compatible with repetition_penalty.")
+    ap.add_argument("--presence-penalty", type=float, default=None)
+    ap.add_argument("--tag", default="",
+                    help="Suffix appended to the run dir name (e.g. "
+                         "'temp0.2-reppen1.1') so multiple sweeps on "
+                         "the same model don't collide.")
     args = ap.parse_args()
 
     stamp = _now_stamp()
-    out_dir = REPO_ROOT / "experiments" / "phase2_distillation" / "runs" / f"step3_{_slug(args.model)}_{stamp}"
+    suffix = f"_{args.tag}" if args.tag else ""
+    out_dir = REPO_ROOT / "experiments" / "phase2_distillation" / "runs" / f"step3_{_slug(args.model)}{suffix}_{stamp}"
     out_dir.mkdir(parents=True, exist_ok=True)
     print(f"[step3] writing to {out_dir}", flush=True)
     print(
         f"[step3] config: model={args.model} top_k={TOP_K} "
-        f"max_tokens={MAX_TOKENS} temp={TEMPERATURE} per_shape={PER_SHAPE}",
+        f"max_tokens={MAX_TOKENS} temp={args.temperature} "
+        f"repetition_penalty={args.repetition_penalty} "
+        f"frequency_penalty={args.frequency_penalty} "
+        f"per_shape={PER_SHAPE}",
         flush=True,
     )
     print(
@@ -344,7 +405,13 @@ def main() -> int:
     )
 
     t0 = time.perf_counter()
-    rows = _run(args.model, out_dir)
+    rows = _run(
+        args.model, out_dir,
+        temperature=args.temperature,
+        repetition_penalty=args.repetition_penalty,
+        frequency_penalty=args.frequency_penalty,
+        presence_penalty=args.presence_penalty,
+    )
     wall = time.perf_counter() - t0
     print(f"[step3] {len(rows)} rows in {wall/60:.1f} min", flush=True)
 
