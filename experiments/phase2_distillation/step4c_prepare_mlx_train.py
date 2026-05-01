@@ -72,9 +72,23 @@ def _split(rows: list[dict], frac_valid: float, frac_test: float, seed: int) -> 
     shuffled = rows[:]
     rng.shuffle(shuffled)
     n = len(shuffled)
-    n_valid = max(1, int(round(n * frac_valid)))
-    n_test = max(1, int(round(n * frac_test)))
-    n_train = max(0, n - n_valid - n_test)
+    if frac_valid < 0 or frac_test < 0:
+        raise ValueError(f"split fractions must be >= 0, got {frac_valid}, {frac_test}")
+    if frac_valid + frac_test >= 1.0:
+        raise ValueError(
+            f"frac_valid + frac_test = {frac_valid + frac_test:.3f} leaves "
+            "no room for training rows; both must sum to < 1.0"
+        )
+    # Respect 0-valued fractions explicitly. The previous max(1, ...)
+    # forced at least one row even when the caller wanted to skip
+    # the split entirely.
+    n_valid = int(round(n * frac_valid)) if frac_valid > 0 else 0
+    n_test = int(round(n * frac_test)) if frac_test > 0 else 0
+    n_train = n - n_valid - n_test
+    if n_train <= 0:
+        raise ValueError(
+            f"split would leave train empty: n={n} valid={n_valid} test={n_test}"
+        )
     return (
         shuffled[:n_train],
         shuffled[n_train : n_train + n_valid],

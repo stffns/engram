@@ -162,7 +162,12 @@ def _call_lm_studio(
             "error": f"{type(exc).__name__}: {exc}",
         }
     wall = time.perf_counter() - t0
-    msg = data.get("choices", [{}])[0].get("message", {})
+    # Defensive: an API that returns 200 with empty `choices` would
+    # IndexError on [0]. Treat as a no-content failure rather than
+    # crashing the whole smoke loop.
+    choices = data.get("choices") or []
+    choice = choices[0] if choices else {}
+    msg = (choice.get("message") if isinstance(choice, dict) else None) or {}
     sentinel = object()
     raw = msg.get("reasoning_content", sentinel)
     reasoning_present = raw is not sentinel
@@ -173,7 +178,7 @@ def _call_lm_studio(
         "reasoning_present": reasoning_present,
         "wall_s": wall,
         "usage": data.get("usage", {}),
-        "finish_reason": data.get("choices", [{}])[0].get("finish_reason"),
+        "finish_reason": choice.get("finish_reason") if isinstance(choice, dict) else None,
     }
 
 

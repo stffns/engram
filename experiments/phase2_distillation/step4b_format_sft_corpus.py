@@ -74,6 +74,10 @@ def _convert(row: dict, drop_empty_content: bool, drop_empty_reasoning: bool) ->
     messages_input = row.get("messages_input")
     if not isinstance(messages_input, list) or len(messages_input) < 2:
         return None, "missing_messages_input"
+    # Guard non-dict elements -- a malformed row should be dropped,
+    # not crash conversion of the rest of the corpus.
+    if not all(isinstance(m, dict) for m in messages_input[:2]):
+        return None, "non_dict_messages_input"
     system = messages_input[0].get("content", "")
     user = messages_input[1].get("content", "")
     if not system or not user:
@@ -85,6 +89,14 @@ def _convert(row: dict, drop_empty_content: bool, drop_empty_reasoning: bool) ->
         return None, "empty_content"
     if drop_empty_reasoning and not reasoning:
         return None, "empty_reasoning"
+    # Drop rows where teacher trace contains the </think> sentinel
+    # we use to delimit reasoning from content. If the literal
+    # appears in the trace, the assistant target becomes
+    # structurally invalid (model trains on a broken boundary).
+    # Cheaper to drop than to escape; in the 1K corpus zero rows
+    # contained this token, so the drop count is informational.
+    if "</think>" in reasoning or "<think>" in reasoning:
+        return None, "reasoning_contains_think_sentinel"
 
     out = {
         "qid": qid,

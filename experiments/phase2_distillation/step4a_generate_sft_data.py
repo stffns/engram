@@ -251,6 +251,13 @@ def _estimate_cost_usd(rows_so_far: list[dict], remaining: int) -> float:
     return proj
 
 
+class _CostCapExceeded(Exception):
+    """Raised by the inner processors to halt the whole run when
+    the projected cost exceeds the cap. Caught by ``main()`` so we
+    do not silently continue into the LME phase after the cap is
+    hit during LoCoMo (per PR #49 review)."""
+
+
 def _is_auth_error(exc: BaseException) -> bool:
     """Detect Cerebras auth / permissions failures so they halt the
     run instead of being silently retried qid-by-qid (would burn the
@@ -321,11 +328,12 @@ def _process_locomo(
                     print(
                         f"[locomo {conv_id}] cost cap reached: "
                         f"projected ${proj:.2f} > cap ${cost_cap_usd:.2f} "
-                        f"(global remaining {global_remaining}); halting.",
+                        f"(global remaining {global_remaining}); halting "
+                        "the whole run (LME phase will NOT run).",
                         flush=True,
                     )
                     mem.close()
-                    return
+                    raise _CostCapExceeded(proj)
                 qid = f"locomo:{conv_id}::{(qa.question or '')[:80]}"
                 print(
                     f"[locomo {conv_id} {i+1}/{len(pending)}] cat={qa.category_name:12s} "
@@ -405,7 +413,7 @@ def _process_lme(
                 f"${cost_cap_usd:.2f} (global remaining {global_remaining}); halting.",
                 flush=True,
             )
-            return
+            raise _CostCapExceeded(proj)
         try:
             with tempfile.TemporaryDirectory(prefix="step4_lme_") as tmpdir:
                 db = Path(tmpdir) / "step4.db"
@@ -462,7 +470,14 @@ def _process_lme(
                 fh.write(json.dumps(row, ensure_ascii=False) + "\n")
                 fh.flush()
                 mem.close()
+        except _CostCapExceeded:
+            raise
         except Exception as exc:  # noqa: BLE001
+            if _is_auth_error(exc):
+                # Don't swallow auth errors at the outer level --
+                # the inner re-raise was deliberate. Re-propagate
+                # so main() halts.
+                raise
             print(
                 f"[lme {i+1:3d}/{len(picks)}] qid={conv.question_id} "
                 f"FAILED: {type(exc).__name__}: {exc}",
@@ -569,22 +584,33 @@ def main() -> int:
                     pass
 
     t0 = time.perf_counter()
-    total_target = len(locomo_picks) + len(lme_picks) + len(seen)
+    # total_target is the global pick count for cost projection.
+    # We DON'T add len(seen) -- on resume the picks list still
+    # contains qids already in seen (they get filtered inside the
+    # processors), so the budget should be the total target N, not
+    # N + already-done.
+    total_target = len(locomo_picks) + len(lme_picks)
+    cost_cap_hit = False
     with rows_path.open("a", encoding="utf-8") as fh:
-        if locomo_picks:
-            _process_locomo(locomo_picks, fh, rows, seen, args.cost_cap_usd, total_target)
-        if lme_picks:
-            _process_lme(lme_picks, fh, rows, seen, args.cost_cap_usd, total_target)
+        try:
+            if locomo_picks:
+                _process_locomo(locomo_picks, fh, rows, seen, args.cost_cap_usd, total_target)
+            if lme_picks:
+                _process_lme(lme_picks, fh, rows, seen, args.cost_cap_usd, total_target)
+        except _CostCapExceeded:
+            cost_cap_hit = True
+            print("[step4a] halted by cost cap; partial rows.jsonl preserved.", flush=True)
     wall = time.perf_counter() - t0
     print(f"[step4a] {len(rows)} rows total, +wall={wall/60:.1f}min", flush=True)
 
     summary = _summarize(rows)
     summary["wall_minutes_this_session"] = wall / 60
+    summary["cost_cap_hit"] = cost_cap_hit
     (args.out_dir / "summary.json").write_text(
         json.dumps(summary, indent=2), encoding="utf-8"
     )
     print(json.dumps(summary, indent=2))
-    return 0
+    return 1 if cost_cap_hit else 0
 
 
 if __name__ == "__main__":
