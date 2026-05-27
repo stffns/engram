@@ -546,6 +546,40 @@ def cmd_tombstones(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_heartbeat(args: argparse.Namespace) -> int:
+    """Run the heartbeat maintenance loop."""
+    import logging as _logging
+
+    _logging.basicConfig(
+        level=_logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(message)s",
+    )
+
+    from merken import Heartbeat, Memory, NeverForget
+
+    if args.forget_interval == 0:
+        forget_decider: NeverForget | None = NeverForget()
+    else:
+        forget_decider = None
+
+    with Memory(
+        project=args.project,
+        db=_resolve_db(args),
+        forget_decider=forget_decider,
+    ) as mem:
+        hb = Heartbeat(
+            memory=mem,
+            consolidate_interval=args.consolidate_interval,
+            forget_interval=args.forget_interval,
+            report_interval=args.report_interval,
+            min_events=args.min_events,
+            force=args.force,
+        )
+        hb.run(poll_interval=args.poll_interval)
+
+    return 0
+
+
 def cmd_status(args: argparse.Namespace) -> int:
     db = _resolve_db(args)
     with Memory(project=args.project, db=db) as mem:
@@ -821,6 +855,53 @@ def build_parser() -> argparse.ArgumentParser:
 
     st = sub.add_parser("status", help="project summary (db, collection, layer counts)")
     st.set_defaults(func=cmd_status)
+
+    hb = sub.add_parser(
+        "heartbeat",
+        help="background maintenance loop (consolidate + forget on a schedule)",
+        description=(
+            "Run a periodic memory-maintenance loop that calls "
+            "consolidate() and forget() on configurable intervals. "
+            "Blocks until SIGINT/SIGTERM. Every tick writes a "
+            "'should_heartbeat' audit row."
+        ),
+    )
+    hb.add_argument(
+        "--consolidate-interval",
+        type=int,
+        default=300,
+        help="seconds between consolidation checks (0 = never)",
+    )
+    hb.add_argument(
+        "--forget-interval",
+        type=int,
+        default=3600,
+        help="seconds between forget checks (0 = never)",
+    )
+    hb.add_argument(
+        "--report-interval",
+        type=int,
+        default=3600,
+        help="seconds between health-report ticks (0 = never)",
+    )
+    hb.add_argument(
+        "--min-events",
+        type=int,
+        default=5,
+        help="minimum episodic events before consolidation runs",
+    )
+    hb.add_argument(
+        "--force",
+        action="store_true",
+        help="bypass deciders (force-consolidate + force-forget)",
+    )
+    hb.add_argument(
+        "--poll-interval",
+        type=float,
+        default=10.0,
+        help="loop poll interval (seconds, default 10)",
+    )
+    hb.set_defaults(func=cmd_heartbeat)
 
     stats_p = sub.add_parser(
         "stats",
