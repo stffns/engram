@@ -123,8 +123,9 @@ class Heartbeat:
         self._last_forget: float = now
         self._last_report: float = now
         self._shutdown = False
-        self._errors: list[str] = []
         self._last_report_data: HeartbeatReport | None = None
+        self._original_sigint: object = None
+        self._original_sigterm: object = None
 
     # ------------------------------------------------------------------ public
 
@@ -136,6 +137,11 @@ class Heartbeat:
         poll_interval:
             Seconds between each tick check. Smaller = more responsive
             shutdown, larger = fewer no-op ticks during idle periods.
+            Note: the actual sleep is capped at 1.0s per iteration
+            to remain responsive to shutdown signals. Values > 1.0
+            are treated as 1.0 for sleep duration. Use chunked
+            sleeping — the loop repeatedly sleeps min(1.0, remaining)
+            until the interval elapses or shutdown is requested.
         """
         self._install_signal_handlers()
         logger.info(
@@ -149,7 +155,11 @@ class Heartbeat:
         try:
             while not self._shutdown:
                 self._tick()
-                time.sleep(min(poll_interval, 1.0))
+                # Chunked sleep: honor poll_interval but stay responsive
+                chunk_end = time.time() + poll_interval
+                while time.time() < chunk_end and not self._shutdown:
+                    remaining = chunk_end - time.time()
+                    time.sleep(min(1.0, remaining))
         except KeyboardInterrupt:
             logger.info("Heartbeat stopped (KeyboardInterrupt)")
         finally:
@@ -168,16 +178,13 @@ class Heartbeat:
 
     # ----------------------------------------------------------------- private
 
-    _ORIGINAL_SIGINT: object = None
-    _ORIGINAL_SIGTERM: object = None
-
     def _install_signal_handlers(self) -> None:
         """Install handlers that set the shutdown flag."""
         import signal as _signal
 
         try:
-            self._ORIGINAL_SIGINT = _signal.getsignal(_signal.SIGINT)
-            self._ORIGINAL_SIGTERM = _signal.getsignal(_signal.SIGTERM)
+            self._original_sigint = _signal.getsignal(_signal.SIGINT)
+            self._original_sigterm = _signal.getsignal(_signal.SIGTERM)
 
             def _handler(signum: object, frame: object) -> None:  # noqa: ARG001
                 self.shutdown()
@@ -192,10 +199,10 @@ class Heartbeat:
         import signal as _signal
 
         try:
-            if self._ORIGINAL_SIGINT is not None:
-                _signal.signal(_signal.SIGINT, self._ORIGINAL_SIGINT)  # type: ignore[arg-type]
-            if self._ORIGINAL_SIGTERM is not None:
-                _signal.signal(_signal.SIGTERM, self._ORIGINAL_SIGTERM)  # type: ignore[arg-type]
+            if self._original_sigint is not None:
+                _signal.signal(_signal.SIGINT, self._original_sigint)  # type: ignore[arg-type]
+            if self._original_sigterm is not None:
+                _signal.signal(_signal.SIGTERM, self._original_sigterm)  # type: ignore[arg-type]
         except (ValueError, RuntimeError):
             pass
 
@@ -347,6 +354,6 @@ class Heartbeat:
                 collection=AUDIT_COLLECTION,
                 layer=AUDIT_LAYER,
             )
-        except Exception:
-            # Audit failures must never break the loop.
-            pass
+        except Exception as e:
+            # Audit failures must never break the loop, but should be visible.
+            logger.warning("Heartbeat: audit write failed: %s", e)

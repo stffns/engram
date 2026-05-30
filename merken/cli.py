@@ -856,6 +856,26 @@ def build_parser() -> argparse.ArgumentParser:
     st = sub.add_parser("status", help="project summary (db, collection, layer counts)")
     st.set_defaults(func=cmd_status)
 
+    def _non_negative_int(value: str) -> int:
+        """Argparse type: integer >= 0."""
+        try:
+            v = int(value)
+        except ValueError:
+            raise argparse.ArgumentTypeError(f"{value!r} is not a valid integer")
+        if v < 0:
+            raise argparse.ArgumentTypeError(f"{value!r} must be >= 0")
+        return v
+
+    def _positive_float(value: str) -> float:
+        """Argparse type: float > 0."""
+        try:
+            v = float(value)
+        except ValueError:
+            raise argparse.ArgumentTypeError(f"{value!r} is not a valid float")
+        if v <= 0:
+            raise argparse.ArgumentTypeError(f"{value!r} must be > 0")
+        return v
+
     hb = sub.add_parser(
         "heartbeat",
         help="background maintenance loop (consolidate + forget on a schedule)",
@@ -868,25 +888,25 @@ def build_parser() -> argparse.ArgumentParser:
     )
     hb.add_argument(
         "--consolidate-interval",
-        type=int,
+        type=_non_negative_int,
         default=300,
         help="seconds between consolidation checks (0 = never)",
     )
     hb.add_argument(
         "--forget-interval",
-        type=int,
+        type=_non_negative_int,
         default=3600,
         help="seconds between forget checks (0 = never)",
     )
     hb.add_argument(
         "--report-interval",
-        type=int,
+        type=_non_negative_int,
         default=3600,
         help="seconds between health-report ticks (0 = never)",
     )
     hb.add_argument(
         "--min-events",
-        type=int,
+        type=_non_negative_int,
         default=5,
         help="minimum episodic events before consolidation runs",
     )
@@ -897,9 +917,9 @@ def build_parser() -> argparse.ArgumentParser:
     )
     hb.add_argument(
         "--poll-interval",
-        type=float,
+        type=_positive_float,
         default=10.0,
-        help="loop poll interval (seconds, default 10)",
+        help="loop poll interval (seconds, must be > 0, default 10)",
     )
     hb.set_defaults(func=cmd_heartbeat)
 

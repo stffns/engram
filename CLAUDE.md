@@ -18,7 +18,20 @@ session aligned with the state of the repo.
 4. [`notes/silt.md`](notes/silt.md) — working notes on the patterns
    Silt caught that became hard rules.
 
-## Current state (as of 2026-04-17)
+## Current state (as of 2026-05-30)
+
+**Heartbeat daemon (PR #50):** New `merken heartbeat` CLI subcommand and
+`Heartbeat` class that runs `Memory.consolidate()` and `Memory.forget()`
+on configurable schedules. Blocks until SIGINT/SIGTERM. Writes
+`should_heartbeat` audit rows every tick (glass-box principle). Usage:
+`merken heartbeat --consolidate-interval 300 --forget-interval 3600`.
+Exported from `merken/heartbeat.py`.
+
+**Phase 2 distillation (PR #49):** Steps 1-4 complete (1K SFT smoke,
+distillation lesson transfers from GPT 120B → Qwen 3.5-9B). Key findings:
+MLX-TQ3 not viable at 9B; zero-shot smoke results show qwen3.5-9B GGUF
+with LM Studio works; step 4d LoRA trainer + Colab notebook shipped.
+Training corpus: 1000 SFT examples. MLX fuse + convert pipeline works.
 
 **Write-filter classifier status:** nanoGPT **v7** is the graduated
 shadow baseline. First version to clear the markdown-tables blind
@@ -67,8 +80,8 @@ Deployed surfaces:
 - **Python SDK** — `from merken import Memory`. Four primitives
   accessible as `Memory` methods.
 - **CLI** — `merken` on `$PATH` after `pip install -e .`.
-  Eight subcommands map 1:1 to `Memory` methods:
-  `remember | recall | consolidate | forget | audit | tombstones | status | stats`.
+  Nine subcommands map 1:1 to `Memory` methods:
+  `remember | recall | consolidate | forget | audit | tombstones | status | stats | heartbeat`.
   See `merken --help`.
 - **MCP server** — `merken-mcp` on `$PATH`, `python -m merken.mcp_server`,
   or `claude mcp add merken -- python -m merken.mcp_server`. Eight
@@ -164,13 +177,19 @@ See `experiments/consolidation/RESULTS.md` for full analysis.
 
 ## What IS next (approximately)
 
+- **Heartbeat CLI polish + PR #50 merge.** Address remaining code review
+  feedback, merge to develop, then main.
 - **brief_v1 integration into Claude Code hooks.** Generate briefs
   on PreCompact, prepend on SessionStart alongside recall results.
 - **nanoGPT-as-connector.** Small model trained on vstash+merken
   data structure for topic identification and brief selection.
+- **Phase 2 distillation — Step 5+.** Multi-turn training, eval on
+  LongMemEval, production quantization (MLX).
 - Scale brief_v1 to 100+ topics, diverse domains for paper.
 - Additional `loop_quality/` scenarios from Jay's real work.
 - vstash 0.29.0 validation (snapvec integration).
+- **Issue #44 — Benchmark monoculture.** LongMemEval + LoCoMo are the
+  only axes for retrieval / builder decisions. Need a third axis.
 
 ## Branching
 
