@@ -10,6 +10,7 @@ that should outlive any specific implementation.
 # Mistake #10 for why the load order matters.
 from merken import _shadow as _shadow  # noqa: F401
 from merken.consolidation import ConsolidationResult, Fact
+from merken.heartbeat import Heartbeat, HeartbeatReport
 from merken.memory import ForgetResult, Memory, RememberResult
 from merken.policies import (
     AlwaysWrite,
@@ -60,6 +61,8 @@ __all__ = [
     "ForgetDecision",
     "ForgetResult",
     "ForgetSuperseded",
+    "Heartbeat",
+    "HeartbeatReport",
     "HeuristicWriteDecider",
     "LayerRequest",
     "LayeredRecaller",
