@@ -4,7 +4,8 @@
 > [vstash](https://github.com/stffns/vstash).
 
 **Status:** v0.1.0 on [PyPI](https://pypi.org/project/merken/), local-first,
-171 tests green. Four decision primitives, four deployment surfaces
+398+ tests green (3 pre-existing torch-import failures unrelated to
+core logic), four decision primitives, four deployment surfaces
 (SDK, CLI, MCP server, Claude Code hooks), five loop-quality scenarios.
 
 ## In one paragraph
@@ -196,8 +197,10 @@ claude mcp add merken -- merken-mcp
 
 ## Tests and scenarios
 
-- **171 tests** across four decision primitives, three deployment
-  surfaces, and five `loop_quality` scenarios.
+- **398+ tests** across four decision primitives, three deployment
+  surfaces, five `loop_quality` scenarios (+ role classifier,
+  shadow classifier env, and heartbeat tests). 3 pre-existing
+  torch-import failures (require torch installed).
 - **Loop-quality scenarios** live in
   [`experiments/loop_quality/`](experiments/loop_quality/) and enforce
   that every decider change is validated against at least one
