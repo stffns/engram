@@ -18,27 +18,78 @@ session aligned with the state of the repo.
 4. [`notes/silt.md`](notes/silt.md) — working notes on the patterns
    Silt caught that became hard rules.
 
-## Current state (as of 2026-04-17)
+## Current state (as of 2026-06-14)
 
-**Write-filter classifier status:** nanoGPT **v7** is the graduated
-shadow baseline. First version to clear the markdown-tables blind
-spot (FPR 66.7% v6 -> 0% v7) while keeping 100% recall on
-organic_val and jay_vstash. 3/5 graduation criteria pass cleanly,
-1 borderline (94.6% oracle agreement on 205-item subsample), 1 N/A.
-`MERKEN_PRIMARY` flip still deferred; v7 runs as
-`MERKEN_SHADOW=nanogpt`. Full version history and open-frontier
-spec (v9 / v10) in `experiments/nanogpt/RESULTS.md`.
+**Test suite:** 398 passed, 3 pre-existing failures (all torch-import
+failures in shadow classifier env tests -- `test_env_primary_overrides_shadow`,
+`test_nanogpt_env_missing_paths_falls_back_cleanly`,
+`test_default_returns_plain_when_shadow_import_fails`), 1 skipped
+(torch classifier). Torch is a soft dependency -- the package is fully
+usable without it; the failing tests only fire when `MERKEN_SHADOW=nanogpt`
+or `MERKEN_PRIMARY=nanogpt` is set without torch installed.
+
+**Write-filter classifier (merged into develop via PR #45):**
+
+- **nanoGPT v7** is the graduated shadow baseline. Clears the
+  markdown-tables blind spot (FPR 66.7% v6 → 0% v7) while keeping 100%
+  recall on organic_val and jay_vstash. Runs as `MERKEN_SHADOW=nanogpt`;
+  `MERKEN_PRIMARY` flip still deferred. Full version history in
+  `experiments/nanogpt/RESULTS.md`.
+- **LLM classifier backend** (`MERKEN_SHADOW=llm`, `MERKEN_PRIMARY=llm`)
+  uses any HuggingFace model. Supports calibration via shipped
+  `calibration_v7.json` or custom path. Backend-agnostic `_shadow.py`
+  module handles both nanoGPT and LLM decider roles.
+- **Calibration head** supports both backends: wraps predictions with
+  a post-hoc Platt-calibrated `P_cal` via shipped
+  `merken/classifiers/calibration_v7.json`. Load errors degrade
+  gracefully (warning to stderr, raw P(D) shown).
+- **vstash 0.35.0 drift fix (PR #45):** single commit `bcc3375`
+  repaired 18 failing tests caused by upstream vstash API drift.
+
+**Role classifier (merged via PR #43/#48):**
+
+- **`merken/role_classifier.py`** -- generic role classifier that
+  leverages a frozen encoder from any merken classifier and assigns
+  events to a user-defined taxonomy of roles.
+- **Production profile** (`role_prototypes_v2.json`) operationalises
+  the #39b STATE_CHANGE_REPORT taxonomy -- STRONG gate met with 4-role
+  classification (DECISION, ENTITY, EVENT, FREE).
+- **Decoupled from global ROLES** -- supports arbitrary taxonomies via
+  `classify_role(text, role_definitions)` interface.
+- **Role markers** (#39 Phase 1-3): prefix-conditioning found
+  ineffective; `STATE_CHANGE_REPORT` taxonomy (Phase 2) passed STRONG.
+  Artifacts in `experiments/role_markers/`.
+
+**Role geometry / directional residuals (merged via PR #41):**
+
+- **Issue #38/#38b** -- NO_GO verdict on EVR_1 (event-role-vector) as a
+  write-gate. Validated on disjoint data; performed worse than plain
+  heuristic gates.
+- **Signal mining post-NO_GO** -- partial recovery via directional
+  residual features. #38c deferred.
+- **Paper meta-issue** in `notes/` captures the geometric-methods
+  argument for the merken paper.
 
 **Training-data pipeline:** 1026 real oracled labels in
 `data/merken_labels_v7.jsonl` (gitignored), produced by the
-bootstrap scripts under `experiments/` (PR #12). Pipeline is
-idempotent -- re-runs are safe.
+bootstrap scripts under `experiments/`. Pipeline is idempotent.
 
-**Hook bug fixed (2026-04-17):** `~/.claude/hooks/merken-save.sh`
-used to run `json.load` on JSONL transcripts and silently swallow
-the exception. Result: zero shadow events accumulated. Fixed to
-parse JSONL per-line + extract `message.content[].text`. Future
-accumulation is now passive.
+**Issue #44 (benchmark monoculture):** OPEN, no work scheduled.
+Protocol pre-registered: before next retrieval/builder tuning that
+would change a production default, evaluate on at least one disjoint
+benchmark axis (candidates: MTEB retrieval subset, BEIR subset,
+MS-MARCO). Pre-register before tuning. Ship iff no regression >1pp.
+See issue for full reasoning.
+
+**Open PRs (not yet on develop):**
+
+- **#50 (heartbeat):** `merken heartbeat` subcommand -- periodic
+  background consolidation/forgetting. Graceful shutdown. Open,
+  mergeable.
+- **#49 (Phase 2 distillation):** Steps 1-4 complete end-to-end
+  (1K SFT smoke). Key result: student v2 matches zero-shot truncation
+  rate (18%) at -90% reasoning chars. Step 5 planned: 1K → 50K corpus.
+  Open, mergeable.
 
 ## Decision primitives (as of 2026-04-09)
 
@@ -170,7 +221,11 @@ See `experiments/consolidation/RESULTS.md` for full analysis.
   data structure for topic identification and brief selection.
 - Scale brief_v1 to 100+ topics, diverse domains for paper.
 - Additional `loop_quality/` scenarios from Jay's real work.
-- vstash 0.29.0 validation (snapvec integration).
+- **Merge PR #50 (heartbeat) and PR #49 (distillation Phase 2).**
+  Both open, mergeable, with review feedback pending.
+- **Add cross-benchmark evaluation per Issue #44 protocol.** Pre-register
+  a disjoint benchmark before the next retrieval/builder tuning.
+- vstash snapshot validation (ongoing — 0.35.0 drift already fixed).
 
 ## Branching
 
