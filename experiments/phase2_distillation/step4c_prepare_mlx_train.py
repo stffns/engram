@@ -123,21 +123,37 @@ def main() -> int:
 
     train, valid, test = _split(rows, args.frac_valid, args.frac_test, args.seed)
     args.out_dir.mkdir(parents=True, exist_ok=True)
+    written_counts: dict[str, int] = {}
+    skipped_counts: dict[str, int] = {}
     for name, part in (("train", train), ("valid", valid), ("test", test)):
         path = args.out_dir / f"{name}.jsonl"
+        n_written = 0
+        n_skipped = 0
         with path.open("w", encoding="utf-8") as f:
-            for row in part:
+            for idx, row in enumerate(part):
+                messages = row.get("messages")
+                if not isinstance(messages, list):
+                    n_skipped += 1
+                    print(
+                        f"  skipping invalid row in {name}[{idx}]: "
+                        "missing/invalid 'messages'"
+                    )
+                    continue
                 # mlx-lm expects "messages" for chat-template
                 # training. Drop the meta/qid wrapper -- they don't
                 # affect training but inflate row size.
-                f.write(json.dumps({"messages": row["messages"]}, ensure_ascii=False) + "\n")
-        print(f"  wrote {len(part):4d} rows -> {path}")
+                f.write(json.dumps({"messages": messages}, ensure_ascii=False) + "\n")
+                n_written += 1
+        written_counts[name] = n_written
+        skipped_counts[name] = n_skipped
+        print(f"  wrote {n_written:4d} rows -> {path}")
 
     summary = {
         "n_rows_input": len(rows),
-        "n_train": len(train),
-        "n_valid": len(valid),
-        "n_test": len(test),
+        "n_train": written_counts.get("train", 0),
+        "n_valid": written_counts.get("valid", 0),
+        "n_test": written_counts.get("test", 0),
+        "n_skipped_invalid": sum(skipped_counts.values()),
         "seed": args.seed,
     }
     print(json.dumps(summary, indent=2))

@@ -3,9 +3,11 @@
 > Agent-loop layer for persistent memory, built on top of
 > [vstash](https://github.com/stffns/vstash).
 
-**Status:** v0.1.0 on [PyPI](https://pypi.org/project/merken/), local-first,
-171 tests green. Four decision primitives, four deployment surfaces
-(SDK, CLI, MCP server, Claude Code hooks), five loop-quality scenarios.
+**Status:** v0.2.0 in package metadata, local-first, 401 default tests
+green (5 opt-in tests deselected on 2026-05-06). Four production
+decision primitives, SDK/CLI/MCP surfaces, Claude Code hook integration,
+13 loop-quality scenarios, and an experimental midloop observer in
+shadow/scaffolding status.
 
 ## In one paragraph
 
@@ -139,6 +141,11 @@ row.
 
 Full depth: [`docs/primitives.md`](docs/primitives.md).
 
+There is also experimental `midloop` / `should_intervene` scaffolding
+for observing in-flight agent trajectories. It is not a graduated fifth
+production primitive: thresholds are placeholders, runtime behavior is
+off by default, and promotion requires shadow labels plus a benchmark.
+
 Every decision writes a row to the `merken_audit` collection — you can
 always query *why* something was kept or dropped:
 
@@ -175,6 +182,26 @@ Formula: `reranked_score = score × (1 + weight × recency_fraction)`.
 Multiplicative, bounded, default **off** (0.0). See
 [`docs/primitives.md`](docs/primitives.md) for details.
 
+## Brief-layer recall
+
+`brief_v1` is the consolidation method that proved useful for
+knowledge-update workloads, but only when briefs are treated as their
+own context layer. `Memory.recall_with_briefs()` and
+`merken recall-briefs` search semantic briefs separately from episodic
+events and return both channels so callers can prepend briefs above
+raw hits.
+
+The current evidence is deliberately narrow:
+
+- `brief_v1` with dedicated brief search reached 86% vs 40% retrieval
+  only on the 50-topic synthetic knowledge-update benchmark.
+- On the LongMemEval pipeline, increasing episodic retrieval depth to
+  `k=10` mattered more than briefs; briefs were retained as opt-in
+  data collection, not a default-worthy hot-path dependency.
+
+See [`experiments/consolidation/RESULTS.md`](experiments/consolidation/RESULTS.md)
+and [`notes/2026-04-24-failing-qid-forensics.md`](notes/2026-04-24-failing-qid-forensics.md).
+
 ## Quick start
 
 ```bash
@@ -182,7 +209,7 @@ Multiplicative, bounded, default **off** (0.0). See
 git clone https://github.com/stffns/merken && cd merken
 pip install -e .
 
-# Run the full test suite (~10s)
+# Run the default test suite (~80s on the current dev machine)
 python3 -m pytest tests/ -q
 
 # Try the CLI
@@ -196,20 +223,22 @@ claude mcp add merken -- merken-mcp
 
 ## Tests and scenarios
 
-- **171 tests** across four decision primitives, three deployment
-  surfaces, and five `loop_quality` scenarios.
-- **Loop-quality scenarios** live in
-  [`experiments/loop_quality/`](experiments/loop_quality/) and enforce
-  that every decider change is validated against at least one
-  real-content fixture before landing:
-    1. `analytics_project` — synthetic control, 100%/100%/100%
-    2. `session_2026_04_09` — synthetic borderline, 100%/100%/33%
-    3. `jay_vstash_2026_04_09_snapshot` — real organic content from
-       a live vstash, 100%/100%/80%
+- **401 default tests** passed on 2026-05-06 with the default pytest
+  marker filter; 5 opt-in tests were deselected (`nanogpt` /
+  `cerebras_live`).
+- **13 loop-quality scenarios** live in
+  [`experiments/loop_quality/scenarios/`](experiments/loop_quality/scenarios/)
+  and enforce that every decider change is validated against real and
+  synthetic content before landing. The set currently includes
+  synthetic controls, borderline clustering cases, multilingual
+  Spanish/English content, markdown-table noise, knowledge-update
+  scales from 4 to 50 topics, noisy-agent streams, and real
+  `jay_vstash_*` snapshots.
 - **Public retrieval benchmarks** live in
   [`experiments/retrieval/`](experiments/retrieval/) for absolute
-  positioning against published competitor claims. LongMemEval runner
-  is implemented; full n=500 overnight run is Phase A of the roadmap.
+  positioning against published competitor claims. LongMemEval R@5
+  n=500 is complete; LoCoMo / LME-style answer-quality work lives in
+  the experimental pipeline notes until promoted.
 
 Measurement doctrine:
 [`experiments/BENCHMARK_STRATEGY.md`](experiments/BENCHMARK_STRATEGY.md).
@@ -230,11 +259,14 @@ merken/
 │   ├── reranking.py             ← temporal reranking (post-retrieval)
 │   ├── cli.py                   ← merken CLI entry point
 │   ├── mcp_server.py            ← merken-mcp MCP server entry point
+│   ├── classifiers/             ← shadow/primary write classifiers
+│   ├── training/                ← midloop dataset helpers
 │   └── policies/
 │       ├── should_remember.py
 │       ├── should_recall.py
 │       ├── should_consolidate.py
 │       ├── should_forget.py
+│       ├── midloop.py           ← experimental observer, not default
 │       └── types.py             ← shared Event / Decision / Protocol
 ├── docs/                        ← user-facing documentation
 │   ├── architecture.md          ← the memory model and the loop in depth
@@ -249,6 +281,7 @@ merken/
 │   │   ├── scenario.py
 │   │   ├── RESULTS.md
 │   │   └── scenarios/*.json
+│   ├── phase2_distillation/     ← local-student distillation program
 │   └── retrieval/               ← absolute positioning (public benches)
 │       └── longmemeval/
 │           ├── runner.py
@@ -270,7 +303,7 @@ merken/
 | DB path | `~/.merken/<project>.db` | `Memory(db=...)` / `--db` / `$ENGRAM_DB` |
 | Collection | `"default"` | `Memory(collection=...)` |
 | Embedding model (consolidation) | read from vstash `store_meta` at runtime; fallback to `vstash.config.EmbeddingsConfig().model` | set on the vstash side |
-| Consolidation method | `"embedding_v1"` | `mem.consolidate(method=...)` |
+| Consolidation method | `"embedding_v1"` | `mem.consolidate(method=...)`; `brief_v1` requires an explicit LLM `synthesize_fn` |
 | Embedding threshold | `0.70` (complete linkage) | `mem.consolidate(embedding_threshold=...)` |
 | Clustering linkage | `"complete"` | `mem.consolidate(embedding_linkage=...)` |
 | `should_remember` decider | `HeuristicWriteDecider()` | `Memory(write_decider=...)` |
@@ -333,10 +366,19 @@ From [`CONSTITUTION.md`](CONSTITUTION.md), enforced in
 
 ## Development status
 
-merken 0.1.0 is on PyPI. The four decision primitives are implemented
-and tested, four deployment surfaces are working (SDK, CLI, MCP server,
-Claude Code hooks), and the loop-quality safety net covers five
-scenarios. LongMemEval Phase A is complete (R@5 = 0.964 on n=500).
+merken 0.2.0 is the current package metadata. The four production
+decision primitives are implemented and tested, SDK/CLI/MCP surfaces
+are working, Claude Code hooks exist, and the loop-quality safety net
+covers 13 scenarios. LongMemEval Phase A is complete (R@5 = 0.964 on
+n=500).
+
+The main active research branch is `feature/phase2-distillation`,
+tracked in PR #49. It has completed Steps 1-4 of the local-student
+distillation plan: Cerebras `gpt-oss-120b` reasoning capture,
+stratified teacher traces, local zero-shot student smoke, a 1K SFT
+corpus, LoRA smoke training, adapter fusion/conversion, and a
+post-train eval showing that sampled decoding plus repetition penalty
+removes the greedy-loop regression.
 
 ### Latest finding (2026-04-24): k=10 retrieval depth is the lever
 
@@ -373,30 +415,29 @@ for the 5-phase plan toward a 100% local memory loop.
 ### What's deliberately not here
 
 - **Knowledge graph.** CONSTITUTION §5 keeps this optional and gated.
-- **LLM-based consolidation in the hot path.** Gated on a scenario
-  where the non-LLM loop leaves real value on the table.
+- **LLM-based consolidation as an unconditional hot-path default.**
+  `brief_v1` exists because it has benchmark evidence, but remains
+  opt-in and context-layer specific.
 - **Bespoke compression dialect.** See `notes/prior-art.md` for why.
 - **Spatial vocabulary** (wings/rooms/etc.). Use vstash's existing
   `project` / `collection` / `layer` / `tags` fields.
 - **MCP tool sprawl.** Eight tools, one per primitive. No more.
-- **Public leaderboard.** Premature at pre-v0.1.
+- **Midloop as a graduated fifth primitive.** The scaffolding is in
+  tree, but thresholds are placeholders and runtime action is not a
+  default.
+- **Public leaderboard.** Premature at pre-v1.
 
 ### What's coming
 
 - **Local memory loop.** Roadmap in
-  [`notes/2026-04-24-roadmap-local-merken.md`](notes/2026-04-24-roadmap-local-merken.md).
-  End-state: merken runs with no external LLM dependency for the four
-  decision primitives. Target architecture is a 7B-class base (Llama-3
-  8B or Qwen-2.5 7B) fine-tuned with LoRA, distilled from Cerebras
-  teachers, training on GCP A100 80GB. The 67.8% 3-seed baseline
-  (k=10 llama-8b Cerebras) is the number the local replacement must
-  match.
+  [`notes/2026-04-24-roadmap-local-merken.md`](notes/2026-04-24-roadmap-local-merken.md)
+  and [`notes/2026-04-30-phase2-distillation-probe-go.md`](notes/2026-04-30-phase2-distillation-probe-go.md).
+  Next serious gate: a balanced Step 5 distillation run (larger corpus,
+  3 epochs, lower LR) measured against preregistered LoCoMo/LME gates.
 - Claude Code hooks hardening: error handling, threshold tuning,
   integration tests for the hook scripts.
-- Additional `loop_quality/` scenarios from real work: perf migration
-  notes, MedLocal hackathon logs, Kafka meeting threads, daily reviews.
-- LoCoMo runner under `experiments/retrieval/locomo/` (Phase B of
-  [`experiments/BENCHMARK_STRATEGY.md`](experiments/BENCHMARK_STRATEGY.md)).
+- Additional `loop_quality/` scenarios from real work, especially
+  organic knowledge-update and long-running project notes.
 - LMEB episodic/semantic/procedural evaluation (20 sub-datasets).
 - Multilingual calibration (Spanish/English mixed content).
 

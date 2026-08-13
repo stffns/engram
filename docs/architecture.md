@@ -258,9 +258,12 @@ who already know exactly which layer they want.
 The clustering uses vstash's embedder (resolved from vstash's
 `store_meta.embedding_model` at runtime, falling back to config
 default) with **complete linkage at cosine threshold 0.70**.
-Both knobs were picked via grid search on three loop-quality
-scenarios — see
+Both knobs were picked via the original grid search on the first
+three loop-quality scenarios — see
 [`experiments/loop_quality/RESULTS.md`](../experiments/loop_quality/RESULTS.md).
+The safety net is now larger, so treat this as the defended
+`embedding_v1` default rather than a claim that one threshold fits
+every content distribution.
 
 **Why complete linkage and not average:** a 2026-04-09 grid
 compared `complete` and `average` linkage across the three
@@ -365,10 +368,10 @@ merken/
 ├── audit.py               ← format_{audit,recall,consolidate,
 │                            forget}_row helpers. Collection/layer
 │                            constants.
-├── cli.py                 ← argparse CLI. Eight subcommands, each
+├── cli.py                 ← argparse CLI. Core subcommands, each
 │                            a thin wrapper around a Memory method.
 │                            No business logic.
-├── mcp_server.py          ← FastMCP server. Same eight
+├── mcp_server.py          ← FastMCP server. Same production
 │                            primitives as the CLI, exposed as MCP
 │                            tools.
 └── policies/

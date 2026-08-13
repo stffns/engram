@@ -213,41 +213,54 @@ def _run(
     with tempfile.TemporaryDirectory(prefix="step3_locomo_") as tmpdir:
         db = Path(tmpdir) / "step3.db"
         mem = vstash.Memory(project="step3_locomo", db=db, collection="default")
-        n_ing = _ingest_locomo_per_session(mem, locomo_conv)
-        print(f"[locomo] ingested {n_ing} sessions", flush=True)
+        try:
+            n_ing = _ingest_locomo_per_session(mem, locomo_conv)
+            print(f"[locomo] ingested {n_ing} sessions", flush=True)
 
-        for i, qa in enumerate(locomo_picks):
-            print(
-                f"[locomo {i+1:2d}/{len(locomo_picks)}] cat={qa.category_name:12s} "
-                f"q={qa.question[:70]!r}",
-                flush=True,
-            )
-            chunks = mem.search(
-                qa.question,
-                top_k=TOP_K,
-                vec_weight=VEC_WEIGHT,
-                fts_weight=FTS_WEIGHT,
-            )
-            messages = _build_messages(qa.question, chunks, history=None)
-            res = _call_lm_studio(
-                model, messages,
-                temperature=temperature,
-                repetition_penalty=repetition_penalty,
-                frequency_penalty=frequency_penalty,
-                presence_penalty=presence_penalty,
-            )
-            _record({
-                "source": "locomo",
-                "model": model,
-                "sample_id": locomo_conv.sample_id,
-                "category": qa.category,
-                "category_name": qa.category_name,
-                "question": qa.question,
-                "ground_truth": qa.answer,
-                "n_chunks_retrieved": len(chunks),
-                **res,
-            })
-        mem.close()
+            for i, qa in enumerate(locomo_picks):
+                print(
+                    f"[locomo {i+1:2d}/{len(locomo_picks)}] cat={qa.category_name:12s} "
+                    f"q={qa.question[:70]!r}",
+                    flush=True,
+                )
+                try:
+                    chunks = mem.search(
+                        qa.question,
+                        top_k=TOP_K,
+                        vec_weight=VEC_WEIGHT,
+                        fts_weight=FTS_WEIGHT,
+                    )
+                    messages = _build_messages(qa.question, chunks, history=None)
+                    res = _call_lm_studio(
+                        model, messages,
+                        temperature=temperature,
+                        repetition_penalty=repetition_penalty,
+                        frequency_penalty=frequency_penalty,
+                        presence_penalty=presence_penalty,
+                    )
+                    n_chunks = len(chunks)
+                except Exception as exc:  # noqa: BLE001 -- per-item fail-soft
+                    print(
+                        f"[locomo {i+1:2d}/{len(locomo_picks)}] "
+                        f"FAILED: {type(exc).__name__}: {exc}",
+                        flush=True,
+                    )
+                    res = {"error": f"{type(exc).__name__}: {exc}"}
+                    n_chunks = 0
+
+                _record({
+                    "source": "locomo",
+                    "model": model,
+                    "sample_id": locomo_conv.sample_id,
+                    "category": qa.category,
+                    "category_name": qa.category_name,
+                    "question": qa.question,
+                    "ground_truth": qa.answer,
+                    "n_chunks_retrieved": n_chunks,
+                    **res,
+                })
+        finally:
+            mem.close()
 
     # ----- LME ------------------------------------------------- #
     lme_convs = load_longmemeval(subset="longmemeval_s", cache_dir=LME_CACHE, download=False)
@@ -263,40 +276,42 @@ def _run(
             with tempfile.TemporaryDirectory(prefix="step3_lme_") as tmpdir:
                 db = Path(tmpdir) / "step3.db"
                 mem = vstash.Memory(project="step3_lme", db=db, collection="default")
-                n_written, n_skipped = _ingest_lme_per_turn(mem, conv)
-                print(
-                    f"[lme {i+1:2d}/{len(lme_picks)}] qid={conv.question_id} "
-                    f"type={conv.question_type:30s} ingested {n_written} "
-                    f"turns ({n_skipped} skipped)",
-                    flush=True,
-                )
-                chunks = mem.search(
-                    conv.question,
-                    top_k=TOP_K,
-                    vec_weight=VEC_WEIGHT,
-                    fts_weight=FTS_WEIGHT,
-                )
-                messages = _build_messages(conv.question, chunks, history=None)
-                res = _call_lm_studio(
-                model, messages,
-                temperature=temperature,
-                repetition_penalty=repetition_penalty,
-                frequency_penalty=frequency_penalty,
-                presence_penalty=presence_penalty,
-            )
-                _record({
-                    "source": "lme",
-                    "model": model,
-                    "question_id": conv.question_id,
-                    "question_type": conv.question_type,
-                    "question": conv.question,
-                    "ground_truth": conv.answer,
-                    "n_chunks_retrieved": len(chunks),
-                    "n_turns_ingested": n_written,
-                    "n_turns_skipped": n_skipped,
-                    **res,
-                })
-                mem.close()
+                try:
+                    n_written, n_skipped = _ingest_lme_per_turn(mem, conv)
+                    print(
+                        f"[lme {i+1:2d}/{len(lme_picks)}] qid={conv.question_id} "
+                        f"type={conv.question_type:30s} ingested {n_written} "
+                        f"turns ({n_skipped} skipped)",
+                        flush=True,
+                    )
+                    chunks = mem.search(
+                        conv.question,
+                        top_k=TOP_K,
+                        vec_weight=VEC_WEIGHT,
+                        fts_weight=FTS_WEIGHT,
+                    )
+                    messages = _build_messages(conv.question, chunks, history=None)
+                    res = _call_lm_studio(
+                        model, messages,
+                        temperature=temperature,
+                        repetition_penalty=repetition_penalty,
+                        frequency_penalty=frequency_penalty,
+                        presence_penalty=presence_penalty,
+                    )
+                    _record({
+                        "source": "lme",
+                        "model": model,
+                        "question_id": conv.question_id,
+                        "question_type": conv.question_type,
+                        "question": conv.question,
+                        "ground_truth": conv.answer,
+                        "n_chunks_retrieved": len(chunks),
+                        "n_turns_ingested": n_written,
+                        "n_turns_skipped": n_skipped,
+                        **res,
+                    })
+                finally:
+                    mem.close()
         except Exception as exc:  # noqa: BLE001 -- per-conv fail-soft
             print(
                 f"[lme {i+1:2d}/{len(lme_picks)}] qid={conv.question_id} "
@@ -327,22 +342,26 @@ def _summarize(rows: list[dict]) -> dict:
                 groups.setdefault(f"{prefix}:{shape}", []).append(r)
         for shape, group in groups.items():
             n = len(group)
-            n_with_text = sum(1 for r in group if (r.get("reasoning_content") or "").strip())
-            r_lens = [len(r.get("reasoning_content") or "") for r in group]
-            c_lens = [len(r.get("content") or "") for r in group]
-            walls = [r.get("wall_s") or 0 for r in group]
-            n_errors = sum(1 for r in group if r.get("error"))
+            ok = [r for r in group if not r.get("error")]
+            n_with_text = sum(
+                1 for r in ok if (r.get("reasoning_content") or "").strip()
+            )
+            r_lens = [len(r.get("reasoning_content") or "") for r in ok]
+            c_lens = [len(r.get("content") or "") for r in ok]
+            walls = [r.get("wall_s") or 0 for r in ok]
+            n_errors = n - len(ok)
             # Surface "reasoned but never reached an answer" as a
             # separate signal -- a model that exhausts max_tokens on
             # reasoning_content is technically reasoning at 100% but
             # ships zero answers, which is not what the smoke is
             # checking for.
-            n_finish_length = sum(1 for r in group if r.get("finish_reason") == "length")
-            n_empty_content = sum(1 for r in group if not (r.get("content") or "").strip() and not r.get("error"))
+            n_finish_length = sum(1 for r in ok if r.get("finish_reason") == "length")
+            n_empty_content = sum(1 for r in ok if not (r.get("content") or "").strip())
             out[shape] = {
                 "n": n,
+                "n_ok": len(ok),
                 "n_reasoning_nonempty": n_with_text,
-                "frac_reasoning_nonempty": n_with_text / n if n else 0.0,
+                "frac_reasoning_nonempty": n_with_text / len(ok) if ok else 0.0,
                 "reasoning_chars_median": int(statistics.median(r_lens)) if r_lens else 0,
                 "content_chars_median": int(statistics.median(c_lens)) if c_lens else 0,
                 "wall_s_median": round(statistics.median(walls), 1) if walls else 0.0,
@@ -354,12 +373,16 @@ def _summarize(rows: list[dict]) -> dict:
 
     locomo = [r for r in rows if r.get("source") == "locomo"]
     lme = [r for r in rows if r.get("source") == "lme"]
+    ok_rows = [r for r in rows if not r.get("error")]
     n = len(rows)
-    n_with_text = sum(1 for r in rows if (r.get("reasoning_content") or "").strip())
+    n_with_text = sum(
+        1 for r in ok_rows if (r.get("reasoning_content") or "").strip()
+    )
     return {
         "n_calls": n,
+        "n_errors": n - len(ok_rows),
         "n_reasoning_nonempty": n_with_text,
-        "frac_reasoning_nonempty": n_with_text / n if n else 0.0,
+        "frac_reasoning_nonempty": n_with_text / len(ok_rows) if ok_rows else 0.0,
         "by_locomo_category": _per_shape(locomo, "category_name", "locomo"),
         "by_lme_question_type": _per_shape(lme, "question_type", "lme"),
         "totals_by_source": {"locomo": len(locomo), "lme": len(lme)},

@@ -58,6 +58,7 @@ Usage::
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import random
@@ -112,7 +113,9 @@ def _now_stamp() -> str:
 def _qid(row: dict) -> str:
     if row.get("source") == "lme":
         return f"lme:{row.get('question_id')}"
-    return f"locomo:{row.get('sample_id')}::{(row.get('question') or '')[:80]}"
+    question = row.get("question") or ""
+    digest = hashlib.sha256(question.encode("utf-8")).hexdigest()[:16]
+    return f"locomo:{row.get('sample_id')}::{digest}"
 
 
 def _existing_qids(rows_path: Path) -> set[str]:
@@ -299,7 +302,11 @@ def _process_locomo(
         # Filter out qids already done before paying for ingest.
         pending = []
         for qa in qas:
-            qid = f"locomo:{conv_id}::{(qa.question or '')[:80]}"
+            qid = _qid({
+                "source": "locomo",
+                "sample_id": conv_id,
+                "question": qa.question,
+            })
             if qid not in seen_qids:
                 pending.append(qa)
         if not pending:
@@ -310,85 +317,89 @@ def _process_locomo(
         with tempfile.TemporaryDirectory(prefix="step4_locomo_") as tmpdir:
             db = Path(tmpdir) / "step4.db"
             mem = vstash.Memory(project="step4_locomo", db=db, collection="default")
-            n_ing = _ingest_locomo_per_session(mem, conv)
-            print(
-                f"[locomo {conv_id}] ingested {n_ing} sessions, "
-                f"{len(pending)}/{len(qas)} qids pending",
-                flush=True,
-            )
-
-            for i, qa in enumerate(pending):
-                # Cost projection guard against the GLOBAL remaining
-                # count, not the per-conv remainder. Otherwise the
-                # guard only fires once you have already paid for all
-                # earlier conversations.
-                global_remaining = max(0, total_target - len(rows))
-                proj = _estimate_cost_usd(rows, global_remaining)
-                if proj > cost_cap_usd:
-                    print(
-                        f"[locomo {conv_id}] cost cap reached: "
-                        f"projected ${proj:.2f} > cap ${cost_cap_usd:.2f} "
-                        f"(global remaining {global_remaining}); halting "
-                        "the whole run (LME phase will NOT run).",
-                        flush=True,
-                    )
-                    mem.close()
-                    raise _CostCapExceeded(proj)
-                qid = f"locomo:{conv_id}::{(qa.question or '')[:80]}"
+            try:
+                n_ing = _ingest_locomo_per_session(mem, conv)
                 print(
-                    f"[locomo {conv_id} {i+1}/{len(pending)}] cat={qa.category_name:12s} "
-                    f"q={qa.question[:70]!r}",
+                    f"[locomo {conv_id}] ingested {n_ing} sessions, "
+                    f"{len(pending)}/{len(qas)} qids pending",
                     flush=True,
                 )
-                chunks = mem.search(
-                    qa.question,
-                    top_k=TOP_K,
-                    vec_weight=VEC_WEIGHT,
-                    fts_weight=FTS_WEIGHT,
-                )
-                messages = _build_messages(qa.question, chunks, history=None)
-                try:
-                    res = cerebras_chat_capture(
-                        model=MODEL,
-                        messages=messages,
-                        max_tokens=MAX_TOKENS,
-                        temperature=TEMPERATURE,
-                    )
-                except Exception as exc:  # noqa: BLE001
-                    if _is_auth_error(exc):
+
+                for i, qa in enumerate(pending):
+                    # Cost projection guard against the GLOBAL remaining
+                    # count, not the per-conv remainder. Otherwise the
+                    # guard only fires once you have already paid for all
+                    # earlier conversations.
+                    global_remaining = max(0, total_target - len(rows))
+                    proj = _estimate_cost_usd(rows, global_remaining)
+                    if proj > cost_cap_usd:
                         print(
-                            f"  call failed (auth): {type(exc).__name__}: {exc}; "
-                            "halting -- bad key would burn the whole pick list",
+                            f"[locomo {conv_id}] cost cap reached: "
+                            f"projected ${proj:.2f} > cap ${cost_cap_usd:.2f} "
+                            f"(global remaining {global_remaining}); halting "
+                            "the whole run (LME phase will NOT run).",
                             flush=True,
                         )
-                        mem.close()
-                        raise
+                        raise _CostCapExceeded(proj)
+                    qid = _qid({
+                        "source": "locomo",
+                        "sample_id": conv_id,
+                        "question": qa.question,
+                    })
                     print(
-                        f"  call failed: {type(exc).__name__}: {exc}; "
-                        "skipping qid",
+                        f"[locomo {conv_id} {i+1}/{len(pending)}] cat={qa.category_name:12s} "
+                        f"q={qa.question[:70]!r}",
                         flush=True,
                     )
-                    continue
-                row = {
-                    "qid": qid,
-                    "source": "locomo",
-                    "sample_id": conv_id,
-                    "category": qa.category,
-                    "category_name": qa.category_name,
-                    "question": qa.question,
-                    "ground_truth": qa.answer,
-                    "n_chunks_retrieved": len(chunks),
-                    "messages_input": messages,
-                    "teacher_content": res["content"],
-                    "teacher_reasoning": res["reasoning"],
-                    "teacher_usage": res["usage"],
-                    "wall_s": res["wall_s"],
-                }
-                rows.append(row)
-                seen_qids.add(qid)
-                fh.write(json.dumps(row, ensure_ascii=False) + "\n")
-                fh.flush()
-            mem.close()
+                    chunks = mem.search(
+                        qa.question,
+                        top_k=TOP_K,
+                        vec_weight=VEC_WEIGHT,
+                        fts_weight=FTS_WEIGHT,
+                    )
+                    messages = _build_messages(qa.question, chunks, history=None)
+                    try:
+                        res = cerebras_chat_capture(
+                            model=MODEL,
+                            messages=messages,
+                            max_tokens=MAX_TOKENS,
+                            temperature=TEMPERATURE,
+                        )
+                    except Exception as exc:  # noqa: BLE001
+                        if _is_auth_error(exc):
+                            print(
+                                f"  call failed (auth): {type(exc).__name__}: {exc}; "
+                                "halting -- bad key would burn the whole pick list",
+                                flush=True,
+                            )
+                            raise
+                        print(
+                            f"  call failed: {type(exc).__name__}: {exc}; "
+                            "skipping qid",
+                            flush=True,
+                        )
+                        continue
+                    row = {
+                        "qid": qid,
+                        "source": "locomo",
+                        "sample_id": conv_id,
+                        "category": qa.category,
+                        "category_name": qa.category_name,
+                        "question": qa.question,
+                        "ground_truth": qa.answer,
+                        "n_chunks_retrieved": len(chunks),
+                        "messages_input": messages,
+                        "teacher_content": res["content"],
+                        "teacher_reasoning": res["reasoning"],
+                        "teacher_usage": res["usage"],
+                        "wall_s": res["wall_s"],
+                    }
+                    rows.append(row)
+                    seen_qids.add(qid)
+                    fh.write(json.dumps(row, ensure_ascii=False) + "\n")
+                    fh.flush()
+            finally:
+                mem.close()
 
 
 def _process_lme(
@@ -418,58 +429,59 @@ def _process_lme(
             with tempfile.TemporaryDirectory(prefix="step4_lme_") as tmpdir:
                 db = Path(tmpdir) / "step4.db"
                 mem = vstash.Memory(project="step4_lme", db=db, collection="default")
-                n_w, n_s = _ingest_lme_per_turn(mem, conv)
-                print(
-                    f"[lme {i+1:3d}/{len(picks)}] qid={conv.question_id} "
-                    f"type={conv.question_type:30s} ingested {n_w} turns "
-                    f"({n_s} skipped)",
-                    flush=True,
-                )
-                chunks = mem.search(
-                    conv.question,
-                    top_k=TOP_K,
-                    vec_weight=VEC_WEIGHT,
-                    fts_weight=FTS_WEIGHT,
-                )
-                messages = _build_messages(conv.question, chunks, history=None)
                 try:
-                    res = cerebras_chat_capture(
-                        model=MODEL,
-                        messages=messages,
-                        max_tokens=MAX_TOKENS,
-                        temperature=TEMPERATURE,
+                    n_w, n_s = _ingest_lme_per_turn(mem, conv)
+                    print(
+                        f"[lme {i+1:3d}/{len(picks)}] qid={conv.question_id} "
+                        f"type={conv.question_type:30s} ingested {n_w} turns "
+                        f"({n_s} skipped)",
+                        flush=True,
                     )
-                except Exception as exc:  # noqa: BLE001
-                    if _is_auth_error(exc):
-                        print(
-                            f"  call failed (auth): {type(exc).__name__}: {exc}; "
-                            "halting -- bad key would burn the whole pick list",
-                            flush=True,
+                    chunks = mem.search(
+                        conv.question,
+                        top_k=TOP_K,
+                        vec_weight=VEC_WEIGHT,
+                        fts_weight=FTS_WEIGHT,
+                    )
+                    messages = _build_messages(conv.question, chunks, history=None)
+                    try:
+                        res = cerebras_chat_capture(
+                            model=MODEL,
+                            messages=messages,
+                            max_tokens=MAX_TOKENS,
+                            temperature=TEMPERATURE,
                         )
-                        mem.close()
+                    except Exception as exc:  # noqa: BLE001
+                        if _is_auth_error(exc):
+                            print(
+                                f"  call failed (auth): {type(exc).__name__}: {exc}; "
+                                "halting -- bad key would burn the whole pick list",
+                                flush=True,
+                            )
+                            raise
                         raise
-                    raise
-                row = {
-                    "qid": qid,
-                    "source": "lme",
-                    "question_id": conv.question_id,
-                    "question_type": conv.question_type,
-                    "question": conv.question,
-                    "ground_truth": conv.answer,
-                    "n_chunks_retrieved": len(chunks),
-                    "n_turns_ingested": n_w,
-                    "n_turns_skipped": n_s,
-                    "messages_input": messages,
-                    "teacher_content": res["content"],
-                    "teacher_reasoning": res["reasoning"],
-                    "teacher_usage": res["usage"],
-                    "wall_s": res["wall_s"],
-                }
-                rows.append(row)
-                seen_qids.add(qid)
-                fh.write(json.dumps(row, ensure_ascii=False) + "\n")
-                fh.flush()
-                mem.close()
+                    row = {
+                        "qid": qid,
+                        "source": "lme",
+                        "question_id": conv.question_id,
+                        "question_type": conv.question_type,
+                        "question": conv.question,
+                        "ground_truth": conv.answer,
+                        "n_chunks_retrieved": len(chunks),
+                        "n_turns_ingested": n_w,
+                        "n_turns_skipped": n_s,
+                        "messages_input": messages,
+                        "teacher_content": res["content"],
+                        "teacher_reasoning": res["reasoning"],
+                        "teacher_usage": res["usage"],
+                        "wall_s": res["wall_s"],
+                    }
+                    rows.append(row)
+                    seen_qids.add(qid)
+                    fh.write(json.dumps(row, ensure_ascii=False) + "\n")
+                    fh.flush()
+                finally:
+                    mem.close()
         except _CostCapExceeded:
             raise
         except Exception as exc:  # noqa: BLE001

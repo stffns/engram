@@ -31,6 +31,12 @@ Usage::
         --base-model Qwen/Qwen2.5-7B-Instruct \\
         --epochs 1 --batch-size 1 --grad-accum 4 --max-seq-len 8192
 
+    # Resume from a checkpoint if the runtime disconnected:
+    !python -m experiments.phase2_distillation.train_qwen_lora \\
+        --data experiments/phase2_distillation/sft_corpus_v1/mlx_split \\
+        --output-dir /content/adapters/smoke_v1 \\
+        --resume-from-checkpoint /content/adapters/smoke_v1/checkpoint-225
+
 Defaults are tuned for the Step 4 smoke (~$1, ~30-60 min on A100).
 For the Step 5 full pipeline bump --epochs to 3, --data to a 50K
 corpus, and consider --batch-size 2 if memory allows.
@@ -85,6 +91,14 @@ def main() -> int:
                     help="gradient accumulation steps; effective batch = batch * grad-accum")
     ap.add_argument("--max-seq-len", type=int, default=8192)
     ap.add_argument("--warmup-ratio", type=float, default=0.1)
+    ap.add_argument(
+        "--resume-from-checkpoint",
+        default=None,
+        help=(
+            "Optional checkpoint path or truthy value passed through to "
+            "Trainer.train(resume_from_checkpoint=...)."
+        ),
+    )
     ap.add_argument("--target-modules", nargs="+",
                     default=["q_proj", "k_proj", "v_proj", "o_proj"],
                     help="LoRA target modules. Default matches Qwen attention.")
@@ -214,7 +228,7 @@ def main() -> int:
           f"effective batch = {args.batch_size * args.grad_accum}, "
           f"epochs = {args.epochs}", flush=True)
     t0 = time.perf_counter()
-    result = trainer.train()
+    result = trainer.train(resume_from_checkpoint=args.resume_from_checkpoint)
     dt = time.perf_counter() - t0
     print(f"[train] done in {dt/60:.1f} min", flush=True)
 
@@ -234,6 +248,7 @@ def main() -> int:
         "max_seq_len": args.max_seq_len,
         "target_modules": args.target_modules,
         "warmup_ratio": args.warmup_ratio,
+        "resume_from_checkpoint": args.resume_from_checkpoint,
         "n_train_rows": len(train_rows),
         "n_valid_rows": len(valid_rows),
         "training_wall_s": dt,

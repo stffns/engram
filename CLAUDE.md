@@ -18,7 +18,16 @@ session aligned with the state of the repo.
 4. [`notes/silt.md`](notes/silt.md) — working notes on the patterns
    Silt caught that became hard rules.
 
-## Current state (as of 2026-04-17)
+## Current state (as of 2026-05-06)
+
+**Package / tests:** `pyproject.toml` is at `0.2.0`. The default
+suite passed locally on 2026-05-06 with `401 passed, 5 deselected`
+(`nanogpt` and `cerebras_live` stay opt-in).
+
+**Active PR:** #49, `feature/phase2-distillation` -> `develop`.
+The branch is merge-clean but GitHub reports `CHANGES_REQUESTED`;
+do not treat the PR as closeable until those review comments are
+addressed or explicitly dismissed.
 
 **Write-filter classifier status:** nanoGPT **v7** is the graduated
 shadow baseline. First version to clear the markdown-tables blind
@@ -39,6 +48,20 @@ used to run `json.load` on JSONL transcripts and silently swallow
 the exception. Result: zero shadow events accumulated. Fixed to
 parse JSONL per-line + extract `message.content[].text`. Future
 accumulation is now passive.
+
+**Phase 2 distillation status:** Steps 1-4 are complete on
+`feature/phase2-distillation`. Evidence so far:
+- Cerebras `gpt-oss-120b` reasoning traces populate 100% across the
+  sampled LoCoMo/LME shapes.
+- A 1K SFT corpus was generated and trained as a Qwen2.5-7B LoRA
+  smoke.
+- Greedy decoding caused repetition/truncation loops after SFT, but
+  `temperature=0.2` + `repetition_penalty=1.1` brought truncation
+  back to the zero-shot baseline while reducing median reasoning
+  length substantially.
+- Next serious gate is a larger, balanced Step 5 run with lower LR
+  and preregistered LoCoMo/LME acceptance criteria. See
+  `notes/2026-04-30-phase2-distillation-probe-go.md`.
 
 ## Decision primitives (as of 2026-04-09)
 
@@ -62,13 +85,18 @@ All four decision primitives from CONSTITUTION §5.1 are implemented:
   `ForgetConsolidated`. Tombstone-not-delete: full text preserved
   in `merken_tombstones`, reversible.
 
+`merken.policies.midloop` contains experimental `should_intervene`
+scaffolding. It is **not** a graduated fifth production primitive:
+the default is `NoopMidloopDecider`, heuristic thresholds are
+placeholders, and promotion requires shadow labels plus a benchmark.
+
 Deployed surfaces:
 
 - **Python SDK** — `from merken import Memory`. Four primitives
   accessible as `Memory` methods.
 - **CLI** — `merken` on `$PATH` after `pip install -e .`.
-  Eight subcommands map 1:1 to `Memory` methods:
-  `remember | recall | consolidate | forget | audit | tombstones | status | stats`.
+  Core subcommands map to `Memory` methods:
+  `remember | recall | recall-briefs | consolidate | forget | audit | tombstones | status | stats`.
   See `merken --help`.
 - **MCP server** — `merken-mcp` on `$PATH`, `python -m merken.mcp_server`,
   or `claude mcp add merken -- python -m merken.mcp_server`. Eight
@@ -81,11 +109,12 @@ Deployed surfaces:
 
 Safety net (`experiments/loop_quality/`):
 
-- Three scenarios, all running under `pytest tests/test_loop_quality.py`
-  via parametrized `test_runner_completes_on_every_scenario`:
-    1. `analytics_project` (synthetic control, 100%/100%/100%)
-    2. `session_2026_04_09` (synthetic borderline, 100%/100%/33%)
-    3. `jay_vstash_2026_04_09_snapshot` (real organic, 100%/100%/80%)
+- Thirteen scenarios now run under `pytest tests/test_loop_quality.py`
+  via parametrized `test_runner_completes_on_every_scenario`.
+  The set includes synthetic control/borderline cases, real
+  `jay_vstash_*` snapshots, multilingual Spanish/English content,
+  markdown-table noise, disjoint noise-heavy holdout, noisy agent
+  streams, and knowledge-update scenarios from 4 to 50 topics.
 - A new decider or policy change that drops any scenario below its
   current pass_rate is a regression. Investigate before merging.
 
@@ -152,11 +181,17 @@ Architecture: `Memory.consolidate(method="brief_v1", synthesize_fn=fn)`
 generates briefs. `Memory.recall_with_briefs()` searches brief layer
 separately from episodic, prepends matched briefs to context.
 
+LongMemEval caveat (2026-04-24): on the full RAG-style pipeline,
+raising episodic retrieval depth to `k=10` beat further brief work.
+Briefs are useful as an opt-in context layer and data-collection
+vector, not a universal hot-path default.
+
 See `experiments/consolidation/RESULTS.md` for full analysis.
 
 ## What's NOT next
 
-- A fifth decision primitive. Four are enough.
+- Promoting midloop / `should_intervene` as a fifth production
+  primitive before shadow labels and benchmark evidence exist.
 - Embedding-based consolidation as a retrieval improvement -- proven
   structurally limited (see consolidation findings above).
 - A knowledge graph (CONSTITUTION $6, optional, gated).
@@ -164,11 +199,15 @@ See `experiments/consolidation/RESULTS.md` for full analysis.
 
 ## What IS next (approximately)
 
-- **brief_v1 integration into Claude Code hooks.** Generate briefs
-  on PreCompact, prepend on SessionStart alongside recall results.
-- **nanoGPT-as-connector.** Small model trained on vstash+merken
-  data structure for topic identification and brief selection.
-- Scale brief_v1 to 100+ topics, diverse domains for paper.
+- **Close PR #49 cleanly.** Address or dismiss the requested
+  review changes, keep artifacts scoped, then merge/close according
+  to review outcome.
+- **Phase 2 distillation Step 5.** Larger balanced corpus, 3 epochs,
+  lower LR, sampled decoding with repetition penalty, and
+  preregistered LoCoMo/LME gates.
+- **brief_v1 hooks hardening.** Keep it opt-in: generate briefs on
+  PreCompact only when an LLM synth is configured, and prepend via
+  `recall-briefs` on SessionStart.
 - Additional `loop_quality/` scenarios from Jay's real work.
 - vstash 0.29.0 validation (snapvec integration).
 
