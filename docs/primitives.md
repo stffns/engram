@@ -408,18 +408,24 @@ thresh   min_pass  min_purity
 0.72     100%      100%
 ```
 
-0.70 is the lowest threshold that maximizes both the minimum
-pass rate and the minimum purity across all three scenarios.
+0.70 was selected from the original grid that established the
+`embedding_v1` default. Newer safety-net runs cover a larger
+scenario set; treat the threshold as a defended default, not a
+universal law.
 
 ### Alternative clustering methods
 
-`Memory.consolidate(method=...)` accepts three values:
+`Memory.consolidate(method=...)` accepts four values:
 
 - `"embedding_v1"` (default) — raw cosine + complete linkage
 - `"jaccard_v1"` — token-overlap Jaccard, useful only for
   near-duplicate text
 - `"recall_v1"` — vstash hybrid search as neighbor hint,
   brittle on small corpora
+- `"brief_v1"` — LLM-generated temporal briefs. Requires an
+  explicit `synthesize_fn` and is useful as a separate context
+  layer via `Memory.recall_with_briefs()`, not as a replacement
+  for episodic retrieval.
 
 See `merken/consolidation.py` docstrings for the full trade-offs.
 

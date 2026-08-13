@@ -76,6 +76,7 @@ merken remember "design meeting outcome" \
 | `--title TITLE` | auto | Document title. Affects the vstash path. |
 | `--layer LAYER` | `episodic` | Layer tag. `episodic` or `semantic` in practice. |
 | `--tags TAGS` | none | Comma-separated tags. |
+| `--immutable` | off | Add `source:authoritative` unless another `source:` tag is already present. Consolidate/forget skip authoritative events. |
 
 **Output (human):**
 
@@ -162,9 +163,57 @@ merken --json recall "analytics" | jq '.[0].text'
 **Empty result:** `(no hits)` (human) or `[]` (JSON). Exit code
 stays 0 — no hits is a valid outcome.
 
+### `recall-briefs`
+
+Dual-channel recall for `brief_v1`: fetch current briefs from the
+semantic layer and normal episodic hits separately.
+
+```bash
+# Human preview
+merken recall-briefs "what is the current caching strategy?"
+
+# JSON for hook/context assembly
+merken --json recall-briefs "what is the current caching strategy?" \
+    --brief-k 3 \
+    --top-k 5
+```
+
+This command returns briefs and episodic hits in separate channels so
+callers can prepend briefs above raw retrieval context. It is the CLI
+wrapper around `Memory.recall_with_briefs()`.
+
+**Flags:**
+
+| Flag | Default | Meaning |
+|---|---|---|
+| `query` (positional) | required | Free-text query. |
+| `--top-k N` | `5` | Max episodic hits. |
+| `--brief-k N` | `3` | Max `method:brief_v1` semantic briefs. |
+| `--max-brief-tokens N` | `8000` | Rough token budget for returned briefs. |
+
+**Output (`--json`):**
+
+```json
+{
+  "briefs": [
+    "## Caching Strategy\n**As of:** 2026-04-19\n- **Current state:** ..."
+  ],
+  "episodic": [
+    {
+      "title": "cache-migration-note",
+      "path": "text://cache-migration-note",
+      "text": "Reverted the cache layer to Caffeine...",
+      "score": 0.0166,
+      "chunk": 0
+    }
+  ]
+}
+```
+
 ### `consolidate`
 
-Cluster episodic events into semantic facts.
+Cluster episodic events into semantic facts, or generate temporal
+briefs when `--method brief_v1` is explicitly selected.
 
 ```bash
 # Default: runs if the decider says so (PeriodicConsolidator, min_events=10)
@@ -176,6 +225,9 @@ merken consolidate --force
 # Lower threshold (more aggressive clustering)
 merken consolidate --force --threshold 0.65
 
+# Generate `brief_v1` briefs (requires GEMINI_API_KEY or GOOGLE_API_KEY)
+merken consolidate --method brief_v1 --force
+
 # JSON for inspection
 merken --json consolidate --force
 ```
@@ -184,10 +236,15 @@ merken --json consolidate --force
 
 | Flag | Default | Meaning |
 |---|---|---|
-| `--method METHOD` | `embedding_v1` | Clustering strategy. `embedding_v1` / `jaccard_v1` / `recall_v1`. |
+| `--method METHOD` | `embedding_v1` | Strategy. `embedding_v1` / `jaccard_v1` / `recall_v1` / `brief_v1`. |
 | `--threshold FLOAT` | `0.70` | Cosine threshold for `embedding_v1`. Calibrated via grid search. |
 | `--min-cluster N` | `2` | Minimum events to form a cluster. Singletons stay as episodic. |
 | `--force` | off | Bypass the `should_consolidate` decider. |
+
+`brief_v1` uses Gemini by default through `GEMINI_API_KEY` or
+`GOOGLE_API_KEY`; set `MERKEN_BRIEF_MODEL` to override the model
+name. It stores briefs with `method:brief_v1` tags so
+`recall-briefs` can retrieve them separately from episodic events.
 
 **Output (human):**
 

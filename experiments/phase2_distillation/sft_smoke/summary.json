@@ -1,0 +1,13 @@
+{
+  "n_rows": 5,
+  "by_source": {
+    "locomo": 5,
+    "lme": 0
+  },
+  "n_with_reasoning": 5,
+  "n_empty_content": 0,
+  "avg_prompt_tokens": 5092,
+  "avg_completion_tokens": 332,
+  "estimated_cost_usd": 0.02,
+  "wall_minutes_this_session": 8.35416722111404e-07
+}

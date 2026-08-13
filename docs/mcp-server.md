@@ -187,6 +187,11 @@ references something said earlier, whenever context might help.
 
 Cluster episodic events into semantic facts.
 
+The MCP surface is intended for the local, non-LLM consolidation
+methods. `brief_v1` requires an LLM `synthesize_fn`; use the Python
+SDK or CLI `merken consolidate --method brief_v1` with Gemini
+environment variables configured for that path.
+
 **Parameters:**
 
 ```

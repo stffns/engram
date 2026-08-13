@@ -1,0 +1,33 @@
+{
+  "n_in": 5,
+  "n_kept": 5,
+  "n_dropped": 0,
+  "drop_reasons": {},
+  "target_chars": {
+    "min": 824,
+    "median": 1746,
+    "max": 1848
+  },
+  "by_shape": {
+    "adversarial": {
+      "n": 1,
+      "target_chars_median": 1847
+    },
+    "multi_hop": {
+      "n": 1,
+      "target_chars_median": 1746
+    },
+    "open_domain": {
+      "n": 1,
+      "target_chars_median": 824
+    },
+    "single_hop": {
+      "n": 1,
+      "target_chars_median": 1848
+    },
+    "temporal": {
+      "n": 1,
+      "target_chars_median": 1090
+    }
+  }
+}

@@ -59,9 +59,10 @@ testpaths = ["tests"]
 # process as vstash/fastembed (PyTorch + ONNX Runtime conflict on
 # macOS; see notes/nanogpt-training-log.md "Mistake 6"). Opt in with
 # `pytest -m nanogpt tests/test_nanogpt_classifier.py`.
-addopts = "-ra -m 'not nanogpt'"
+addopts = "-ra -m 'not nanogpt and not cerebras_live'"
 markers = [
     "nanogpt: tests that load a trained nanoGPT checkpoint (torch-heavy, opt-in)",
+    "cerebras_live: tests that hit the Cerebras API (paid, requires CEREBRAS_API_KEY, opt-in)",
 ]
 # pytest-asyncio is not used by merken but is installed in the
 # developer's environment. Pin the fixture scope to silence its

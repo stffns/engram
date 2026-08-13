@@ -1,0 +1,57 @@
+{
+  "n_in": 1000,
+  "n_kept": 1000,
+  "n_dropped": 0,
+  "drop_reasons": {},
+  "target_chars": {
+    "min": 252,
+    "median": 1149,
+    "max": 8638
+  },
+  "by_shape": {
+    "adversarial": {
+      "n": 178,
+      "target_chars_median": 1180
+    },
+    "knowledge-update": {
+      "n": 34,
+      "target_chars_median": 1615
+    },
+    "multi-session": {
+      "n": 34,
+      "target_chars_median": 1306
+    },
+    "multi_hop": {
+      "n": 96,
+      "target_chars_median": 1346
+    },
+    "open_domain": {
+      "n": 178,
+      "target_chars_median": 906
+    },
+    "single-session-assistant": {
+      "n": 34,
+      "target_chars_median": 768
+    },
+    "single-session-preference": {
+      "n": 30,
+      "target_chars_median": 1623
+    },
+    "single-session-user": {
+      "n": 34,
+      "target_chars_median": 616
+    },
+    "single_hop": {
+      "n": 171,
+      "target_chars_median": 1527
+    },
+    "temporal": {
+      "n": 177,
+      "target_chars_median": 1000
+    },
+    "temporal-reasoning": {
+      "n": 34,
+      "target_chars_median": 1576
+    }
+  }
+}

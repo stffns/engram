@@ -226,6 +226,118 @@ def cerebras_chat(
     return (content or "").strip(), dt, usage
 
 
+_REASONING_SENTINEL = object()
+
+
+def cerebras_chat_capture(
+    model: str,
+    messages: list[dict],
+    max_tokens: int,
+    *,
+    temperature: float = 0.3,
+) -> dict:
+    """Like ``cerebras_chat`` but also captures ``message.reasoning``.
+
+    Reasoning models on Cerebras (gpt-oss-120b) ship a hidden
+    chain-of-thought trace in ``message.reasoning`` separate from
+    the visible ``message.content``. The legacy ``cerebras_chat``
+    helper drops it. This function returns the trace alongside
+    everything else, gated on a sentinel so a future SDK schema
+    change degrades to ``reasoning_present=False`` rather than
+    crashing.
+
+    Returns a dict with keys:
+      - ``content``       (str) -- visible answer.
+      - ``reasoning``     (str | None) -- hidden trace text. None
+        on non-reasoning models (e.g. llama3.1-8b), populated on
+        reasoning models (e.g. gpt-oss-120b). Callers that want
+        the reasoning-vs-not discriminator should check
+        ``reasoning is not None`` AND non-empty.
+      - ``reasoning_present`` (bool) -- True iff the SDK message
+        object exposes the ``reasoning`` attribute at all. As of
+        the Cerebras SDK observed on 2026-04-30, this is True for
+        every model tested (both reasoning and non-reasoning); the
+        flag is a defensive guard against a hypothetical future
+        SDK schema change that drops the attribute entirely.
+      - ``wall_s``        (float) -- end-to-end wall time including
+        retry backoffs.
+      - ``usage``         (dict) -- prompt / completion / total
+        tokens. Cerebras bills the reasoning trace as
+        ``completion_tokens`` (no separate ``reasoning_tokens``
+        line item observed); use the length of ``reasoning`` if
+        you need a separate accounting.
+
+    Note: ``content`` is empty-string-collapsed on missing message
+    or ``content=None`` (mirrors ``cerebras_chat``). Reasoning models
+    that burn the token budget on hidden tokens before producing
+    visible content return ``content=None`` from the SDK; callers
+    that need to distinguish "burned budget" from "model said nothing"
+    must inspect the raw SDK response, not this helper's output.
+    See ``runner_phase2._call_question`` for the production refusal-
+    row pattern.
+
+    Retry / backoff is identical to ``cerebras_chat`` (4 attempts,
+    backoffs at 2s/4s/8s, only retries 5xx and 429).
+    """
+    from cerebras.cloud.sdk import APIStatusError
+
+    client = _cerebras_client()
+    t0 = time.perf_counter()
+    backoffs = [2, 4, 8]
+    for attempt in range(len(backoffs) + 1):
+        try:
+            resp = client.chat.completions.create(
+                model=model,
+                messages=messages,
+                max_tokens=max_tokens,
+                temperature=temperature,
+            )
+            break
+        except APIStatusError as exc:
+            status = getattr(getattr(exc, "response", None), "status_code", None)
+            is_transient = isinstance(status, int) and (
+                status >= 500 or status == 429
+            )
+            if not is_transient or attempt == len(backoffs):
+                raise
+            backoff = backoffs[attempt]
+            print(
+                f"    cerebras {status} (attempt {attempt+1}/"
+                f"{len(backoffs)+1}), backing off {backoff}s: {exc}"
+            )
+            time.sleep(backoff)
+    dt = time.perf_counter() - t0
+
+    usage: dict = {}
+    u = getattr(resp, "usage", None)
+    if u is not None:
+        usage = {
+            "prompt_tokens": getattr(u, "prompt_tokens", 0) or 0,
+            "completion_tokens": getattr(u, "completion_tokens", 0) or 0,
+            "total_tokens": getattr(u, "total_tokens", 0) or 0,
+        }
+        details = getattr(u, "completion_tokens_details", None)
+        if details is not None:
+            rt = getattr(details, "reasoning_tokens", None)
+            if rt is not None:
+                usage["reasoning_tokens"] = rt
+
+    choices = getattr(resp, "choices", None) or []
+    msg = choices[0].message if choices else None
+    content = (getattr(msg, "content", None) or "").strip() if msg is not None else ""
+    raw_reasoning = getattr(msg, "reasoning", _REASONING_SENTINEL) if msg is not None else _REASONING_SENTINEL
+    reasoning_present = raw_reasoning is not _REASONING_SENTINEL
+    reasoning = raw_reasoning if reasoning_present else None
+
+    return {
+        "content": content,
+        "reasoning": reasoning,
+        "reasoning_present": reasoning_present,
+        "wall_s": dt,
+        "usage": usage,
+    }
+
+
 def _extract_json_object(raw: str) -> dict:
     """Tolerant JSON extract -- mirrors case_generator's approach.
 
